@@ -7,6 +7,8 @@ import { NewTicketDialog } from "./NewTicketDialog";
 import { TicketListItem } from "./TicketListItem";
 import type { Ticket } from "./TicketListItem";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { type TicketTypeKey } from "@/config/ticket-constants";
+import { TicketTypeTabs } from "./TicketTypeTabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +19,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 
 
+
+
 // mocks só pra layout; depois você troca pelos dados da API
 const MOCK_TICKETS: Ticket[] = [
   {
@@ -24,6 +28,7 @@ const MOCK_TICKETS: Ticket[] = [
     subject: "Erro ao acessar painel",
     status: "aberto",
     priority: "alta",
+    requester: "João Silva",
     dateLabel: "12 Nov",
     entity: "anra",
   },
@@ -32,6 +37,7 @@ const MOCK_TICKETS: Ticket[] = [
     subject: "Dúvida sobre cobrança",
     status: "pendente",
     priority: "media",
+    requester: "Maria Oliveira",
     dateLabel: "10 Nov",
     entity: "aceam",
   },
@@ -40,8 +46,30 @@ const MOCK_TICKETS: Ticket[] = [
     subject: "Solicitação de cancelamento",
     status: "fechado",
     priority: "baixa",
+    requester: "Carlos Santos",
     dateLabel: "03 Nov",
     entity: "unob",
+    type: "duvida",
+  },
+  {
+    id: "4",
+    subject: "Bug na tela de login",
+    status: "aberto",
+    priority: "alta",
+    requester: "Ana Pereira",
+    dateLabel: "Hoje",
+    entity: "anra",
+    type: "erro",
+  },
+  {
+    id: "5",
+    subject: "Sugestão de melhoria no chat",
+    status: "pendente",
+    priority: "media",
+    requester: "Roberto Costa",
+    dateLabel: "Ontem",
+    entity: "aceam",
+    type: "sugestao",
   },
 ];
 
@@ -61,6 +89,8 @@ export function TicketList({
   const [search, setSearch] = useState("");
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
+  const [ticketTypeFilter, setTicketTypeFilter] = useState<TicketTypeKey | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"todos" | "nao-lido">("todos");
 
   const filteredTickets = MOCK_TICKETS.filter((ticket) => {
     const matchesSearch = ticket.subject
@@ -70,7 +100,13 @@ export function TicketList({
       selectedEntities.length === 0 ||
       (ticket.entity && selectedEntities.includes(ticket.entity));
 
-    return matchesSearch && matchesEntity;
+    const matchesType = !ticketTypeFilter || ticket.type === ticketTypeFilter;
+
+    // Simulação simples de filtro de status 
+    // (na prática "não lido" dependeria de uma prop isUnread ou similar)
+    const matchesStatus = statusFilter === "todos" || (statusFilter === "nao-lido" && ticket.status === "aberto");
+
+    return matchesSearch && matchesEntity && matchesType && matchesStatus;
   });
 
   const handleSelectTicket = (ticket: Ticket) => {
@@ -149,14 +185,18 @@ export function TicketList({
 
       </div>
 
-      {/* Tabs: Todos / Não lido */}
-      <div className="px-3 border-border">
-        <Tabs defaultValue="todos" className="w-full">
-          <TabsList className="w-full">
-            <TabsTrigger value="todos" className="flex-1">Todos</TabsTrigger>
-            <TabsTrigger value="nao-lido" className="flex-1">Não lido</TabsTrigger>
+      {/* Tabs: Todos / Não lido + Filter Type */}
+      <div className="px-3 border-border flex items-center gap-4">
+        {/* Status Tabs (Compact) */}
+        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)} className="w-auto flex-1">
+          <TabsList className="h-8 rounded-lg bg-muted p-1 w-full opacity-100">
+            <TabsTrigger value="todos" className="h-6 text-xs px-3 rounded-md flex-1">Todos</TabsTrigger>
+            <TabsTrigger value="nao-lido" className="h-6 text-xs px-3 rounded-md flex-1">Não lido</TabsTrigger>
           </TabsList>
         </Tabs>
+
+        {/* Type Tabs (Square Icons, Separate) */}
+        <TicketTypeTabs value={ticketTypeFilter} onValueChange={setTicketTypeFilter} />
       </div>
 
       {/* Lista scrollável */}

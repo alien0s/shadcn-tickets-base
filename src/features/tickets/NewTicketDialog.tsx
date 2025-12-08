@@ -78,7 +78,7 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
                       type="button"
                       onClick={() => setTicketType(key)}
                       className={cn(
-                        "px-3 py-1 rounded-full text-xs font-medium transition-all border flex items-center gap-1.5",
+                        "px-3 py-1 rounded-md text-xs font-medium transition-all border flex items-center gap-1.5",
                         isSelected
                           ? style.activeClass
                           : "bg-transparent text-muted-foreground border-border hover:bg-accent"
@@ -105,7 +105,7 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
                       type="button"
                       onClick={() => setPriority(key)}
                       className={cn(
-                        "px-3 py-1 rounded-full text-xs font-medium transition-all border",
+                        "px-3 py-1 rounded-md text-xs font-medium transition-all border",
                         isSelected
                           ? style.className + " border-transparent"
                           : "bg-transparent text-muted-foreground border-border hover:bg-accent"

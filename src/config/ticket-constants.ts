@@ -1,21 +1,25 @@
-import { Bug, Lightbulb, HelpCircle } from "lucide-react";
+import { Bug, Lightbulb, HelpCircle, Circle, Clock, CheckCircle2, ArrowDown, ArrowRight, ArrowUp } from "lucide-react";
 
 export const TICKET_STATUS_STYLES = {
     aberto: {
         label: "Aberto",
+        icon: Circle,
         className: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300",
     },
     pendente: {
         label: "Pendente",
+        icon: Clock,
         className: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
     },
     fechado: {
         label: "Fechado",
+        icon: CheckCircle2,
         className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
     },
     // Fallback/Generic
     default: {
         label: "Desconhecido",
+        icon: HelpCircle,
         className: "bg-muted text-muted-foreground",
     },
 } as const;
@@ -23,14 +27,17 @@ export const TICKET_STATUS_STYLES = {
 export const TICKET_PRIORITY_STYLES = {
     baixa: {
         label: "Baixa",
+        icon: ArrowDown,
         className: "bg-[hsl(var(--priority-low)/0.15)] text-[hsl(var(--priority-low))] border-[hsl(var(--priority-low)/0.2)]",
     },
     media: {
         label: "Média",
+        icon: ArrowRight,
         className: "bg-[hsl(var(--priority-medium)/0.15)] text-[hsl(var(--priority-medium))] border-[hsl(var(--priority-medium)/0.2)]",
     },
     alta: {
         label: "Alta",
+        icon: ArrowUp,
         className: "bg-[hsl(var(--priority-high)/0.15)] text-[hsl(var(--priority-high))] border-[hsl(var(--priority-high)/0.2)]",
     },
 } as const;

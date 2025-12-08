@@ -1,5 +1,7 @@
 import React from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { type TicketTypeKey, TICKET_STATUS_STYLES, TICKET_PRIORITY_STYLES, TICKET_TYPE_STYLES } from "@/config/ticket-constants";
+import { HelpCircle } from "lucide-react";
 
 export type TicketStatus =
   | "aberto"
@@ -22,6 +24,8 @@ export type Ticket = {
   subject: string;
   status: TicketStatus;
   priority: TicketPriority;
+  type?: TicketTypeKey;
+  requester?: string; // Nome do solicitante
   dateLabel: string; // ex: "12 Nov"
   entity?: string; // ex: "anra", "aceam"
 };
@@ -35,6 +39,7 @@ type Props = {
 export function TicketListItem({ ticket, onClick, isActive = false }: Props) {
   const statusPill = getStatusPill(ticket.status);
   const priorityPill = getPriorityPill(ticket.priority);
+  const TypeIcon = ticket.type ? TICKET_TYPE_STYLES[ticket.type].icon : null;
 
   return (
     <button
@@ -55,31 +60,45 @@ export function TicketListItem({ ticket, onClick, isActive = false }: Props) {
       <div className="flex-1 flex flex-col min-w-0">
         <div className="flex items-start justify-between gap-2">
           <span className="text-sm font-medium truncate">
-            {ticket.subject}
+            {ticket.requester || "Sem nome"}
           </span>
-          <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+          <span className="text-[11px] text-muted-foreground whitespace-nowrap flex-shrink-0">
             {ticket.dateLabel}
           </span>
         </div>
 
+        <span className="text-xs text-muted-foreground truncate mb-1 block">
+          {ticket.subject}
+        </span>
+
         <div className="mt-1 flex items-center gap-2">
           <span
-            className={`inline-flex items-center px-2 py-[2px] rounded-full text-[11px] font-medium ${statusPill.className}`}
+            className={`inline-flex items-center h-5 px-1.5 py-0.5 rounded-md text-[11px] font-medium border border-transparent ${statusPill.className}`}
           >
+            <statusPill.icon className="h-3 w-3 mr-1.5" />
             {statusPill.label}
           </span>
           <span
-            className={`inline-flex items-center px-2 py-[2px] rounded-full text-[11px] font-medium ${priorityPill.className}`}
+            className={`inline-flex items-center h-5 px-1.5 py-0.5 rounded-md text-[11px] font-medium border ${priorityPill.className}`}
           >
+            <priorityPill.icon className="h-3 w-3 mr-1.5" />
             {priorityPill.label}
           </span>
+
+          {/* Icon Type Next to Priority */}
+          {TypeIcon && (
+            <span
+              className="inline-flex items-center justify-center h-5 w-5 rounded-md border border-border text-muted-foreground bg-transparent"
+              title={ticket.type}
+            >
+              <TypeIcon className="h-3 w-3" />
+            </span>
+          )}
         </div>
       </div>
     </button>
   );
 }
-
-import { TICKET_STATUS_STYLES } from "@/config/ticket-constants";
 
 function getStatusPill(status: TicketStatus) {
   const value = status.toLowerCase();
@@ -98,6 +117,7 @@ function getStatusPill(status: TicketStatus) {
 
   return {
     label: status,
+    icon: TICKET_STATUS_STYLES.default.icon,
     className: TICKET_STATUS_STYLES.default.className,
   };
 }
@@ -106,34 +126,22 @@ function getPriorityPill(priority: TicketPriority) {
   const value = priority.toLowerCase();
 
   if (value === "baixa" || value === "low") {
-    return {
-      label: "Prioridade baixa",
-      className:
-        "bg-slate-100 text-slate-800 dark:bg-slate-900/40 dark:text-slate-300",
-    };
+    return TICKET_PRIORITY_STYLES.baixa;
   }
 
   if (value === "media" || value === "medium") {
-    return {
-      label: "Prioridade média",
-      className:
-        "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-    };
+    return TICKET_PRIORITY_STYLES.media;
   }
 
   if (value === "alta" || value === "high") {
-    return {
-      label: "Prioridade alta",
-      className:
-        "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300",
-    };
+    return TICKET_PRIORITY_STYLES.alta;
   }
 
   return {
     label: priority,
+    icon: HelpCircle,
     className: "bg-muted text-muted-foreground",
   };
 }
 
-// opcional: default export, caso você queira
 export default TicketListItem;

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { MessageInput } from "./MessageInput";
@@ -6,13 +6,21 @@ import type { Ticket } from "@/features/tickets/TicketListItem";
 
 type Props = {
   ticket: Ticket;
+  onToggleDetails?: () => void;
 };
 
-export function ChatWindow({ ticket }: Props) {
+export function ChatWindow({ ticket, onToggleDetails }: Props) {
+  const isDetailsVisibleOnDesktop = useIsDesktopDetailsVisible();
+  const headerIsClickable = !isDetailsVisibleOnDesktop;
+
   return (
     <div className="h-full flex flex-col">
       {/* Header do chat */}
-      <div className="flex items-center justify-between h-14 px-3 border-b border-border">
+      <div
+        className={`flex items-center justify-between h-14 px-3 border-b border-border transition-colors ${headerIsClickable ? "cursor-pointer hover:bg-muted/50" : "cursor-default"}`}
+        onClick={headerIsClickable ? onToggleDetails : undefined}
+        title={headerIsClickable ? "View details" : undefined}
+      >
         <div className="flex flex-col min-w-0">
           <span className="text-sm font-semibold truncate">
             {ticket.subject}
@@ -54,4 +62,37 @@ export function ChatWindow({ ticket }: Props) {
       <MessageInput />
     </div>
   );
+}
+
+function useIsDesktopDetailsVisible() {
+  const [matches, setMatches] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(min-width: 1280px)").matches;
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mediaQuery = window.matchMedia("(min-width: 1280px)");
+    const listener = (event: MediaQueryListEvent) => setMatches(event.matches);
+
+    // Set the initial value in case it changed between renders
+    setMatches(mediaQuery.matches);
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", listener);
+    } else {
+      mediaQuery.addListener(listener);
+    }
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener("change", listener);
+      } else {
+        mediaQuery.removeListener(listener);
+      }
+    };
+  }, []);
+
+  return matches;
 }
