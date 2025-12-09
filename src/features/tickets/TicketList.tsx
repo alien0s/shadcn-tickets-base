@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Filter } from "lucide-react";
+import { Plus, Search, Filter, PanelRight } from "lucide-react";
 import { NewTicketDialog } from "./NewTicketDialog";
 import { TicketListItem } from "./TicketListItem";
 import type { Ticket } from "./TicketListItem";
@@ -16,8 +16,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-
+import { useSidebar } from "@/context/sidebar-context";
 
 
 
@@ -91,6 +96,7 @@ export function TicketList({
   const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
   const [ticketTypeFilter, setTicketTypeFilter] = useState<TicketTypeKey | null>(null);
   const [statusFilter, setStatusFilter] = useState<"todos" | "nao-lido">("todos");
+  const { toggleSidebar } = useSidebar();
 
   const filteredTickets = MOCK_TICKETS.filter((ticket) => {
     const matchesSearch = ticket.subject
@@ -122,11 +128,66 @@ export function TicketList({
     );
   };
 
+  // Componente de filtros reutilizável
+  const FilterContent = () => (
+    <div className="space-y-4">
+      {/* Status Tabs */}
+      <div>
+        <label className="text-sm font-medium mb-2 block">Status</label>
+        <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)} className="w-full">
+          <TabsList className="h-8 rounded-lg bg-muted p-1 w-full opacity-100">
+            <TabsTrigger value="todos" className="h-6 text-xs px-3 rounded-md flex-1">Todos</TabsTrigger>
+            <TabsTrigger value="nao-lido" className="h-6 text-xs px-3 rounded-md flex-1">Não lido</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Tipo de Ticket */}
+      <div>
+        <label className="text-sm font-medium mb-2 block">Tipo de Ticket</label>
+        <TicketTypeTabs value={ticketTypeFilter} onValueChange={setTicketTypeFilter} />
+      </div>
+
+      {/* Entidades */}
+      <div>
+        <label className="text-sm font-medium mb-2 block">Entidades</label>
+        <div className="space-y-2">
+          {MOCK_ENTITIES.map((entity) => (
+            <div key={entity.id} className="flex items-center space-x-2">
+              <Checkbox
+                id={`filter-${entity.id}`}
+                checked={selectedEntities.includes(entity.id)}
+                onCheckedChange={() => toggleEntity(entity.id)}
+              />
+              <label
+                htmlFor={`filter-${entity.id}`}
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                {entity.name}
+              </label>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="h-full flex flex-col">
       {/* Header da coluna */}
       <div className="flex items-center justify-between h-14 px-3 border-b border-border">
-        <span className="text-lg font-bold">Tickets</span>
+        <div className="flex items-center gap-2">
+          {/* Botão de menu - apenas mobile */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 md:hidden"
+            onClick={toggleSidebar}
+          >
+            <PanelRight className="h-4 w-4" />
+          </Button>
+          <span className="text-lg font-bold">Tickets</span>
+        </div>
         <Button
           size="sm"
           className="bg-primary text-primary-foreground hover:bg-primary/90"
@@ -152,10 +213,10 @@ export function TicketList({
             />
           </div>
 
-          {/* Botão de Filtro */}
+          {/* Botão de Filtro - Desktop (Dropdown para Entidades) */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="h-9 w-9">
+              <Button variant="outline" size="icon" className="h-9 w-9 hidden md:flex">
                 <Filter className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -181,12 +242,27 @@ export function TicketList({
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
+
+          {/* Botão de Filtro - Mobile (Popover com todos os filtros) */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="icon" className="h-9 w-9 md:hidden">
+                <Filter className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" align="end">
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">Filtros</h3>
+                <FilterContent />
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
       </div>
 
-      {/* Tabs: Todos / Não lido + Filter Type */}
-      <div className="px-3 border-border flex items-center gap-4">
+      {/* Tabs: Todos / Não lido + Filter Type - Apenas Desktop */}
+      <div className="px-3 border-border hidden md:flex items-center gap-4">
         {/* Status Tabs (Compact) */}
         <Tabs value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)} className="w-auto flex-1">
           <TabsList className="h-8 rounded-lg bg-muted p-1 w-full opacity-100">

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { SidebarProvider } from "@/context/sidebar-context";
 import { Sidebar } from "./Sidebar";
 import { TicketList } from "@/features/tickets/TicketList";
@@ -13,6 +13,14 @@ export function AppLayout() {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
+  const handleSelectTicket = (ticket: Ticket) => {
+    setSelectedTicket(ticket);
+  };
+
+  const handleBackToList = () => {
+    setSelectedTicket(null);
+  };
+
   return (
     <SidebarProvider>
       <div className="h-screen w-screen bg-background text-foreground flex">
@@ -22,23 +30,29 @@ export function AppLayout() {
         {/* Área principal dividida em 3 colunas */}
         <div className="flex-1 flex min-w-0">
           {/* Lista de tickets / conversas */}
-          <div className="w-[360px] border-r border-border flex flex-col min-w-[280px] hidden md:flex">
-            {/* Note: Added hidden md:flex to hide list on mobile if inside chat? 
-                 User didn't strictly ask for mobile list hiding yet, effectively 
-                 "em celular ela abre toda div pra preencher a tela" referred to DETAILS.
-                 I'll leave the list visibility as is for now unless specifically asked, 
-                 but standard mobile pattern is often List OR Chat. 
-                 For now let's focus on DETAILS responsive behavior.
-             */}
-            <TicketList onSelectTicket={setSelectedTicket} />
+          <div className={`
+            w-full md:w-[360px] 
+            border-r border-border 
+            flex flex-col 
+            md:min-w-[280px]
+            ${selectedTicket ? 'hidden md:flex' : 'flex'}
+          `}>
+            <TicketList onSelectTicket={handleSelectTicket} />
           </div>
 
           {/* Chat do ticket selecionado */}
-          <div className="flex-1 border-r border-border flex flex-col min-w-[320px]">
+          <div className={`
+            flex-1 
+            border-r border-border 
+            flex flex-col 
+            min-w-[320px]
+            ${selectedTicket ? 'flex' : 'hidden md:flex'}
+          `}>
             {selectedTicket ? (
               <ChatWindow
                 ticket={selectedTicket}
                 onToggleDetails={() => setIsDetailsOpen(true)}
+                onBack={handleBackToList}
               />
             ) : (
               <NoTicketSelected />
@@ -54,9 +68,9 @@ export function AppLayout() {
 
           {/* Detalhes do ticket (Tablet/Mobile: Drawer/Sheet) */}
           <Sheet open={!!selectedTicket && isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-            <SheetContent side="right" className="w-full sm:w-[400px] p-0 border-l border-border">
+            <SheetContent side="right" className="w-full sm:w-[400px] p-0 border-l border-border" showClose={false}>
               {selectedTicket && (
-                <TicketDetails ticket={selectedTicket} />
+                <TicketDetails ticket={selectedTicket} onClose={() => setIsDetailsOpen(false)} isDrawer />
               )}
             </SheetContent>
           </Sheet>

@@ -105,7 +105,12 @@ export function UserNav({ isCollapsed }: UserNavProps) {
                     </DropdownMenuItem>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={toggleTheme}>
+                <DropdownMenuItem
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        toggleTheme();
+                    }}
+                >
                     {theme === "dark" ? (
                         <Sun className="mr-2 h-4 w-4" />
                     ) : (

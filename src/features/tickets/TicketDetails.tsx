@@ -2,26 +2,22 @@ import { useState } from "react";
 import type { Ticket } from "./TicketListItem";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { FileItem } from "@/components/FileItem";
 import {
   Mail,
   Phone,
-  MapPin,
-  Clock,
-  Globe,
-  FileText,
-  Image as ImageIcon,
-  MoreHorizontal,
-  Edit2
+  X
 } from "lucide-react";
 import { AttachmentViewer } from "./AttachmentViewer";
 
 type Props = {
   ticket?: Ticket | null;
+  isDrawer?: boolean;
+  onClose?: () => void;
 };
 
-export function TicketDetails({ ticket }: Props) {
+export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
   const [isAttachmentViewerOpen, setIsAttachmentViewerOpen] = useState(false);
 
   if (!ticket) {
@@ -31,14 +27,21 @@ export function TicketDetails({ ticket }: Props) {
   return (
     <div className="h-full flex flex-col bg-background border-l border-border">
       {/* Header aligned with TicketList */}
-      <div className="h-14 px-3 border-b border-border flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
-          <h2 className="font-bold text-lg tracking-tight">Ticket Details</h2>
+      <div className="h-14 px-4 border-b border-border flex items-center justify-between shrink-0">
+        <h2 className="font-bold text-lg tracking-tight">Ticket Details</h2>
 
-        </div>
-      {/* <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-        <MoreHorizontal className="h-4 w-4" />
-      </Button> */}
+        {/* Close button - only visible in drawer mode */}
+        {isDrawer && onClose && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClose}
+            className="h-8 w-8 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color-mix(in_oklab,hsl(var(--foreground))_15%,transparent)]"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </Button>
+        )}
       </div>
 
       <ScrollArea className="flex-1">
@@ -47,13 +50,13 @@ export function TicketDetails({ ticket }: Props) {
           {/* Agent/Assignee Section */}
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10 border">
-                <AvatarImage src="/placeholder-agent.jpg" />
-                <AvatarFallback>JD</AvatarFallback>
+              <Avatar className="h-10 w-10 rounded-lg">
+                <AvatarImage src="https://64.media.tumblr.com/0083c354ff570d505c60c2cf18dcb033/4c1b076e77e7bab7-6c/s500x750/155c9551494fadb9ea8cad80bad0f757a9b89f6a.jpg" alt="Agent" />
+                <AvatarFallback className="rounded-lg">JD</AvatarFallback>
               </Avatar>
               <div>
                 <p className="text-sm font-medium leading-none">John Doe</p>
-                <p className="text-xs text-muted-foreground mt-1">Support Agent • Assignee</p>
+                <p className="text-xs text-muted-foreground mt-1">Trabalhando neste ticket</p>
               </div>
             </div>
 
@@ -70,7 +73,7 @@ export function TicketDetails({ ticket }: Props) {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-sm">Detalhes do Solicitante</h3>
-              
+
             </div>
 
             <div className="space-y-4">
@@ -90,7 +93,7 @@ export function TicketDetails({ ticket }: Props) {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Device Info</h4>
-                  
+
                 </div>
 
                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
@@ -118,43 +121,34 @@ export function TicketDetails({ ticket }: Props) {
                 onClick={() => setIsAttachmentViewerOpen(true)}
                 className="text-sm text-blue-600 hover:text-blue-700 hover:underline cursor-pointer font-medium"
               >
-               Ver todos
+                Ver todos
               </button>
             </div>
 
             <div className="space-y-3">
-              {/* File Item 1 */}
-              <div className="flex items-start gap-3 group">
-                <div className="h-10 w-10 bg-red-100 rounded-md flex items-center justify-center flex-shrink-0">
-                  <FileText className="h-5 w-5 text-red-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate group-hover:text-blue-600 cursor-pointer">error-logs.pdf</p>
-                  <p className="text-xs text-muted-foreground">Shared by Agent Lisa on May 25th</p>
-                </div>
-              </div>
+              {/* File Item 1 - PDF */}
+              <FileItem
+                fileName="error-logs.pdf"
+                sharedBy="Agent Lisa"
+                sharedDate="May 25th"
+                onClick={() => setIsAttachmentViewerOpen(true)}
+              />
 
-              {/* File Item 2 */}
-              <div className="flex items-start gap-3 group">
-                <div className="h-10 w-10 bg-blue-100 rounded-md flex items-center justify-center flex-shrink-0">
-                  <ImageIcon className="h-5 w-5 text-blue-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate group-hover:text-blue-600 cursor-pointer">screenshot-issue.jpg</p>
-                  <p className="text-xs text-muted-foreground">Shared by You on May 25th</p>
-                </div>
-              </div>
+              {/* File Item 2 - Image */}
+              <FileItem
+                fileName="screenshot-issue.jpg"
+                sharedBy="You"
+                sharedDate="May 25th"
+                onClick={() => setIsAttachmentViewerOpen(true)}
+              />
 
-              {/* File Item 3 */}
-              <div className="flex items-start gap-3 group">
-                <div className="h-10 w-10 bg-gray-100 rounded-md flex items-center justify-center flex-shrink-0">
-                  <FileText className="h-5 w-5 text-gray-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate group-hover:text-blue-600 cursor-pointer">invoice_2023.pdf</p>
-                  <p className="text-xs text-muted-foreground">Shared by Agent Lisa on May 24th</p>
-                </div>
-              </div>
+              {/* File Item 3 - PDF */}
+              <FileItem
+                fileName="invoice_2023.pdf"
+                sharedBy="Agent Lisa"
+                sharedDate="May 24th"
+                onClick={() => setIsAttachmentViewerOpen(true)}
+              />
             </div>
           </div>
 
