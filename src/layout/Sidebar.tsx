@@ -5,9 +5,10 @@ import { NavLink } from "react-router-dom";
 import {
   LifeBuoy,
   Settings,
-  FileChartLine,
+  House,
   MessageCircle,
   PanelLeft,
+  FileText
 } from "lucide-react";
 import { UserNav } from "./UserNav";
 import {
@@ -121,7 +122,7 @@ export function Sidebar() {
           <NavLink to="/dashboard" className="block">
             {({ isActive }) => (
               <SidebarNavItem
-                icon={FileChartLine}
+                icon={House}
                 label="Dashboard"
                 collapsed={isCollapsed}
                 active={isActive}
@@ -166,7 +167,7 @@ export function Sidebar() {
             size="sm"
           />
           <SidebarNavItem
-            icon={Settings}
+            icon={FileText}
             label="Documentação"
             collapsed={isCollapsed}
             variant="ghost"
@@ -206,7 +207,9 @@ function SidebarNavItem({
       className={[
         "sidebar-nav-btn justify-start",
         collapsed ? "justify-center w-10" : "gap-2 w-full pl-2.5",
-        active ? "sidebar-nav-active" : "text-muted-foreground",
+        active
+          ? "sidebar-nav-active hover:bg-primary/10 hover:text-primary dark:hover:bg-gray-800 dark:hover:text-foreground"
+          : "text-muted-foreground",
       ].join(" ")}
     >
       <Icon className="h-6 w-6" />

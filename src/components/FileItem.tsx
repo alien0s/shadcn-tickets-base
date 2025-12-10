@@ -50,6 +50,15 @@ function getFileStyle(fileName: string, fileType: FileItemProps["fileType"]): Fi
         };
     }
 
+    if (fileType === "document" && /\.(doc|docx)$/i.test(fileName)) {
+        return {
+            bgColor: "bg-blue-100 dark:bg-blue-950/30",
+            iconColor: "text-blue-600 dark:text-blue-400",
+            icon: FileText,
+            label: "Documento"
+        };
+    }
+
     return {
         bgColor: "bg-gray-100 dark:bg-gray-800",
         iconColor: "text-gray-600 dark:text-gray-400",
@@ -74,6 +83,7 @@ export function FileItem({
     const previewSrc = isImage ? (previewUrl || fileUrl) : undefined;
     const displayName = truncateMiddle(fileName);
     const [isLoaded, setIsLoaded] = useState(!withSkeleton || !previewSrc);
+    const borderStyle = "border border-border";
 
     if (variant === "compact") {
         return (
@@ -128,7 +138,8 @@ export function FileItem({
                     </div>
                 ) : (
                     <div className={cn(
-                        "w-full aspect-square rounded-md border border-dashed border-border flex items-center justify-center bg-muted/40",
+                        "w-full aspect-square rounded-md flex items-center justify-center bg-muted/40",
+                        borderStyle,
                         bgColor
                     )}>
                         <Icon className={cn("h-6 w-6", iconColor)} />

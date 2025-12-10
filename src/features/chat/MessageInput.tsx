@@ -1,8 +1,7 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Send, Paperclip, X, FileText } from "lucide-react";
-import { useTheme } from "@/context/theme-context";
 import {
   Tooltip,
   TooltipContent,
@@ -10,12 +9,23 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-export function MessageInput() {
+type Props = {
+  onSend?: (payload: { text: string; files: { name: string; sizeLabel: string; url: string; kind: "image" | "file" }[] }) => void;
+};
+
+export type MessageInputHandle = {
+  focus: () => void;
+};
+
+export const MessageInput = forwardRef<MessageInputHandle, Props>(function MessageInput(
+  { onSend },
+  ref
+) {
   const [message, setMessage] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [filePreviews, setFilePreviews] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { theme } = useTheme();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Track previews for cleanup
   const previewsRef = useRef<string[]>([]);
@@ -46,6 +56,52 @@ export function MessageInput() {
     setFilePreviews((prev) => [...prev, ...newPreviews]);
   };
 
+  const clearFiles = () => {
+    setFilePreviews((prev) => {
+      prev.forEach((url) => URL.revokeObjectURL(url));
+      return [];
+    });
+    setSelectedFiles([]);
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const submitMessage = () => {
+    const trimmed = message.trim();
+    if (!trimmed && selectedFiles.length === 0) return;
+
+    const filesToSend = selectedFiles.map((file, index) => {
+      const kind: "image" | "file" = file.type.startsWith("image/") ? "image" : "file";
+      return {
+        name: file.name,
+        sizeLabel: formatFileSize(file.size),
+        url: filePreviews[index] ?? "",
+        kind,
+      };
+    });
+
+    onSend?.({ text: trimmed, files: filesToSend });
+    setMessage("");
+    clearFiles();
+    focusInput();
+  };
+
+  const focusInput = () => {
+    textareaRef.current?.focus();
+  };
+
+  useImperativeHandle(ref, () => ({
+    focus: focusInput,
+  }));
+
+  useEffect(() => {
+    focusInput();
+  }, []);
+
   const handleFileClick = () => {
     fileInputRef.current?.click();
   };
@@ -72,21 +128,16 @@ export function MessageInput() {
   };
 
   return (
-    <div className="px-3 pb-4 bg-background">
-      <div className="relative flex flex-col border rounded-md shadow-sm bg-background focus-within:ring-1 focus-within:ring-ring transition-all">
+    <div className="px-3 pb-4 bg-background" onClick={focusInput}>
+      <div className="relative flex flex-col border rounded-md shadow-sm bg-background transition-all">
 
         <form
-          className="flex flex-col"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!message.trim() && selectedFiles.length === 0) return;
-            // TODO: enviar mensagem para API com arquivos
-            console.log("Enviando:", message, "Arquivos:", selectedFiles);
-            setMessage("");
-            setSelectedFiles([]);
-            setFilePreviews([]);
-          }}
-        >
+        className="flex flex-col"
+        onSubmit={(e) => {
+          e.preventDefault();
+          submitMessage();
+        }}
+      >
           {/* File Previews Area */}
           {selectedFiles.length > 0 && (
             <div className="px-4 pt-4 pb-2 flex flex-wrap gap-2">
@@ -117,12 +168,20 @@ export function MessageInput() {
 
           <Textarea
             rows={1}
+            ref={textareaRef}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onPaste={handlePaste}
-            placeholder="Ask, search, or make anything..."
+            placeholder="Digite uma mensagem"
             className="resize-none border-0 shadow-none focus-visible:ring-0 px-4 py-3 min-h-[50px] max-h-[200px] text-base"
             style={{ height: "auto" }}
+            autoFocus
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submitMessage();
+              }
+            }}
             onInput={(e) => {
               const target = e.target as HTMLTextAreaElement;
               target.style.height = "auto";
@@ -172,4 +231,4 @@ export function MessageInput() {
       </div>
     </div>
   );
-}
+});

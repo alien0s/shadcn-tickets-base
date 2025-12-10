@@ -1,5 +1,5 @@
 import React from "react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { type TicketTypeKey, TICKET_PRIORITY_STYLES, TICKET_TYPE_STYLES } from "@/config/ticket-constants";
 import { HelpCircle } from "lucide-react";
 import { StatusPill } from "./StatusPill";
@@ -25,6 +25,7 @@ export type Ticket = {
   subject: string;
   status: TicketStatus;
   priority: TicketPriority;
+  avatarUrl?: string;
   type?: TicketTypeKey;
   requester?: string; // Nome do solicitante
   dateLabel: string; // ex: "12 Nov"
@@ -40,6 +41,8 @@ type Props = {
 export function TicketListItem({ ticket, onClick, isActive = false }: Props) {
   const priorityPill = getPriorityPill(ticket.priority);
   const TypeIcon = ticket.type ? TICKET_TYPE_STYLES[ticket.type].icon : null;
+  const fallbackInitial =
+    (ticket.requester || ticket.subject || "").trim().charAt(0).toUpperCase() || "?";
 
   return (
     <button
@@ -50,9 +53,10 @@ export function TicketListItem({ ticket, onClick, isActive = false }: Props) {
         }`}
     >
       {/* Avatar maior */}
-      <Avatar className="h-9 w-9 rounded-md mt-[2px]">
-        <AvatarFallback className="rounded-md">
-          {ticket.subject.charAt(0).toUpperCase()}
+      <Avatar className="h-10 w-10 rounded-lg mt-[2px] bg-muted/70">
+        <AvatarImage src={ticket.avatarUrl} alt={ticket.requester || "Solicitante"} />
+        <AvatarFallback className="rounded-full text-xs font-semibold">
+          {fallbackInitial}
         </AvatarFallback>
       </Avatar>
 

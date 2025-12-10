@@ -150,7 +150,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
 
             <div className="space-y-4">
               <div className="space-y-2">
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Basic Details</h4>
+                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Contato</h4>
 
                 <div className="grid grid-cols-[24px_1fr] gap-2 items-start text-sm">
                   <Mail className="h-4 w-4 text-muted-foreground mt-0.5" />
@@ -164,7 +164,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Device Info</h4>
+                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Dispositivo</h4>
 
                 </div>
 
@@ -188,7 +188,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
           {/* Files Shared */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-medium text-sm">Files Shared</h3>
+              <h3 className="font-medium text-sm">Anexos</h3>
               <button
                 onClick={() => setIsAllAttachmentsOpen(true)}
                 className="text-sm text-blue-600 hover:text-blue-700 hover:underline cursor-pointer font-medium"

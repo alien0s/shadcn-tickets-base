@@ -181,11 +181,7 @@ export function AttachmentViewer({ open, onOpenChange, initialIndex = 0 }: Props
                 {/* Informações do anexo */}
                 <div className="mt-4 bg-black/50 backdrop-blur-sm rounded-lg px-4 py-2">
                   <p className="text-white text-sm font-medium">{currentAttachment.name}</p>
-                  {currentAttachment.sharedBy && currentAttachment.sharedDate && (
-                    <p className="text-white/70 text-xs mt-1">
-                      Compartilhado por {currentAttachment.sharedBy} em {currentAttachment.sharedDate}
-                    </p>
-                  )}
+                  
                   <p className="text-white/60 text-xs mt-1">
                     {currentIndex + 1} de {attachments.length}
                   </p>

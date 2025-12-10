@@ -30,22 +30,14 @@ export function AppLayout() {
         {/* Área principal dividida em 3 colunas */}
         <div className="flex-1 flex min-w-0">
           {/* Lista de tickets / conversas */}
-          <div className={`
-            w-full md:w-[360px] 
-            border-r border-border 
-            flex flex-col 
-            md:min-w-[280px]
+          <div className={`w-full md:w-[360px] border-r border-border flex flex-col md:min-w-[280px]
             ${selectedTicket ? 'hidden md:flex' : 'flex'}
           `}>
             <TicketList onSelectTicket={handleSelectTicket} />
           </div>
 
           {/* Chat do ticket selecionado */}
-          <div className={`
-            flex-1 
-            border-r border-border 
-            flex flex-col 
-            min-w-[320px]
+          <div className={`flex-1 flex flex-col min-w-[320px]
             ${selectedTicket ? 'flex' : 'hidden md:flex'}
           `}>
             {selectedTicket ? (

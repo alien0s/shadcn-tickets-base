@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import type { Ticket } from "./TicketListItem";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type TicketTypeKey, TICKET_STATUS_STYLES } from "@/config/ticket-constants";
 import { TicketTypeTabs } from "./TicketTypeTabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,10 +26,16 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useSidebar } from "@/context/sidebar-context";
 import { StatusPill, normalizeStatus, type CanonicalStatus } from "./StatusPill";
 
-
+const TICKET_AVATARS: Record<string, string> = {
+  "1": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTf0EDQTODg7aIfRjNG_0y3AS3dqGNWPNlJRA&s",
+  "2": "https://i.pinimg.com/736x/27/57/78/2757784d2e6f5d047987321cf8d5bb89.jpg",
+  "3": "https://favim.com/pd/s1/orig/160107/boy-icon-random-tumblr-Favim.com-3852801.jpg",
+  "4": "https://img.wattpad.com/21bf8fcb4e0790256056b6cc1ad4943569479292/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f776174747061642d6d656469612d736572766963652f53746f7279496d6167652f354b3576414f686f516e4c3368673d3d2d3332383734303530362e313438383033353235653662663366313836333836383732303237302e6a7067?s=fit&w=720&h=720",
+  "5": "https://img.wattpad.com/352372bbccb3b36a948d66714d46bf9244762adf/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f776174747061642d6d656469612d736572766963652f53746f7279496d6167652f71585571496b4d596663566f58673d3d2d3436353737393739392e313465313461353238343234356363393737323133323436363338342e6a7067",
+};
 
 // mocks só pra layout; depois você troca pelos dados da API
-const MOCK_TICKETS: Ticket[] = [
+const BASE_TICKETS = [
   {
     id: "1",
     subject: "Erro ao acessar painel",
@@ -77,7 +84,12 @@ const MOCK_TICKETS: Ticket[] = [
     entity: "aceam",
     type: "sugestao",
   },
-];
+] satisfies ReadonlyArray<Omit<Ticket, "avatarUrl">>;
+
+const MOCK_TICKETS: Ticket[] = BASE_TICKETS.map((ticket) => ({
+  ...ticket,
+  avatarUrl: TICKET_AVATARS[ticket.id],
+}));
 
 // Mock de entidades - fonte falsa de API
 const MOCK_ENTITIES = [
@@ -97,6 +109,8 @@ export function TicketList({
 }: {
   onSelectTicket?: (ticket: Ticket) => void;
 }) {
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isNewTicketOpen, setIsNewTicketOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
@@ -106,7 +120,15 @@ export function TicketList({
   const [selectedStatuses, setSelectedStatuses] = useState<CanonicalStatus[]>([]);
   const { toggleSidebar } = useSidebar();
 
-  const filteredTickets = MOCK_TICKETS.filter((ticket) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setTickets(MOCK_TICKETS);
+      setIsLoading(false);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const filteredTickets = tickets.filter((ticket) => {
     const matchesSearch = ticket.subject
       .toLowerCase()
       .includes(search.toLowerCase());
@@ -341,19 +363,25 @@ export function TicketList({
       {/* Lista scrollável */}
       <ScrollArea className="flex-1">
         <div className="py-2">
-          {filteredTickets.map((ticket) => (
-            <TicketListItem
-              key={ticket.id}
-              ticket={ticket}
-              isActive={selectedTicketId === ticket.id}
-              onClick={() => handleSelectTicket(ticket)}
-            />
-          ))}
+          {isLoading ? (
+            <TicketListSkeleton />
+          ) : (
+            <>
+              {filteredTickets.map((ticket) => (
+                <TicketListItem
+                  key={ticket.id}
+                  ticket={ticket}
+                  isActive={selectedTicketId === ticket.id}
+                  onClick={() => handleSelectTicket(ticket)}
+                />
+              ))}
 
-          {filteredTickets.length === 0 && (
-            <div className="px-3 py-4 text-xs text-muted-foreground">
-              Nenhum ticket encontrado para "{search}".
-            </div>
+              {filteredTickets.length === 0 && (
+                <div className="px-3 py-4 text-xs text-muted-foreground">
+                  Nenhum ticket encontrado para "{search}".
+                </div>
+              )}
+            </>
           )}
         </div>
       </ScrollArea>
@@ -362,6 +390,36 @@ export function TicketList({
         open={isNewTicketOpen}
         onOpenChange={setIsNewTicketOpen}
       />
+    </div>
+  );
+}
+
+function TicketListSkeleton() {
+  return (
+    <div className="space-y-1">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div
+          key={index}
+          className="w-full px-3 py-2 flex items-start gap-3 text-left"
+        >
+          <Skeleton className="h-9 w-9 rounded-md mt-[2px]" />
+
+          <div className="flex-1 flex flex-col min-w-0 gap-2">
+            <div className="flex items-start justify-between gap-2">
+              <Skeleton className="h-3 w-28 rounded-md" />
+              <Skeleton className="h-2.5 w-10 rounded-md" />
+            </div>
+
+            <Skeleton className="h-2.5 w-44 rounded-md" />
+
+            <div className="mt-1 flex items-center gap-2">
+              <Skeleton className="h-5 w-16 rounded-md" />
+              <Skeleton className="h-5 w-12 rounded-md" />
+              <Skeleton className="h-5 w-5 rounded-md" />
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
