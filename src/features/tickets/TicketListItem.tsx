@@ -1,7 +1,8 @@
 import React from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { type TicketTypeKey, TICKET_STATUS_STYLES, TICKET_PRIORITY_STYLES, TICKET_TYPE_STYLES } from "@/config/ticket-constants";
+import { type TicketTypeKey, TICKET_PRIORITY_STYLES, TICKET_TYPE_STYLES } from "@/config/ticket-constants";
 import { HelpCircle } from "lucide-react";
+import { StatusPill } from "./StatusPill";
 
 export type TicketStatus =
   | "aberto"
@@ -37,7 +38,6 @@ type Props = {
 };
 
 export function TicketListItem({ ticket, onClick, isActive = false }: Props) {
-  const statusPill = getStatusPill(ticket.status);
   const priorityPill = getPriorityPill(ticket.priority);
   const TypeIcon = ticket.type ? TICKET_TYPE_STYLES[ticket.type].icon : null;
 
@@ -72,12 +72,7 @@ export function TicketListItem({ ticket, onClick, isActive = false }: Props) {
         </span>
 
         <div className="mt-1 flex items-center gap-2">
-          <span
-            className={`inline-flex items-center h-5 px-1.5 py-0.5 rounded-md text-[11px] font-medium border border-transparent ${statusPill.className}`}
-          >
-            <statusPill.icon className="h-3 w-3 mr-1.5" />
-            {statusPill.label}
-          </span>
+          <StatusPill status={ticket.status} />
           <span
             className={`inline-flex items-center h-5 px-1.5 py-0.5 rounded-md text-[11px] font-medium border ${priorityPill.className}`}
           >
@@ -98,28 +93,6 @@ export function TicketListItem({ ticket, onClick, isActive = false }: Props) {
       </div>
     </button>
   );
-}
-
-function getStatusPill(status: TicketStatus) {
-  const value = status.toLowerCase();
-
-  if (value === "aberto" || value === "open") {
-    return TICKET_STATUS_STYLES.aberto;
-  }
-
-  if (value === "pendente" || value === "pending") {
-    return TICKET_STATUS_STYLES.pendente;
-  }
-
-  if (value === "fechado" || value === "closed") {
-    return TICKET_STATUS_STYLES.fechado;
-  }
-
-  return {
-    label: status,
-    icon: TICKET_STATUS_STYLES.default.icon,
-    className: TICKET_STATUS_STYLES.default.className,
-  };
 }
 
 function getPriorityPill(priority: TicketPriority) {

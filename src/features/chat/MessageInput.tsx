@@ -72,7 +72,7 @@ export function MessageInput() {
   };
 
   return (
-    <div className="p-4 bg-background">
+    <div className="px-3 pb-4 bg-background">
       <div className="relative flex flex-col border rounded-md shadow-sm bg-background focus-within:ring-1 focus-within:ring-ring transition-all">
 
         <form

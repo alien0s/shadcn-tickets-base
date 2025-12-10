@@ -7,7 +7,7 @@ import { NewTicketDialog } from "./NewTicketDialog";
 import { TicketListItem } from "./TicketListItem";
 import type { Ticket } from "./TicketListItem";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type TicketTypeKey } from "@/config/ticket-constants";
+import { type TicketTypeKey, TICKET_STATUS_STYLES } from "@/config/ticket-constants";
 import { TicketTypeTabs } from "./TicketTypeTabs";
 import {
   DropdownMenu,
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useSidebar } from "@/context/sidebar-context";
+import { StatusPill, normalizeStatus, type CanonicalStatus } from "./StatusPill";
 
 
 
@@ -85,6 +86,12 @@ const MOCK_ENTITIES = [
   { id: "unob", name: "Unob" },
 ];
 
+const STATUS_FILTER_OPTIONS: { key: CanonicalStatus; label: string }[] = [
+  { key: "aberto", label: TICKET_STATUS_STYLES.aberto.label },
+  { key: "pendente", label: TICKET_STATUS_STYLES.pendente.label },
+  { key: "fechado", label: TICKET_STATUS_STYLES.fechado.label },
+];
+
 export function TicketList({
   onSelectTicket,
 }: {
@@ -96,6 +103,7 @@ export function TicketList({
   const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
   const [ticketTypeFilter, setTicketTypeFilter] = useState<TicketTypeKey | null>(null);
   const [statusFilter, setStatusFilter] = useState<"todos" | "nao-lido">("todos");
+  const [selectedStatuses, setSelectedStatuses] = useState<CanonicalStatus[]>([]);
   const { toggleSidebar } = useSidebar();
 
   const filteredTickets = MOCK_TICKETS.filter((ticket) => {
@@ -112,7 +120,12 @@ export function TicketList({
     // (na prática "não lido" dependeria de uma prop isUnread ou similar)
     const matchesStatus = statusFilter === "todos" || (statusFilter === "nao-lido" && ticket.status === "aberto");
 
-    return matchesSearch && matchesEntity && matchesType && matchesStatus;
+    const normalizedStatus = normalizeStatus(ticket.status);
+    const matchesStatusSelection =
+      selectedStatuses.length === 0 ||
+      (normalizedStatus ? selectedStatuses.includes(normalizedStatus) : false);
+
+    return matchesSearch && matchesEntity && matchesType && matchesStatus && matchesStatusSelection;
   });
 
   const handleSelectTicket = (ticket: Ticket) => {
@@ -125,6 +138,14 @@ export function TicketList({
       prev.includes(entityId)
         ? prev.filter((id) => id !== entityId)
         : [...prev, entityId]
+    );
+  };
+
+  const toggleStatus = (status: CanonicalStatus) => {
+    setSelectedStatuses((prev) =>
+      prev.includes(status)
+        ? prev.filter((item) => item !== status)
+        : [...prev, status]
     );
   };
 
@@ -146,6 +167,28 @@ export function TicketList({
       <div>
         <label className="text-sm font-medium mb-2 block">Tipo de Ticket</label>
         <TicketTypeTabs value={ticketTypeFilter} onValueChange={setTicketTypeFilter} />
+      </div>
+
+      {/* Status específicos */}
+      <div>
+        <label className="text-sm font-medium mb-2 block">Filtrar por status</label>
+        <div className="space-y-2">
+          {STATUS_FILTER_OPTIONS.map((status) => (
+            <div key={status.key} className="flex items-center space-x-2">
+              <Checkbox
+                id={`status-${status.key}`}
+                checked={selectedStatuses.includes(status.key)}
+                onCheckedChange={() => toggleStatus(status.key)}
+              />
+              <label
+                htmlFor={`status-${status.key}`}
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                <StatusPill status={status.key} />
+              </label>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Entidades */}
@@ -221,8 +264,28 @@ export function TicketList({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Entidades</DropdownMenuLabel>
+              <DropdownMenuLabel>Status</DropdownMenuLabel>
+              
+              <div className="p-2 space-y-2">
+                {STATUS_FILTER_OPTIONS.map((status) => (
+                  <div key={status.key} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`dropdown-status-${status.key}`}
+                      checked={selectedStatuses.includes(status.key)}
+                      onCheckedChange={() => toggleStatus(status.key)}
+                    />
+                    <label
+                      htmlFor={`dropdown-status-${status.key}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      <StatusPill status={status.key} />
+                    </label>
+                  </div>
+                ))}
+              </div>
               <DropdownMenuSeparator />
+              <DropdownMenuLabel>Entidades</DropdownMenuLabel>
+
               <div className="p-2 space-y-2">
                 {MOCK_ENTITIES.map((entity) => (
                   <div key={entity.id} className="flex items-center space-x-2">

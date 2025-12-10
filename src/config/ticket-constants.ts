@@ -4,23 +4,23 @@ export const TICKET_STATUS_STYLES = {
     aberto: {
         label: "Aberto",
         icon: Circle,
-        className: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300",
+        className: "bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-900/40 dark:text-sky-300 dark:border-sky-800",
     },
     pendente: {
         label: "Pendente",
         icon: Clock,
-        className: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+        className: "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/40 dark:text-amber-300 dark:border-amber-800",
     },
     fechado: {
         label: "Fechado",
         icon: CheckCircle2,
-        className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
+        className: "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-800",
     },
     // Fallback/Generic
     default: {
         label: "Desconhecido",
         icon: HelpCircle,
-        className: "bg-muted text-muted-foreground",
+        className: "bg-muted text-muted-foreground border-border",
     },
 } as const;
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Ticket } from "./TicketListItem";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,30 @@ import {
   X
 } from "lucide-react";
 import { AttachmentViewer } from "./AttachmentViewer";
+import { AllAttachmentsDialog } from "./AllAttachmentsDialog";
+
+type AttachmentItem = { fileName: string; fileType: "pdf" | "image" | "document"; previewUrl?: string };
+
+const BASE_DOCUMENTS: AttachmentItem[] = [
+  { fileName: "error-logs.pdf", fileType: "pdf" },
+  { fileName: "invoice_2023.pdf", fileType: "pdf" },
+  { fileName: "solution-guide.docx", fileType: "document" },
+  { fileName: "user-story.docx", fileType: "document" },
+  { fileName: "api-reference.pdf", fileType: "pdf" },
+  { fileName: "design-notes.docx", fileType: "document" },
+];
+
+const FALLBACK_IMAGES: AttachmentItem[] = [
+  { fileName: "screenshot-issue.jpg", fileType: "image", previewUrl: "https://picsum.photos/seed/issue-thumb/320/320" },
+  { fileName: "user-journey-recording.png", fileType: "image", previewUrl: "https://picsum.photos/seed/journey-thumb/320/320" },
+  { fileName: "console-capture.png", fileType: "image", previewUrl: "https://picsum.photos/seed/console-thumb/320/320" },
+  { fileName: "payment-flow.png", fileType: "image", previewUrl: "https://picsum.photos/seed/payment-flow/320/320" },
+  { fileName: "cart-view.png", fileType: "image", previewUrl: "https://picsum.photos/seed/cart-view/320/320" },
+  { fileName: "shipping-error.png", fileType: "image", previewUrl: "https://picsum.photos/seed/shipping-error/320/320" },
+  { fileName: "mobile-checkout.png", fileType: "image", previewUrl: "https://picsum.photos/seed/mobile-checkout/320/320" },
+  { fileName: "refund-steps.png", fileType: "image", previewUrl: "https://picsum.photos/seed/refund-steps/320/320" },
+  { fileName: "dashboard-stats.png", fileType: "image", previewUrl: "https://picsum.photos/seed/dashboard-stats/320/320" },
+];
 
 type Props = {
   ticket?: Ticket | null;
@@ -19,6 +43,54 @@ type Props = {
 
 export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
   const [isAttachmentViewerOpen, setIsAttachmentViewerOpen] = useState(false);
+  const [isAllAttachmentsOpen, setIsAllAttachmentsOpen] = useState(false);
+  const [selectedAttachmentIndex, setSelectedAttachmentIndex] = useState(0);
+  const [imageAttachments, setImageAttachments] = useState<AttachmentItem[]>(FALLBACK_IMAGES);
+  const [isLoadingAttachments, setIsLoadingAttachments] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadPhotos = async () => {
+      try {
+        const response = await fetch("https://picsum.photos/v2/list?page=2&limit=12");
+        if (!response.ok) {
+          throw new Error("Erro ao buscar fotos");
+        }
+
+        const data: { id: string; author: string }[] = await response.json();
+        if (!isMounted) return;
+
+        const photos = data.map<AttachmentItem>((photo) => ({
+          fileName: `${(photo.author || "photo").trim().replace(/\s+/g, "-").toLowerCase()}-${photo.id}.jpg`,
+          fileType: "image",
+          previewUrl: `https://picsum.photos/id/${photo.id}/600/600`,
+        }));
+
+        setImageAttachments(photos);
+      } catch (error) {
+        console.error("Erro ao carregar fotos reais", error);
+        if (isMounted) {
+          setImageAttachments(FALLBACK_IMAGES);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingAttachments(false);
+        }
+      }
+    };
+
+    loadPhotos();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const attachments = useMemo(
+    () => [...imageAttachments, ...BASE_DOCUMENTS],
+    [imageAttachments]
+  );
 
   if (!ticket) {
     return null;
@@ -28,7 +100,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
     <div className="h-full flex flex-col bg-background border-l border-border">
       {/* Header aligned with TicketList */}
       <div className="h-14 px-4 border-b border-border flex items-center justify-between shrink-0">
-        <h2 className="font-bold text-lg tracking-tight">Ticket Details</h2>
+        <h2 className="font-bold text-lg tracking-tight">Detalhes do Ticket</h2>
 
         {/* Close button - only visible in drawer mode */}
         {isDrawer && onClose && (
@@ -118,37 +190,32 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
             <div className="flex items-center justify-between">
               <h3 className="font-medium text-sm">Files Shared</h3>
               <button
-                onClick={() => setIsAttachmentViewerOpen(true)}
+                onClick={() => setIsAllAttachmentsOpen(true)}
                 className="text-sm text-blue-600 hover:text-blue-700 hover:underline cursor-pointer font-medium"
               >
                 Ver todos
               </button>
             </div>
 
-            <div className="space-y-3">
-              {/* File Item 1 - PDF */}
-              <FileItem
-                fileName="error-logs.pdf"
-                sharedBy="Agent Lisa"
-                sharedDate="May 25th"
-                onClick={() => setIsAttachmentViewerOpen(true)}
-              />
-
-              {/* File Item 2 - Image */}
-              <FileItem
-                fileName="screenshot-issue.jpg"
-                sharedBy="You"
-                sharedDate="May 25th"
-                onClick={() => setIsAttachmentViewerOpen(true)}
-              />
-
-              {/* File Item 3 - PDF */}
-              <FileItem
-                fileName="invoice_2023.pdf"
-                sharedBy="Agent Lisa"
-                sharedDate="May 24th"
-                onClick={() => setIsAttachmentViewerOpen(true)}
-              />
+            <div className="grid grid-cols-3 gap-3">
+              {attachments.slice(0, 3).map((file, index) => (
+                <div
+                  key={`${file.fileName}-${index}`}
+                  className="rounded-md border border-border bg-background hover:border-primary/40 transition-colors p-2"
+                >
+                  <FileItem
+                    fileName={file.fileName}
+                    fileType={file.fileType}
+                    previewUrl={file.previewUrl}
+                    variant="tile"
+                    withSkeleton
+                    onClick={() => {
+                      setSelectedAttachmentIndex(index);
+                      setIsAttachmentViewerOpen(true);
+                    }}
+                  />
+                </div>
+              ))}
             </div>
           </div>
 
@@ -158,7 +225,18 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
       <AttachmentViewer
         open={isAttachmentViewerOpen}
         onOpenChange={setIsAttachmentViewerOpen}
-        initialIndex={0}
+        initialIndex={selectedAttachmentIndex}
+      />
+
+      <AllAttachmentsDialog
+        open={isAllAttachmentsOpen}
+        onOpenChange={setIsAllAttachmentsOpen}
+        attachments={attachments}
+        isLoading={isLoadingAttachments}
+        onAttachmentClick={(index) => {
+          setSelectedAttachmentIndex(index);
+          setIsAttachmentViewerOpen(true);
+        }}
       />
     </div>
   );

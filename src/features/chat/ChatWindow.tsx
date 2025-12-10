@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { MessageInput } from "./MessageInput";
@@ -19,6 +19,23 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
   const headerIsClickable = !isDetailsVisibleOnDesktop;
   const [isAttachmentViewerOpen, setIsAttachmentViewerOpen] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to bottom when ticket changes
+  useEffect(() => {
+    const scrollToBottom = () => {
+      if (scrollAreaRef.current) {
+        const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        if (viewport) {
+          viewport.scrollTop = viewport.scrollHeight;
+        }
+      }
+    };
+
+    // Use setTimeout to ensure DOM is updated
+    const timeoutId = setTimeout(scrollToBottom, 0);
+    return () => clearTimeout(timeoutId);
+  }, [ticket.id]);
 
   const handleImageClick = (index: number) => {
     setSelectedImageIndex(index);
@@ -91,7 +108,7 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
       </div>
 
       {/* Mensagens */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1" ref={scrollAreaRef}>
         <div className="p-3 space-y-3">
           {/* Mensagem de texto recebida */}
           <MessageBubble

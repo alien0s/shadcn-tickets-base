@@ -7,7 +7,7 @@ import {
   Settings,
   FileChartLine,
   MessageCircle,
-  PanelRight,
+  PanelLeft,
 } from "lucide-react";
 import { UserNav } from "./UserNav";
 import {
@@ -101,7 +101,7 @@ export function Sidebar() {
                   className="rounded-md h-8 w-8 group bg-card hover:bg-accent z-20"
                   onClick={toggleSidebar}
                 >
-                  <PanelRight className="text-gray-300 dark:text-gray-500 group-hover:text-primary transition-colors" />
+                  <PanelLeft className="text-gray-300 dark:text-gray-500 group-hover:text-primary transition-colors" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right">
