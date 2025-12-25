@@ -65,10 +65,10 @@ export function Sidebar() {
       <aside
         ref={sidebarRef}
         className={[
-          "flex flex-col border-r border-border bg-card backdrop-blur",
+          "flex flex-col border-r border-border bg-card backdrop-blur overflow-hidden",
           "transition-all duration-300 ease-out",
           // Mobile: fixed overlay
-          "md:relative fixed top-0 left-0 h-screen z-50",
+          "md:relative fixed top-0 left-0 h-[100dvh] md:h-screen z-50",
           isCollapsed ? "w-[60px]" : "w-[240px]",
           // Mobile: esconde completamente quando collapsed
           isCollapsed && "-translate-x-full md:translate-x-0",
@@ -115,7 +115,7 @@ export function Sidebar() {
         {/* Navegação principal */}
         <nav
           className={[
-            "flex-1 flex flex-col py-3 gap-1 px-2",
+            "flex-1 min-h-0 flex flex-col py-3 gap-1 px-2 overflow-y-auto",
             // isCollapsed ? "items-center" : "", // Removed to fix animation
           ].join(" ")}
         >
@@ -158,7 +158,7 @@ export function Sidebar() {
 
 
         {/* Itens inferiores: Suporte, Documentação e perfil */}
-        <div className="px-2 pb-2 flex flex-col gap-1">
+        <div className="px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex flex-col gap-1">
           <NavLink to="/users" className="block">
             {({ isActive }) => (
               <SidebarNavItem
