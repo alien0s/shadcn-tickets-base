@@ -1,4 +1,3 @@
-import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { type TicketTypeKey, TICKET_PRIORITY_STYLES, TICKET_TYPE_STYLES } from "@/config/ticket-constants";
 import { HelpCircle } from "lucide-react";

@@ -1,4 +1,3 @@
-import React from "react";
 import { TICKET_STATUS_STYLES } from "@/config/ticket-constants";
 import { cn } from "@/lib/utils";
 import type { TicketStatus } from "./TicketListItem";

@@ -8,7 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Filter, PanelRight, Pencil, ListFilter, Search, Trash, UserPlus } from "lucide-react";
+import { PanelRight, Pencil, ListFilter, Search, Trash, UserPlus } from "lucide-react";
 
 type UserRecord = {
   id: string;
@@ -90,7 +90,7 @@ function UsersTable() {
 
           <div className="flex items-center gap-2 md:hidden">
             <Button variant="outline" size="sm" className="gap-1.5">
-              <Filter className="h-4 w-4" />
+              <ListFilter className="h-4 w-4" />
               Filtros
             </Button>
             <Button size="sm" className="gap-2">

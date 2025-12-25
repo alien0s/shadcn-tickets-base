@@ -1,4 +1,3 @@
-import React from "react";
 import { NotFoundUFO } from "../../components/illustrations/NotFoundUFO";
 
 export function NoTicketSelected() {

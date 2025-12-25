@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { NavLink } from "react-router-dom";
 import {
   LifeBuoy,
-  Settings,
   Users,
   House,
   MessageCircle,
