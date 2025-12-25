@@ -146,8 +146,8 @@ function DashboardShell() {
   }, []);
 
   return (
-    <main className="flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <main className="flex-1 overflow-y-auto md:pt-0">
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 pt-3 pb-5 sm:px-5 lg:px-8">
         <DashboardHeader onRefresh={loadDashboard} isLoading={isLoading} />
         {isLoading || !data ? (
           <DashboardSkeleton />
@@ -168,8 +168,9 @@ function DashboardHeader({
 }) {
   const { toggleSidebar } = useSidebar();
   return (
-    <div className="flex flex-col gap-3 pb-4 md:flex-row md:items-center md:justify-between">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-3 pb-4">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-3">
         <Button
           variant="outline"
           size="icon"
@@ -178,29 +179,23 @@ function DashboardHeader({
         >
           <PanelRight className="h-4 w-4" />
         </Button>
-        <div className="space-y-1">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-            Visao geral
-          </p>
-          <h1 className="text-2xl font-bold leading-tight">Dashboard de tickets</h1>
-          <p className="text-sm text-muted-foreground">
-            Dados ficticios centralizados; troque por API real quando estiver pronta.
-          </p>
+          <div className="space-y-1">
+          
+          <h1 className="text-2xl font-bold leading-tight">Dashboard</h1>
         </div>
       </div>
-      <div className="flex gap-2">
         <Button
           variant="outline"
           size="sm"
-          className="gap-2"
+          className="gap-2 self-start"
           onClick={onRefresh}
           disabled={isLoading}
         >
           <RefreshCcw className={cn("h-4 w-4", isLoading && "animate-spin")} />
           Atualizar
         </Button>
-        
       </div>
+      
     </div>
   );
 }

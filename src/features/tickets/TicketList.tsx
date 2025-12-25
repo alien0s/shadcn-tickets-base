@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Filter, PanelRight } from "lucide-react";
+import { Plus, Search, Filter, ListFilter, PanelRight } from "lucide-react";
 import { NewTicketDialog } from "./NewTicketDialog";
 import { TicketListItem } from "./TicketListItem";
 import type { Ticket } from "./TicketListItem";
@@ -282,7 +282,7 @@ export function TicketList({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="icon" className="h-9 w-9 hidden md:flex">
-                <Filter className="h-4 w-4" />
+                <ListFilter className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">

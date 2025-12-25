@@ -139,6 +139,7 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
             <Button
               type="button"
               variant="outline"
+              size="sm"
               className="flex-1 sm:flex-none"
               onClick={() => onOpenChange(false)}
             >
@@ -146,6 +147,7 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
             </Button>
             <Button
               type="submit"
+              size="sm"
               className="flex-1 sm:flex-none bg-primary text-primary-foreground hover:bg-primary/90"
             >
               Criar ticket

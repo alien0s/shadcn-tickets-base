@@ -9,9 +9,13 @@ type SidebarContextValue = {
 const SidebarContext = createContext<SidebarContextValue | undefined>(undefined);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  // Detecta se é mobile e inicia collapsed em mobile
+  // Detecta se é mobile e inicia collapsed em mobile; mantém a última escolha quando possível
   const [isCollapsed, setIsCollapsed] = useState(() => {
     if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("sidebar-collapsed");
+      if (stored !== null) {
+        return stored === "true";
+      }
       return window.innerWidth < 768; // md breakpoint
     }
     return false;
@@ -22,6 +26,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     const handleResize = () => {
       if (window.innerWidth < 768) {
         setIsCollapsed(true);
+        localStorage.setItem("sidebar-collapsed", "true");
       }
     };
 
@@ -30,11 +35,22 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   function toggleSidebar() {
-    setIsCollapsed((prev) => !prev);
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("sidebar-collapsed", String(next));
+      }
+      return next;
+    });
   }
 
   function closeSidebar() {
-    setIsCollapsed(true);
+    setIsCollapsed((prev) => {
+      if (!prev && typeof window !== "undefined") {
+        localStorage.setItem("sidebar-collapsed", "true");
+      }
+      return true;
+    });
   }
 
   return (

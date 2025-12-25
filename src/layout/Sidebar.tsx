@@ -5,6 +5,7 @@ import { NavLink } from "react-router-dom";
 import {
   LifeBuoy,
   Settings,
+  Users,
   House,
   MessageCircle,
   PanelLeft,
@@ -159,6 +160,16 @@ export function Sidebar() {
 
         {/* Itens inferiores: Suporte, Documentação e perfil */}
         <div className="px-2 pb-2 flex flex-col gap-1">
+          <NavLink to="/users" className="block">
+            {({ isActive }) => (
+              <SidebarNavItem
+                icon={Users}
+                label="Usuários"
+                collapsed={isCollapsed}
+                active={isActive}
+              />
+            )}
+          </NavLink>
           <SidebarNavItem
             icon={LifeBuoy}
             label="Suporte"
