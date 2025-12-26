@@ -43,7 +43,7 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex flex-col h-screen max-h-screen w-full max-w-full left-0 top-0 translate-x-0 translate-y-0 rounded-none overflow-hidden p-4 min-[500px]:w-[95vw] min-[500px]:max-w-[600px] min-[500px]:left-1/2 min-[500px]:-translate-x-1/2 sm:top-1/2 sm:-translate-y-1/2 sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-[550px] sm:rounded-lg sm:p-6 dark:border-2">
+      <DialogContent className="flex flex-col h-[100dvh] max-h-[100dvh] w-full max-w-full left-0 top-0 translate-x-0 translate-y-0 rounded-none overflow-hidden p-4 min-[500px]:w-[95vw] min-[500px]:max-w-[600px] min-[500px]:left-1/2 min-[500px]:-translate-x-1/2 sm:top-1/2 sm:-translate-y-1/2 sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-[550px] sm:rounded-lg sm:p-6 dark:border-2">
         <DialogHeader>
           <DialogTitle>Novo ticket</DialogTitle>
         </DialogHeader>
@@ -135,7 +135,7 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
             </div>
           </div>
 
-          <DialogFooter className="sticky bottom-0 left-0 right-0 flex-row w-full gap-2 bg-background pt-4 pb-2 sm:justify-end sm:space-x-0 sm:pb-0">
+          <DialogFooter className="sticky bottom-0 left-0 right-0 flex-row w-full gap-2 bg-background pt-4 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:justify-end sm:space-x-0 sm:pb-0">
             <Button
               type="button"
               variant="outline"
