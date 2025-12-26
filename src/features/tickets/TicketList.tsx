@@ -106,12 +106,15 @@ const STATUS_FILTER_OPTIONS: { key: CanonicalStatus; label: string }[] = [
 
 export function TicketList({
   onSelectTicket,
+  isNewTicketOpen,
+  onNewTicketOpenChange,
 }: {
   onSelectTicket?: (ticket: Ticket) => void;
+  isNewTicketOpen: boolean;
+  onNewTicketOpenChange: (open: boolean) => void;
 }) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isNewTicketOpen, setIsNewTicketOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
@@ -238,7 +241,7 @@ export function TicketList({
   );
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-[100svh] max-h-[100svh] min-[500px]:h-[100dvh] min-[500px]:max-h-[100dvh] md:h-full md:max-h-full flex flex-col">
       {/* Header da coluna */}
       <div className="flex items-center justify-between h-14 px-3 border-b border-border">
         <div className="flex items-center gap-2">
@@ -256,7 +259,7 @@ export function TicketList({
         <Button
           size="sm"
           className="bg-primary text-primary-foreground hover:bg-primary/90"
-          onClick={() => setIsNewTicketOpen(true)}
+          onClick={() => onNewTicketOpenChange(true)}
         >
           <Plus className="h-4 w-4" />
           Novo ticket
@@ -388,7 +391,7 @@ export function TicketList({
 
       <NewTicketDialog
         open={isNewTicketOpen}
-        onOpenChange={setIsNewTicketOpen}
+        onOpenChange={onNewTicketOpenChange}
       />
     </div>
   );

@@ -97,7 +97,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
   }
 
   return (
-    <div className="h-full flex flex-col bg-background border-l border-border">
+    <div className="h-full flex flex-col bg-background border-l border-border max-[767px]:border-l-0 max-[767px]:border-0">
       {/* Header aligned with TicketList */}
       <div className="h-14 px-4 border-b border-border flex items-center justify-between shrink-0">
         <h2 className="font-bold text-lg tracking-tight">Detalhes do Ticket</h2>

@@ -148,7 +148,7 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
   // Placeholder: replace with real API-driven typing events later
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-[100svh] max-h-[100svh] min-[500px]:h-[100dvh] min-[500px]:max-h-[100dvh] md:h-full md:max-h-full flex flex-col overflow-hidden">
       {/* Header do chat */}
       <div className="flex items-center justify-between h-14 px-3 border-b border-border transition-colors">
         <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -211,7 +211,7 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
       </div>
 
       {/* Mensagens */}
-      <ScrollArea className="flex-1" ref={scrollAreaRef}>
+      <ScrollArea className="flex-1 min-h-0" ref={scrollAreaRef}>
         <div className="p-4 space-y-3">
           {messages.map((message) => {
             if (message.type === "text") {
@@ -271,7 +271,9 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
         </div>
       </ScrollArea>
 
-      <MessageInput ref={inputRef} onSend={handleSendMessage} />
+      <div className="pb-[env(safe-area-inset-bottom)] bg-background">
+        <MessageInput ref={inputRef} onSend={handleSendMessage} />
+      </div>
 
       {/* AttachmentViewer para imagens do chat */}
       <AttachmentViewer
