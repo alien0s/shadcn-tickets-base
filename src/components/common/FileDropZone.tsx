@@ -60,7 +60,7 @@ export function FileDropZone({ files, onFilesChange, className, dropZoneClassNam
     };
 
     return (
-        <div className={cn("space-y-4", className)}>
+        <div className={cn("space-y-2", className)}>
             <input
                 type="file"
                 ref={fileInputRef}

@@ -27,10 +27,8 @@ import { Switch } from "@/components/ui/switch";
 
 const settingsSections = [
   { id: "general", label: "Perfil" },
-  { id: "notifications", label: "Notifications" },
-  { id: "billing", label: "Billing plans" },
-  { id: "security", label: "Seguranca" },
-  { id: "roles", label: "User roles" },
+  { id: "security", label: "Segurança" },
+  { id: "appearance", label: "Aparência" },
 ];
 
 export function SettingsPage() {
@@ -88,15 +86,18 @@ function SettingsShell() {
     <main className="flex-1 flex flex-col overflow-hidden">
       <div className="h-14 border-b border-border flex items-center">
         <div className="mx-auto max-w-6xl w-full flex items-center px-4 sm:px-6 lg:px-8">
-          <h1 className="text-xl font-semibold">Configuracoes</h1>
-          <Button
-            variant="outline"
-            size="icon"
-            className="md:hidden ml-auto"
-            onClick={toggleSidebar}
-          >
-            <PanelRight className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-3">
+            
+            <Button
+              variant="outline"
+              size="icon"
+              className="md:hidden"
+              onClick={toggleSidebar}
+            >
+              <PanelRight className="h-4 w-4" />
+            </Button>
+            <h1 className="text-xl font-semibold">Configuracões</h1>
+          </div>
         </div>
       </div>
 
@@ -110,8 +111,8 @@ function SettingsShell() {
                     key={section.id}
                     type="button"
                     className={cn(
-                      "flex items-center justify-center md:justify-start rounded-md px-3 py-2.5 text-sm transition-colors whitespace-nowrap text-center md:text-left",
-                      "min-w-[120px] md:min-w-0",
+                      "flex items-center justify-center md:justify-start rounded-md px-2.5 sm:px-3 py-2.5 text-sm transition-colors whitespace-nowrap text-center md:text-left",
+                      "min-w-[96px] sm:min-w-[110px] md:min-w-0",
                       "hover:bg-accent hover:text-foreground",
                       activeSection === section.id
                         ? "sidebar-nav-active hover:bg-primary/10 hover:text-primary dark:hover:bg-gray-800 dark:hover:text-foreground"
