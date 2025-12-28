@@ -31,7 +31,7 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
-    --app-height: 100dvh;
+    --radius: 0.5rem;
     --safe-bottom: env(safe-area-inset-bottom);
 
     /* Priority Colors */
@@ -88,8 +88,8 @@
   html,
   body,
   #root {
-    height: var(--app-height);
-    min-height: var(--app-height);
+    height: 100dvh;
+    min-height: 100dvh;
     overflow: hidden;
     overscroll-behavior: none;
   }
