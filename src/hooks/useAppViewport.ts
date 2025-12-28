@@ -29,30 +29,42 @@ export function useAppViewport() {
 
       if (keyboardOpen) {
         document.documentElement.style.setProperty("--safe-bottom", "0px");
+        document.documentElement.classList.add("ios-keyboard-open");
+        document.body.classList.add("ios-keyboard-open");
       } else {
         document.documentElement.style.setProperty(
           "--safe-bottom",
           "env(safe-area-inset-bottom)"
         );
+        document.documentElement.classList.remove("ios-keyboard-open");
+        document.body.classList.remove("ios-keyboard-open");
       }
     };
 
-    updateVars();
-    window.addEventListener("resize", updateVars);
-    window.addEventListener("orientationchange", updateVars);
+    const scheduleUpdate = () => {
+      requestAnimationFrame(updateVars);
+    };
+
+    scheduleUpdate();
+    window.addEventListener("resize", scheduleUpdate);
+    window.addEventListener("orientationchange", scheduleUpdate);
+    window.addEventListener("focusin", scheduleUpdate);
+    window.addEventListener("focusout", scheduleUpdate);
 
     if (visualViewport) {
-      visualViewport.addEventListener("resize", updateVars);
-      visualViewport.addEventListener("scroll", updateVars);
+      visualViewport.addEventListener("resize", scheduleUpdate);
+      visualViewport.addEventListener("scroll", scheduleUpdate);
     }
 
     return () => {
-      window.removeEventListener("resize", updateVars);
-      window.removeEventListener("orientationchange", updateVars);
+      window.removeEventListener("resize", scheduleUpdate);
+      window.removeEventListener("orientationchange", scheduleUpdate);
+      window.removeEventListener("focusin", scheduleUpdate);
+      window.removeEventListener("focusout", scheduleUpdate);
 
       if (visualViewport) {
-        visualViewport.removeEventListener("resize", updateVars);
-        visualViewport.removeEventListener("scroll", updateVars);
+        visualViewport.removeEventListener("resize", scheduleUpdate);
+        visualViewport.removeEventListener("scroll", scheduleUpdate);
       }
     };
   }, []);

@@ -85,6 +85,19 @@
     @apply bg-background text-foreground;
   }
 
+  html,
+  body,
+  #root {
+    height: var(--app-height);
+    min-height: var(--app-height);
+  }
+
+  html.ios-keyboard-open,
+  body.ios-keyboard-open {
+    overflow: hidden;
+    touch-action: none;
+  }
+
   .sidebar-nav-active {
     @apply bg-primary/10 text-primary dark:bg-gray-800 dark:text-foreground font-medium;
   }
@@ -135,6 +148,14 @@
   }
 
   /* Emoji Picker Customization Removed */
+
+  .chat-scroll-padding {
+    padding-bottom: 1rem;
+  }
+
+  html.ios-keyboard-open .chat-scroll-padding {
+    padding-bottom: calc(1rem + var(--message-input-height, 0px));
+  }
 }
 
 body {
