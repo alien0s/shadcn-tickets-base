@@ -123,7 +123,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10 rounded-lg">
-                <AvatarImage src="https://64.media.tumblr.com/0083c354ff570d505c60c2cf18dcb033/4c1b076e77e7bab7-6c/s500x750/155c9551494fadb9ea8cad80bad0f757a9b89f6a.jpg" alt="Agent" />
+                <AvatarImage src="https://64.media.tumblr.com/ebaf34fe31ba5feaf8316df5a65aa07b/72000c6030712841-e7/s400x600/4403d5bf9f67399659bf990b255703d85a96f5cb.jpg" alt="Agent" />
                 <AvatarFallback className="rounded-lg">JD</AvatarFallback>
               </Avatar>
               <div>

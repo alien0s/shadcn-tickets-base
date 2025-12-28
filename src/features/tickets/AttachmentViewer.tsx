@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +62,7 @@ type Props = {
 export function AttachmentViewer({ open, onOpenChange, initialIndex = 0 }: Props) {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isLoading, setIsLoading] = useState(false);
+  const hasPushedStateRef = useRef(false);
 
   const attachments = MOCK_ATTACHMENTS;
   const currentAttachment = attachments[currentIndex];
@@ -74,6 +75,35 @@ export function AttachmentViewer({ open, onOpenChange, initialIndex = 0 }: Props
       setCurrentIndex(initialIndex);
     }
   }, [open, initialIndex]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (!open) {
+      if (hasPushedStateRef.current) {
+        if (window.history.state?.attachmentViewer) {
+          window.history.replaceState({ attachmentViewer: false }, "");
+        }
+        hasPushedStateRef.current = false;
+      }
+      return;
+    }
+
+    if (!window.history.state || window.history.state?.attachmentViewer) {
+      window.history.replaceState({ attachmentViewerBase: true }, "");
+    }
+    window.history.pushState({ attachmentViewer: true }, "");
+    hasPushedStateRef.current = true;
+
+    const handlePopState = () => {
+      if (open) {
+        onOpenChange(false);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [open, onOpenChange]);
 
   const handlePrevious = () => {
     if (hasPrevious) {
@@ -194,4 +224,3 @@ export function AttachmentViewer({ open, onOpenChange, initialIndex = 0 }: Props
     </Dialog>
   );
 }
-

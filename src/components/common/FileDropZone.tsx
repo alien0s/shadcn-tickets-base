@@ -87,7 +87,10 @@ export function FileDropZone({ files, onFilesChange, className, dropZoneClassNam
                     <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mb-3">
                         <Upload className="h-5 w-5 text-muted-foreground" />
                     </div>
-                    <p className="text-sm font-medium">
+                    <p className="text-sm font-medium sm:hidden">
+                        Toque para escolher um arquivo
+                    </p>
+                    <p className="text-sm font-medium hidden sm:block">
                         Drop your image here or click to browse
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">Max size: 5MB</p>

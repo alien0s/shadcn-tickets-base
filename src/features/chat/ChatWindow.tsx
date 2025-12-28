@@ -271,9 +271,7 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
         </div>
       </ScrollArea>
 
-      <div className="pb-[env(safe-area-inset-bottom)] bg-background">
-        <MessageInput ref={inputRef} onSend={handleSendMessage} />
-      </div>
+      <MessageInput ref={inputRef} onSend={handleSendMessage} />
 
       {/* AttachmentViewer para imagens do chat */}
       <AttachmentViewer

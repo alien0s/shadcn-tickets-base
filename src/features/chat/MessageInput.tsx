@@ -24,6 +24,7 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(function Messa
   const [message, setMessage] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [filePreviews, setFilePreviews] = useState<string[]>([]);
+  const [shouldAutoFocus, setShouldAutoFocus] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -99,8 +100,30 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(function Messa
   }));
 
   useEffect(() => {
-    focusInput();
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const updateAutoFocus = () => setShouldAutoFocus(!mediaQuery.matches);
+    updateAutoFocus();
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", updateAutoFocus);
+    } else {
+      mediaQuery.addListener(updateAutoFocus);
+    }
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener("change", updateAutoFocus);
+      } else {
+        mediaQuery.removeListener(updateAutoFocus);
+      }
+    };
   }, []);
+
+  useEffect(() => {
+    if (!shouldAutoFocus) return;
+    focusInput();
+  }, [shouldAutoFocus]);
 
   const handleFileClick = () => {
     fileInputRef.current?.click();
@@ -128,7 +151,10 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(function Messa
   };
 
   return (
-    <div className="px-3 pb-4 bg-background" onClick={focusInput}>
+    <div
+      className="px-3 pb-4 bg-background max-[767px]:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+      onClick={focusInput}
+    >
       <div className="relative flex flex-col border rounded-md shadow-sm bg-background transition-all">
 
         <form
@@ -175,7 +201,6 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(function Messa
             placeholder="Digite uma mensagem"
             className="resize-none border-0 shadow-none focus-visible:ring-0 px-4 py-3 min-h-[50px] max-h-[200px] text-base"
             style={{ height: "auto" }}
-            autoFocus
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();

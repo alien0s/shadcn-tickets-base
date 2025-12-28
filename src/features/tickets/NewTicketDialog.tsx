@@ -22,6 +22,7 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
   const [priority, setPriority] = useState<TicketPriorityKey>("baixa");
   const [ticketType, setTicketType] = useState<TicketTypeKey>("duvida");
   const [files, setFiles] = useState<File[]>([]);
+  const [shouldAutoFocus, setShouldAutoFocus] = useState(false);
 
   // Handle paste events
   useEffect(() => {
@@ -41,9 +42,37 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
     return () => window.removeEventListener("paste", handlePaste);
   }, [open]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const updateAutoFocus = () => setShouldAutoFocus(!mediaQuery.matches);
+    updateAutoFocus();
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", updateAutoFocus);
+    } else {
+      mediaQuery.addListener(updateAutoFocus);
+    }
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener("change", updateAutoFocus);
+      } else {
+        mediaQuery.removeListener(updateAutoFocus);
+      }
+    };
+  }, []);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex flex-col h-[100dvh] max-h-[100dvh] w-full max-w-full left-0 top-0 translate-x-0 translate-y-0 rounded-none overflow-hidden p-4 min-[500px]:w-[95vw] min-[500px]:max-w-[600px] min-[500px]:left-1/2 min-[500px]:-translate-x-1/2 sm:top-1/2 sm:-translate-y-1/2 sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-[550px] sm:rounded-lg sm:p-6 dark:border-2">
+      <DialogContent
+        className="flex flex-col h-[100dvh] max-h-[100dvh] w-full max-w-full left-0 top-0 translate-x-0 translate-y-0 rounded-none overflow-hidden p-4 min-[500px]:w-[95vw] min-[500px]:max-w-[600px] min-[500px]:left-1/2 min-[500px]:-translate-x-1/2 sm:top-1/2 sm:-translate-y-1/2 sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-[550px] sm:rounded-lg sm:p-6"
+        onOpenAutoFocus={(event) => {
+          if (!shouldAutoFocus) {
+            event.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Novo ticket</DialogTitle>
         </DialogHeader>
