@@ -18,8 +18,7 @@ export function useAppViewport() {
     const visualViewport = window.visualViewport;
 
     const updateVars = () => {
-      const visualHeight = visualViewport?.height ?? window.innerHeight;
-      const height = window.innerHeight;
+      const height = visualViewport?.height ?? window.innerHeight;
       document.documentElement.style.setProperty(
         "--app-height",
         `${Math.round(height)}px`
@@ -31,10 +30,6 @@ export function useAppViewport() {
       const keyboardOpen = keyboardHeight > IOS_KEYBOARD_THRESHOLD_PX;
 
       if (keyboardOpen) {
-        document.documentElement.style.setProperty(
-          "--app-height",
-          `${Math.round(visualHeight)}px`
-        );
         document.documentElement.style.setProperty("--safe-bottom", "0px");
         document.documentElement.classList.add("ios-keyboard-open");
         document.documentElement.style.setProperty(
