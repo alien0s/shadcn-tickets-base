@@ -30,14 +30,12 @@ export function useAppViewport() {
       if (keyboardOpen) {
         document.documentElement.style.setProperty("--safe-bottom", "0px");
         document.documentElement.classList.add("ios-keyboard-open");
-        document.body.classList.add("ios-keyboard-open");
       } else {
         document.documentElement.style.setProperty(
           "--safe-bottom",
           "env(safe-area-inset-bottom)"
         );
         document.documentElement.classList.remove("ios-keyboard-open");
-        document.body.classList.remove("ios-keyboard-open");
       }
     };
 

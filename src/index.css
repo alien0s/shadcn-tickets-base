@@ -92,11 +92,6 @@
     min-height: var(--app-height);
   }
 
-  html.ios-keyboard-open,
-  body.ios-keyboard-open {
-    overflow: hidden;
-    touch-action: none;
-  }
 
   .sidebar-nav-active {
     @apply bg-primary/10 text-primary dark:bg-gray-800 dark:text-foreground font-medium;
