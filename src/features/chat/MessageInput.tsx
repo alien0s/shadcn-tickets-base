@@ -152,7 +152,7 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(function Messa
 
   return (
     <div
-      className="px-3 pb-4 bg-background max-[767px]:pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+      className="px-3 pb-4 bg-background max-[767px]:pb-[calc(0.75rem+var(--safe-bottom, env(safe-area-inset-bottom)))]"
       onClick={focusInput}
     >
       <div className="relative flex flex-col border rounded-md shadow-sm bg-background transition-all">

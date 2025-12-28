@@ -31,7 +31,8 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
-    --app-height: 100vh;
+    --app-height: 100dvh;
+    --safe-bottom: env(safe-area-inset-bottom);
 
     /* Priority Colors */
     --priority-low: 221.2 83.2% 53.3%;

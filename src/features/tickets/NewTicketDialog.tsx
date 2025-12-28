@@ -164,7 +164,7 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
             </div>
           </div>
 
-          <DialogFooter className="sticky bottom-0 left-0 right-0 flex-row w-full gap-2 bg-background pt-4 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:justify-end sm:space-x-0 sm:pb-0">
+          <DialogFooter className="sticky bottom-0 left-0 right-0 flex-row w-full gap-2 bg-background pt-4 pb-[calc(0.5rem+var(--safe-bottom, env(safe-area-inset-bottom)))] sm:justify-end sm:space-x-0 sm:pb-0">
             <Button
               type="button"
               variant="outline"

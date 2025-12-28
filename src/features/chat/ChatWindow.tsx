@@ -148,7 +148,7 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
   // Placeholder: replace with real API-driven typing events later
 
   return (
-    <div className="h-[100svh] max-h-[100svh] min-[500px]:h-[100dvh] min-[500px]:max-h-[100dvh] md:h-full md:max-h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Header do chat */}
       <div className="flex items-center justify-between h-14 px-3 border-b border-border transition-colors">
         <div className="flex items-center gap-2 min-w-0 flex-1">

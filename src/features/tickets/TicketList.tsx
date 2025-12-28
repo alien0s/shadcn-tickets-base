@@ -241,7 +241,7 @@ export function TicketList({
   );
 
   return (
-    <div className="h-[100svh] max-h-[100svh] min-[500px]:h-[100dvh] min-[500px]:max-h-[100dvh] md:h-full md:max-h-full flex flex-col">
+    <div className="h-full flex flex-col">
       {/* Header da coluna */}
       <div className="flex items-center justify-between h-14 px-3 border-b border-border">
         <div className="flex items-center gap-2">
