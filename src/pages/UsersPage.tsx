@@ -32,7 +32,7 @@ const MOCK_USERS: UserRecord[] = [
 export function UsersPage() {
   return (
     <SidebarProvider>
-      <div className="h-screen w-screen bg-background text-foreground flex">
+      <div className="h-[var(--app-height)] w-full bg-background text-foreground flex">
         <Sidebar />
         <UsersShell />
       </div>
