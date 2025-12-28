@@ -33,7 +33,6 @@
     --radius: 0.5rem;
     --app-height: 100dvh;
     --safe-bottom: env(safe-area-inset-bottom);
-    --keyboard-height: 0px;
 
     /* Priority Colors */
     --priority-low: 221.2 83.2% 53.3%;
@@ -91,6 +90,8 @@
   #root {
     height: var(--app-height);
     min-height: var(--app-height);
+    overflow: hidden;
+    overscroll-behavior: none;
   }
 
 
@@ -147,10 +148,6 @@
 
   .chat-scroll-padding {
     padding-bottom: 1rem;
-  }
-
-  html.ios-keyboard-open .chat-scroll-padding {
-    padding-bottom: calc(1rem + var(--message-input-height, 0px));
   }
 }
 
