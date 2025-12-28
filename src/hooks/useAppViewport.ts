@@ -30,12 +30,26 @@ export function useAppViewport() {
       if (keyboardOpen) {
         document.documentElement.style.setProperty("--safe-bottom", "0px");
         document.documentElement.classList.add("ios-keyboard-open");
+        document.body.style.position = "fixed";
+        document.body.style.top = "0";
+        document.body.style.left = "0";
+        document.body.style.right = "0";
+        document.body.style.width = "100%";
+        document.body.style.height = `${Math.round(height)}px`;
+        document.body.style.overflow = "hidden";
       } else {
         document.documentElement.style.setProperty(
           "--safe-bottom",
           "env(safe-area-inset-bottom)"
         );
         document.documentElement.classList.remove("ios-keyboard-open");
+        document.body.style.position = "";
+        document.body.style.top = "";
+        document.body.style.left = "";
+        document.body.style.right = "";
+        document.body.style.width = "";
+        document.body.style.height = "";
+        document.body.style.overflow = "";
       }
     };
 
