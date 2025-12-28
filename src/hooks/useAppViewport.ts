@@ -18,38 +18,31 @@ export function useAppViewport() {
     const visualViewport = window.visualViewport;
 
     const updateVars = () => {
-      const height = visualViewport?.height ?? window.innerHeight;
+      const height = window.innerHeight;
       document.documentElement.style.setProperty(
         "--app-height",
         `${Math.round(height)}px`
       );
 
-      const keyboardOpen = !!visualViewport
-        && window.innerHeight - visualViewport.height > IOS_KEYBOARD_THRESHOLD_PX;
+      const keyboardHeight = visualViewport
+        ? Math.max(0, Math.round(window.innerHeight - visualViewport.height))
+        : 0;
+      const keyboardOpen = keyboardHeight > IOS_KEYBOARD_THRESHOLD_PX;
 
       if (keyboardOpen) {
         document.documentElement.style.setProperty("--safe-bottom", "0px");
         document.documentElement.classList.add("ios-keyboard-open");
-        document.body.style.position = "fixed";
-        document.body.style.top = "0";
-        document.body.style.left = "0";
-        document.body.style.right = "0";
-        document.body.style.width = "100%";
-        document.body.style.height = `${Math.round(height)}px`;
-        document.body.style.overflow = "hidden";
+        document.documentElement.style.setProperty(
+          "--keyboard-height",
+          `${keyboardHeight}px`
+        );
       } else {
         document.documentElement.style.setProperty(
           "--safe-bottom",
           "env(safe-area-inset-bottom)"
         );
         document.documentElement.classList.remove("ios-keyboard-open");
-        document.body.style.position = "";
-        document.body.style.top = "";
-        document.body.style.left = "";
-        document.body.style.right = "";
-        document.body.style.width = "";
-        document.body.style.height = "";
-        document.body.style.overflow = "";
+        document.documentElement.style.setProperty("--keyboard-height", "0px");
       }
     };
 
