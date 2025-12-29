@@ -18,6 +18,12 @@ export function useAppViewport() {
     const visualViewport = window.visualViewport;
 
     const updateVars = () => {
+      const height = visualViewport?.height ?? window.innerHeight;
+      document.documentElement.style.setProperty(
+        "--app-height",
+        `${Math.round(height)}px`
+      );
+
       const keyboardHeight = visualViewport
         ? Math.max(0, Math.round(window.innerHeight - visualViewport.height))
         : 0;
@@ -26,12 +32,17 @@ export function useAppViewport() {
       if (keyboardOpen) {
         document.documentElement.style.setProperty("--safe-bottom", "0px");
         document.documentElement.classList.add("ios-keyboard-open");
+        document.documentElement.style.setProperty(
+          "--keyboard-height",
+          `${keyboardHeight}px`
+        );
       } else {
         document.documentElement.style.setProperty(
           "--safe-bottom",
           "env(safe-area-inset-bottom)"
         );
         document.documentElement.classList.remove("ios-keyboard-open");
+        document.documentElement.style.setProperty("--keyboard-height", "0px");
       }
     };
 

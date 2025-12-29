@@ -18,6 +18,7 @@ import {
   Bell,
   CreditCard,
   LogOut,
+  Monitor,
   Settings,
   Sparkles,
   Sun,
@@ -25,13 +26,14 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/context/theme-context";
 import { useNavigate } from "react-router-dom";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface UserNavProps {
   isCollapsed: boolean;
 }
 
 export function UserNav({ isCollapsed }: UserNavProps) {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
 
   return (
@@ -115,19 +117,30 @@ export function UserNav({ isCollapsed }: UserNavProps) {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={(event) => {
-            event.stopPropagation();
-            toggleTheme();
-          }}
+        <DropdownMenuLabel className="text-xs text-muted-foreground">
+          Tema
+        </DropdownMenuLabel>
+        <Tabs
+          value={theme}
+          onValueChange={(value) =>
+            setTheme(value as "light" | "dark" | "system")
+          }
         >
-          {theme === "dark" ? (
-            <Sun className="mr-2 h-4 w-4" />
-          ) : (
-            <Moon className="mr-2 h-4 w-4" />
-          )}
-          Trocar tema
-        </DropdownMenuItem>
+          <TabsList className="h-8 rounded-lg bg-muted p-1 w-full">
+            <TabsTrigger value="system" className="h-6 text-xs px-2 rounded-md flex-1">
+              <Monitor className="h-3.5 w-3.5 mr-1.5" />
+              Sistema
+            </TabsTrigger>
+            <TabsTrigger value="light" className="h-6 text-xs px-2 rounded-md flex-1">
+              <Sun className="h-3.5 w-3.5 mr-1.5" />
+              Dia
+            </TabsTrigger>
+            <TabsTrigger value="dark" className="h-6 text-xs px-2 rounded-md flex-1">
+              <Moon className="h-3.5 w-3.5 mr-1.5" />
+              Noite
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
         <DropdownMenuSeparator />
         <DropdownMenuItem className="text-red-500 hover:text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/20 cursor-pointer">
           <LogOut className="mr-2 h-4 w-4" />
