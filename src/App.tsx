@@ -4,6 +4,7 @@ import { DashboardPage } from "@/pages/DashboardPage";
 import { HelpCenterPage } from "@/pages/HelpCenterPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { UsersPage } from "@/pages/UsersPage";
+import { useAndroidViewport } from "@/hooks/useAndroidViewport";
 
 type UserRole = "admin" | "agent" | "client";
 
@@ -12,6 +13,7 @@ const currentUserRole: UserRole = "agent";
 
 export default function App() {
   const initialPath = currentUserRole === "client" ? "/tickets" : "/dashboard";
+  useAndroidViewport();
 
   return (
     <Routes>

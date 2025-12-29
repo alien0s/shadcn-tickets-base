@@ -122,7 +122,7 @@ const dashboardApi = {
 export function DashboardPage() {
   return (
     <SidebarProvider>
-      <div className="min-h-[100dvh] w-full bg-background text-foreground flex">
+      <div className="min-h-[var(--app-height)] w-full bg-background text-foreground flex">
         <Sidebar />
         <DashboardShell />
       </div>
