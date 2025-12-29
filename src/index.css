@@ -33,6 +33,7 @@
     --radius: 0.5rem;
     --app-height: 100dvh;
     --safe-bottom: env(safe-area-inset-bottom);
+    --keyboard-height: 0px;
 
     /* Priority Colors */
     --priority-low: 221.2 83.2% 53.3%;
@@ -83,6 +84,13 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  html,
+  body,
+  #root {
+    height: var(--app-height);
+    min-height: var(--app-height);
   }
 
 

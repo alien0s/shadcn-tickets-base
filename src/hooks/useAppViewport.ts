@@ -1,14 +1,19 @@
 import { useEffect } from "react";
 
-const isAndroidDevice = () => {
+const IOS_KEYBOARD_THRESHOLD_PX = 100;
+
+const isIOSDevice = () => {
   if (typeof navigator === "undefined") return false;
-  return /Android/i.test(navigator.userAgent);
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
 };
 
-export function useAndroidViewport() {
+export function useAppViewport() {
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!isAndroidDevice()) return;
+    if (!isIOSDevice()) return;
 
     const visualViewport = window.visualViewport;
 
@@ -18,6 +23,25 @@ export function useAndroidViewport() {
         "--app-height",
         `${Math.round(height)}px`
       );
+
+      const keyboardHeight = visualViewport
+        ? Math.max(0, Math.round(window.innerHeight - visualViewport.height))
+        : 0;
+      const keyboardOpen = keyboardHeight > IOS_KEYBOARD_THRESHOLD_PX;
+
+      if (keyboardOpen) {
+        document.documentElement.style.setProperty("--safe-bottom", "0px");
+        document.documentElement.style.setProperty(
+          "--keyboard-height",
+          `${keyboardHeight}px`
+        );
+      } else {
+        document.documentElement.style.setProperty(
+          "--safe-bottom",
+          "env(safe-area-inset-bottom)"
+        );
+        document.documentElement.style.setProperty("--keyboard-height", "0px");
+      }
     };
 
     const scheduleUpdate = () => {
