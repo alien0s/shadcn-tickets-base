@@ -33,8 +33,6 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
   const headerIsClickable = !isDetailsVisibleOnDesktop;
   const [isAttachmentViewerOpen, setIsAttachmentViewerOpen] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const inputContainerRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<MessageInputHandle>(null);
@@ -152,47 +150,8 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
     return () => clearTimeout(timer);
   }, [typingIndicator.isTyping]);
 
-  // Placeholder: replace with real API-driven typing events later
-  useEffect(() => {
-    if (!inputContainerRef.current || !rootRef.current) return;
-    if (typeof window === "undefined") return;
-
-    const mediaQuery = window.matchMedia("(max-width: 767px)");
-    const updateInputHeight = () => {
-      if (!mediaQuery.matches) {
-        rootRef.current?.style.setProperty("--message-input-height", "0px");
-        return;
-      }
-      const height = inputContainerRef.current?.offsetHeight ?? 0;
-      rootRef.current?.style.setProperty(
-        "--message-input-height",
-        `${height}px`
-      );
-    };
-
-    updateInputHeight();
-    const resizeObserver = new ResizeObserver(updateInputHeight);
-    resizeObserver.observe(inputContainerRef.current);
-    window.addEventListener("resize", updateInputHeight);
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener("change", updateInputHeight);
-    } else {
-      mediaQuery.addListener(updateInputHeight);
-    }
-
-    return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", updateInputHeight);
-      if (mediaQuery.removeEventListener) {
-        mediaQuery.removeEventListener("change", updateInputHeight);
-      } else {
-        mediaQuery.removeListener(updateInputHeight);
-      }
-    };
-  }, []);
-
   return (
-    <div ref={rootRef} className="h-full flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Header do chat */}
       <div className="flex items-center justify-between h-14 px-3 border-b border-border transition-colors">
         <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -256,7 +215,7 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
 
       {/* Mensagens */}
       <ScrollArea className="flex-1 min-h-0" ref={scrollAreaRef}>
-        <div className="p-4 space-y-3 chat-scroll-padding">
+        <div className="p-4 space-y-3">
           {messages.map((message) => {
             if (message.type === "text") {
               return (
@@ -315,9 +274,7 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
         </div>
       </ScrollArea>
 
-      <div ref={inputContainerRef}>
-        <MessageInput ref={inputRef} onSend={handleSendMessage} />
-      </div>
+      <MessageInput ref={inputRef} onSend={handleSendMessage} />
 
       {/* AttachmentViewer para imagens do chat */}
       <AttachmentViewer

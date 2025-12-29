@@ -145,13 +145,6 @@
 
   /* Emoji Picker Customization Removed */
 
-  .chat-scroll-padding {
-    padding-bottom: 1rem;
-  }
-
-  html.ios-keyboard-open .chat-scroll-padding {
-    padding-bottom: calc(1rem + var(--message-input-height, 0px));
-  }
 }
 
 body {

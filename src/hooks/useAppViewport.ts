@@ -31,7 +31,6 @@ export function useAppViewport() {
 
       if (keyboardOpen) {
         document.documentElement.style.setProperty("--safe-bottom", "0px");
-        document.documentElement.classList.add("ios-keyboard-open");
         document.documentElement.style.setProperty(
           "--keyboard-height",
           `${keyboardHeight}px`
@@ -41,7 +40,6 @@ export function useAppViewport() {
           "--safe-bottom",
           "env(safe-area-inset-bottom)"
         );
-        document.documentElement.classList.remove("ios-keyboard-open");
         document.documentElement.style.setProperty("--keyboard-height", "0px");
       }
     };
