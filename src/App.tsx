@@ -8,7 +8,7 @@ import { useAppViewport } from "@/hooks/useAppViewport";
 
 type UserRole = "admin" | "agent" | "client";
 
-// TODO: futuramente vem do login / API
+// TODO: futuramente vem do login / API llllll
 const currentUserRole: UserRole = "agent";
 
 export default function App() {
