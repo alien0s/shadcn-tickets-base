@@ -194,7 +194,7 @@ export function AttachmentViewer({ open, onOpenChange, initialIndex = 0 }: Props
                       src={currentAttachment.url}
                       alt={currentAttachment.name}
                       className={cn(
-                        "max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl",
+                        "max-w-full max-h-[85vh] object-contain shadow-2xl",
                         isLoading && "opacity-0"
                       )}
                       onLoad={handleImageLoad}
