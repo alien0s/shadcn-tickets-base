@@ -93,6 +93,14 @@
     min-height: var(--app-height);
   }
 
+  @supports (-webkit-touch-callout: none) {
+    html,
+    body,
+    #root {
+      overflow: hidden;
+    }
+  }
+
 
   .sidebar-nav-active {
     @apply bg-primary/10 text-primary dark:bg-gray-800 dark:text-foreground font-medium;
