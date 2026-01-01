@@ -277,7 +277,7 @@ export function TicketList({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por assunto..."
-              className="pl-8 h-9 text-sm"
+              className="pl-8 h-9 md:text-sm"
             />
           </div>
 

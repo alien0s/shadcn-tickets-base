@@ -1,3 +1,5 @@
+
+//chatwindows.tsx tela div de chat
 import { useEffect, useState, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -31,10 +33,11 @@ type Props = {
 export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
   const isDetailsVisibleOnDesktop = useIsDesktopDetailsVisible();
   const headerIsClickable = !isDetailsVisibleOnDesktop;
+  const [isMobile, setIsMobile] = useState(false);
   const [isAttachmentViewerOpen, setIsAttachmentViewerOpen] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<MessageInputHandle>(null);
   const [typingIndicator, setTypingIndicator] = useState<TypingIndicator>({
     isTyping: true, // TODO: wire real typing signal from API
@@ -54,10 +57,23 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
   const imageMessages = messages.filter((m): m is Extract<ChatMessage, { type: "image" }> => m.type === "image");
 
   const scrollToBottom = () => {
-    if (!viewportRef.current) return;
+    if (isMobile) {
+      if (!mobileScrollRef.current) return;
+      requestAnimationFrame(() => {
+        if (mobileScrollRef.current) {
+          mobileScrollRef.current.scrollTop = mobileScrollRef.current.scrollHeight;
+        }
+      });
+      return;
+    }
+
+    if (!scrollAreaRef.current) return;
+    const viewport = scrollAreaRef.current.querySelector("[data-radix-scroll-area-viewport]") as HTMLDivElement | null;
+    if (!viewport) return;
+
     requestAnimationFrame(() => {
-      if (viewportRef.current) {
-        viewportRef.current.scrollTop = viewportRef.current.scrollHeight;
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight;
       }
     });
   };
@@ -114,15 +130,6 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
     });
   };
 
-  // Cache viewport element once to avoid repeated querySelector/layout
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      viewportRef.current = scrollAreaRef.current.querySelector(
-        "[data-radix-scroll-area-viewport]"
-      ) as HTMLDivElement | null;
-    }
-  }, [ticket.id]);
-
   // Scroll to bottom when ticket changes
   useEffect(() => {
     const timeoutId = setTimeout(scrollToBottom, 0);
@@ -149,6 +156,33 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
     }, 2500);
     return () => clearTimeout(timer);
   }, [typingIndicator.isTyping]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const updateIsMobile = () => setIsMobile(mediaQuery.matches);
+    updateIsMobile();
+
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", updateIsMobile);
+    } else {
+      mediaQuery.addListener(updateIsMobile);
+    }
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener("change", updateIsMobile);
+      } else {
+        mediaQuery.removeListener(updateIsMobile);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const timeoutId = setTimeout(scrollToBottom, 0);
+    return () => clearTimeout(timeoutId);
+  }, [isMobile, ticket.id]);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -214,65 +248,130 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
       </div>
 
       {/* Mensagens */}
-      <ScrollArea className="flex-1 min-h-0" ref={scrollAreaRef}>
-        <div className="p-4 space-y-3">
-          {messages.map((message) => {
-            if (message.type === "text") {
+      {isMobile ? (
+        <div
+          ref={mobileScrollRef}
+          className="flex-1 min-h-0 overflow-y-auto"
+        >
+          <div className="p-4 space-y-3">
+            {messages.map((message) => {
+              if (message.type === "text") {
+                return (
+                  <MessageBubble
+                    key={message.id}
+                    type="text"
+                    isOwn={message.isOwn}
+                    content={message.content}
+                    timestamp={message.timestamp}
+                  />
+                );
+              }
+
+              if (message.type === "file") {
+                return (
+                  <MessageBubble
+                    key={message.id}
+                    type="file"
+                    isOwn={message.isOwn}
+                    fileName={message.fileName}
+                    fileSize={message.fileSize}
+                    fileUrl={message.fileUrl}
+                    timestamp={message.timestamp}
+                  />
+                );
+              }
+
               return (
                 <MessageBubble
                   key={message.id}
-                  type="text"
+                  type="image"
                   isOwn={message.isOwn}
-                  content={message.content}
+                  imageUrl={message.imageUrl}
+                  alt={message.alt}
                   timestamp={message.timestamp}
+                  onImageClick={() => handleImageClick(message.id)}
                 />
               );
-            }
+            })}
 
-            if (message.type === "file") {
-              return (
-                <MessageBubble
-                  key={message.id}
-                  type="file"
-                  isOwn={message.isOwn}
-                  fileName={message.fileName}
-                  fileSize={message.fileSize}
-                  fileUrl={message.fileUrl}
-                  timestamp={message.timestamp}
-                />
-              );
-            }
-
-            return (
-              <MessageBubble
-                key={message.id}
-                type="image"
-                isOwn={message.isOwn}
-                imageUrl={message.imageUrl}
-                alt={message.alt}
-                timestamp={message.timestamp}
-                onImageClick={() => handleImageClick(message.id)}
-              />
-            );
-          })}
-
-          {typingIndicator.isTyping && (
-            <div className="flex items-start gap-2">
-              <Avatar className="h-10 w-10 rounded-lg flex-shrink-0">
-                <AvatarImage src={typingIndicator.avatarUrl} alt={typingIndicator.name || "Outro participante"} />
-                <AvatarFallback className="rounded-lg text-xs">{typingIndicator.fallback}</AvatarFallback>
-              </Avatar>
-              <div className="bg-muted text-muted-foreground px-3 py-2 rounded-lg shadow-sm animate-in fade-in slide-in-from-bottom-1">
-                <div className="flex items-center gap-1">
-                  <span className="block h-2 w-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.2s]" />
-                  <span className="block h-2 w-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.1s]" />
-                  <span className="block h-2 w-2 rounded-full bg-muted-foreground animate-bounce" />
+            {typingIndicator.isTyping && (
+              <div className="flex items-start gap-2">
+                <Avatar className="h-10 w-10 rounded-lg flex-shrink-0">
+                  <AvatarImage src={typingIndicator.avatarUrl} alt={typingIndicator.name || "Outro participante"} />
+                  <AvatarFallback className="rounded-lg text-xs">{typingIndicator.fallback}</AvatarFallback>
+                </Avatar>
+                <div className="bg-muted text-muted-foreground px-3 py-2 rounded-lg shadow-sm animate-in fade-in slide-in-from-bottom-1">
+                  <div className="flex items-center gap-1">
+                    <span className="block h-2 w-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.2s]" />
+                    <span className="block h-2 w-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.1s]" />
+                    <span className="block h-2 w-2 rounded-full bg-muted-foreground animate-bounce" />
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </ScrollArea>
+      ) : (
+        <ScrollArea className="flex-1 min-h-0" ref={scrollAreaRef}>
+          <div className="p-4 space-y-3">
+            {messages.map((message) => {
+              if (message.type === "text") {
+                return (
+                  <MessageBubble
+                    key={message.id}
+                    type="text"
+                    isOwn={message.isOwn}
+                    content={message.content}
+                    timestamp={message.timestamp}
+                  />
+                );
+              }
+
+              if (message.type === "file") {
+                return (
+                  <MessageBubble
+                    key={message.id}
+                    type="file"
+                    isOwn={message.isOwn}
+                    fileName={message.fileName}
+                    fileSize={message.fileSize}
+                    fileUrl={message.fileUrl}
+                    timestamp={message.timestamp}
+                  />
+                );
+              }
+
+              return (
+                <MessageBubble
+                  key={message.id}
+                  type="image"
+                  isOwn={message.isOwn}
+                  imageUrl={message.imageUrl}
+                  alt={message.alt}
+                  timestamp={message.timestamp}
+                  onImageClick={() => handleImageClick(message.id)}
+                />
+              );
+            })}
+
+            {typingIndicator.isTyping && (
+              <div className="flex items-start gap-2">
+                <Avatar className="h-10 w-10 rounded-lg flex-shrink-0">
+                  <AvatarImage src={typingIndicator.avatarUrl} alt={typingIndicator.name || "Outro participante"} />
+                  <AvatarFallback className="rounded-lg text-xs">{typingIndicator.fallback}</AvatarFallback>
+                </Avatar>
+                <div className="bg-muted text-muted-foreground px-3 py-2 rounded-lg shadow-sm animate-in fade-in slide-in-from-bottom-1">
+                  <div className="flex items-center gap-1">
+                    <span className="block h-2 w-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.2s]" />
+                    <span className="block h-2 w-2 rounded-full bg-muted-foreground animate-bounce [animation-delay:-0.1s]" />
+                    <span className="block h-2 w-2 rounded-full bg-muted-foreground animate-bounce" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      )}
 
       <MessageInput ref={inputRef} onSend={handleSendMessage} />
 

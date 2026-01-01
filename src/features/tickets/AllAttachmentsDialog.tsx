@@ -63,7 +63,7 @@ export function AllAttachmentsDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="flex flex-col h-screen max-h-screen w-full max-w-full left-0 top-0 translate-x-0 translate-y-0 rounded-none overflow-hidden p-4 min-[500px]:w-[95vw] min-[500px]:max-w-[600px] min-[500px]:left-1/2 min-[500px]:-translate-x-1/2 sm:top-1/2 sm:-translate-y-1/2 sm:h-[640px] sm:max-h-[640px] sm:w-full sm:max-w-[550px] sm:rounded-lg sm:p-6 dark:border-2">
+            <DialogContent className="flex flex-col h-[var(--app-height)] max-h-[var(--app-height)] w-full max-w-full left-0 top-0 translate-x-0 translate-y-0 rounded-none overflow-hidden p-4 min-[500px]:w-[95vw] min-[500px]:max-w-[600px] min-[500px]:left-1/2 min-[500px]:-translate-x-1/2 sm:top-1/2 sm:-translate-y-1/2 sm:h-[640px] sm:max-h-[640px] sm:w-full sm:max-w-[550px] sm:rounded-lg sm:p-6 dark:border-2">
                 <DialogHeader>
                     <DialogTitle>Todos os Anexos</DialogTitle>
                 </DialogHeader>

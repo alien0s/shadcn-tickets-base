@@ -1,6 +1,6 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'node:path'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import path from "node:path";
 
 export default defineConfig({
   plugins: [react()],
@@ -10,9 +10,20 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ['emoji-picker-react'],
+    exclude: ["emoji-picker-react"],
   },
-})
+  server: {
+    host: "0.0.0.0",
+    port: 5173,
+    strictPort: true,
+    hmr: false,
+    allowedHosts: [
+      ".ngrok-free.dev", // permite qualquer subdomínio do ngrok
+    ],
+  },
+
+});
+
 
 
 

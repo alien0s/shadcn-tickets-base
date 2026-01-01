@@ -22,7 +22,7 @@ export default {
 			},
 			fontFamily: {
 				// usa a var que vamos definir no CSS
-				sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+				sans: ["var(--font-sans)"],
 			},
 			colors: {
 				background: 'hsl(var(--background))',
@@ -70,6 +70,5 @@ export default {
 	},
 	plugins: [require("tailwindcss-animate")],
 }
-
 
 

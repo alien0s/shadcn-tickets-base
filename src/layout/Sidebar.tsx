@@ -61,20 +61,18 @@ export function Sidebar() {
           onClick={closeSidebar}
         />
       )}
-
       <aside
         ref={sidebarRef}
         className={[
           "flex flex-col border-r border-border bg-card backdrop-blur overflow-hidden",
           "transition-all duration-300 ease-out",
           // Mobile: fixed overlay
-          "md:relative fixed top-0 left-0 h-[100svh] max-h-[100svh] min-[500px]:h-[100dvh] min-[500px]:max-h-[100dvh] md:h-screen md:max-h-screen z-50",
+          "md:relative fixed top-0 left-0 h-[var(--app-height)] max-h-[var(--app-height)] md:h-[var(--app-height)] md:max-h-[var(--app-height)] z-50",
           isCollapsed ? "w-[60px]" : "w-[240px]",
           // Mobile: esconde completamente quando collapsed
           isCollapsed && "-translate-x-full md:translate-x-0",
         ].join(" ")}
       >
-        {/* Topo: logo + actions (toggle tema + colapsar) */}
         <div className="relative flex items-center justify-between h-14 px-3.5 border-b border-border group">
           <div className="flex items-center gap-2 w-full">
             <div className="h-8 w-8 bg-primary rounded-md shrink-0" />

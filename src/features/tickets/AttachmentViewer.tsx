@@ -1,11 +1,20 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
-  DialogContent,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+  type CarouselApi,
+} from "@/components/ui/carousel";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { motion, useMotionValue, useTransform, useDragControls } from "framer-motion";
 
 // Tipos de anexos
 type Attachment = {
@@ -21,7 +30,7 @@ type Attachment = {
 const MOCK_ATTACHMENTS: Attachment[] = [
   {
     id: "1",
-    url: "https://picsum.photos/seed/1/1200/800",
+    url: "https://www.minhatatuagem.com/wp-content/uploads/2022/07/fotos-tumblr-9.jpg",
     type: "image",
     name: "screenshot-issue.jpg",
     sharedBy: "Agent Lisa",
@@ -29,7 +38,7 @@ const MOCK_ATTACHMENTS: Attachment[] = [
   },
   {
     id: "2",
-    url: "https://picsum.photos/seed/2/1200/800",
+    url: "https://cdn.britannica.com/59/256159-050-32D4A1F1/Tumblr-site-on-smartphone.jpg",
     type: "image",
     name: "error-details.jpg",
     sharedBy: "You",
@@ -45,7 +54,7 @@ const MOCK_ATTACHMENTS: Attachment[] = [
   },
   {
     id: "4",
-    url: "https://picsum.photos/seed/4/1200/800",
+    url: "https://store-images.s-microsoft.com/image/apps.19691.14420356529270456.a0e62d2f-10e7-480b-b5a1-cb70a39b4d1b.3af40891-43ad-4549-9351-96f5c86cae65",
     type: "image",
     name: "console-log.jpg",
     sharedBy: "You",
@@ -60,74 +69,104 @@ type Props = {
 };
 
 export function AttachmentViewer({ open, onOpenChange, initialIndex = 0 }: Props) {
+  const [api, setApi] = useState<CarouselApi>();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isLoading, setIsLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const hasPushedStateRef = useRef(false);
+  const baseStateRef = useRef<History["state"] | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   const attachments = MOCK_ATTACHMENTS;
   const currentAttachment = attachments[currentIndex];
-  const hasPrevious = currentIndex > 0;
-  const hasNext = currentIndex < attachments.length - 1;
 
-  // Reset index when dialog opens/closes
+  // Sync initial index when opening or api ready
   useEffect(() => {
-    if (open) {
+    if (open && api) {
+      api.scrollTo(initialIndex, true); // true = instant jump
       setCurrentIndex(initialIndex);
     }
-  }, [open, initialIndex]);
+  }, [open, initialIndex, api]);
+
+  // Track carousel slide changes
+  useEffect(() => {
+    if (!api) return;
+
+    const onSelect = () => {
+      setCurrentIndex(api.selectedScrollSnap());
+      setIsLoading(false); // Reset loading on slide change if needed
+    };
+
+    api.on("select", onSelect);
+    return () => {
+      api.off("select", onSelect);
+    };
+  }, [api]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const updateIsMobile = () => setIsMobile(mediaQuery.matches);
+    updateIsMobile();
 
-    if (!open) {
-      if (hasPushedStateRef.current) {
-        if (window.history.state?.attachmentViewer) {
-          window.history.replaceState({ attachmentViewer: false }, "");
-        }
-        hasPushedStateRef.current = false;
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener("change", updateIsMobile);
+    } else {
+      mediaQuery.addListener(updateIsMobile);
+    }
+
+    return () => {
+      if (mediaQuery.removeEventListener) {
+        mediaQuery.removeEventListener("change", updateIsMobile);
+      } else {
+        mediaQuery.removeListener(updateIsMobile);
       }
+    };
+  }, []);
+
+  const requestClose = () => {
+    if (typeof window === "undefined") {
+      onOpenChange(false);
       return;
     }
 
-    if (!window.history.state || window.history.state?.attachmentViewer) {
-      window.history.replaceState({ attachmentViewerBase: true }, "");
+    if (hasPushedStateRef.current && window.history.state?.attachmentViewer) {
+      window.history.back();
+      return;
     }
-    window.history.pushState({ attachmentViewer: true }, "");
-    hasPushedStateRef.current = true;
+
+    onOpenChange(false);
+  };
+
+  // URL state management logic (kept from original)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (open) {
+      const currentState = window.history.state ?? {};
+      baseStateRef.current = currentState;
+      window.history.replaceState(
+        { ...currentState, attachmentViewerBase: true },
+        ""
+      );
+      window.history.pushState({ ...currentState, attachmentViewer: true }, "");
+      hasPushedStateRef.current = true;
+    } else if (hasPushedStateRef.current && window.history.state?.attachmentViewer) {
+      window.history.back();
+    }
 
     const handlePopState = () => {
-      if (open) {
-        onOpenChange(false);
-      }
+      if (!open) return;
+      onOpenChange(false);
+      const baseState = baseStateRef.current ?? {};
+      window.history.replaceState(baseState, "");
+      hasPushedStateRef.current = false;
     };
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
   }, [open, onOpenChange]);
 
-  const handlePrevious = () => {
-    if (hasPrevious) {
-      setIsLoading(true);
-      setCurrentIndex(currentIndex - 1);
-    }
-  };
-
-  const handleNext = () => {
-    if (hasNext) {
-      setIsLoading(true);
-      setCurrentIndex(currentIndex + 1);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowLeft") {
-      handlePrevious();
-    } else if (e.key === "ArrowRight") {
-      handleNext();
-    } else if (e.key === "Escape") {
-      onOpenChange(false);
-    }
-  };
 
   const handleImageLoad = () => {
     setIsLoading(false);
@@ -137,90 +176,149 @@ export function AttachmentViewer({ open, onOpenChange, initialIndex = 0 }: Props
     setIsLoading(false);
   };
 
+  // Keyboard support is handled by Carousel naturally, but we keep Escape
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      requestClose();
+    }
+  };
+
+  // Framer Motion values
+  const y = useMotionValue(0);
+  const opacity = useTransform(y, [0, 200], [1, 0.5]); // Only fade when dragging down
+  const dragControls = useDragControls();
+
+  const handleDragEnd = (_: any, info: any) => {
+    // Only close if dragging DOWN (positive Y) and past threshold
+    if (info.offset.y > 100 || (info.velocity.y > 500 && info.offset.y > 0)) {
+      onOpenChange(false);
+    }
+    // Otherwise snaps back
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="max-w-[95vw] max-h-[95vh] w-full h-full p-0 gap-0 border-none bg-transparent translate-x-[-50%] translate-y-[-50%] left-[50%] top-[50%] [&>button]:hidden"
-        onKeyDown={handleKeyDown}
-      >
-        {/* Container principal */}
-        <div className="relative w-full h-full flex items-center justify-center z-50">
-          {/* Botão Fechar */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute top-4 right-4 z-50 h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 text-white border-none"
-            onClick={() => onOpenChange(false)}
+      <DialogPrimitive.Portal>
+        {/* Transparent overlay to allow motion.div to handle background */}
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-transparent" />
+
+        <DialogPrimitive.Content
+          className={cn(
+            "fixed inset-0 z-50 w-full h-[var(--app-height)] p-0 border-none focus:outline-none overflow-hidden bg-transparent shadow-none"
+          )}
+          onKeyDown={handleKeyDown}
+        >
+          <motion.div
+            className="relative w-full h-full flex items-center justify-center bg-black/60"
+            style={{ opacity }}
+            onClick={(event) => {
+              const target = event.target as Node;
+              if (contentRef.current?.contains(target)) return;
+              requestClose();
+            }}
+            onTouchEnd={(event) => {
+              const target = event.target as Node;
+              if (contentRef.current?.contains(target)) return;
+              requestClose();
+            }}
           >
-            <X className="h-5 w-5" />
-          </Button>
-
-          {/* Botão Previous */}
-          {hasPrevious && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute left-4 z-50 h-12 w-12 rounded-full bg-black/50 hover:bg-black/70 text-white border-none"
-              onClick={handlePrevious}
+            <motion.div
+              drag="y"
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={{ top: 0, bottom: 0.7 }} // Allow drag down, block up
+              dragDirectionLock
+              dragListener={false} // Manual start only
+              dragControls={dragControls}
+              onDragEnd={handleDragEnd}
+              onPointerDown={(e) => {
+                // Only initiate drag if touching top 20% of screen
+                if (e.clientY < window.innerHeight * 0.20) {
+                  dragControls.start(e);
+                }
+              }}
+              style={{ y }}
+              className="relative z-10 w-full h-full flex items-center justify-center select-none"
+              ref={contentRef}
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+              onTouchEnd={(event) => {
+                event.stopPropagation();
+              }}
             >
-              <ChevronLeft className="h-6 w-6" />
-            </Button>
-          )}
 
-          {/* Botão Next */}
-          {hasNext && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-4 z-50 h-12 w-12 rounded-full bg-black/50 hover:bg-black/70 text-white border-none"
-              onClick={handleNext}
-            >
-              <ChevronRight className="h-6 w-6" />
-            </Button>
-          )}
+              {/* Botão Fechar */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-4 right-4 z-50 h-10 w-10 rounded-full bg-black/50 border-none mt-[env(safe-area-inset-top)] mr-[env(safe-area-inset-right)] focus:ring-0 focus:outline-none focus:bg-black/50 focus-visible:outline-none focus-visible:ring-0 text-white hover:bg-black/70 hover:text-white"
+                onClick={requestClose}
+              >
+                <X className="h-5 w-5" />
+              </Button>
 
-          {/* Área de conteúdo da imagem */}
-          <div className="flex flex-col items-center justify-center w-full h-full p-4">
-            {currentAttachment && (
-              <>
-                {currentAttachment.type === "image" ? (
-                  <div className="relative w-full h-full flex items-center justify-center">
-                    {isLoading && (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="text-white text-sm">Carregando...</div>
+              <Carousel
+                setApi={setApi}
+                className="w-full h-full [&_.overflow-hidden]:h-full"
+                opts={{
+                  loop: true, // Enable infinite loop
+                }}
+              >
+                <CarouselContent className="h-full -ml-0">
+                  {attachments.map((attachment) => (
+                    <CarouselItem key={attachment.id} className="h-full pl-0 flex items-center justify-center relative">
+                      {/* Área de conteúdo */}
+                      <div className="w-full h-full flex flex-col items-center justify-center p-0 md:p-4">
+                        {attachment.type === "image" ? (
+                          <div className="relative w-full h-full flex items-center justify-center">
+                            {isLoading && (
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="text-white text-sm">Carregando...</div>
+                              </div>
+                            )}
+                            <img
+                              src={attachment.url}
+                              alt={attachment.name}
+                              className={cn(
+                                "max-w-full max-h-[85vh] object-contain shadow-2xl transition-opacity duration-300",
+                                isLoading ? "opacity-0" : "opacity-100"
+                              )}
+                              onLoad={handleImageLoad}
+                              onError={handleImageError}
+                            />
+                          </div>
+                        ) : (
+                          <div className="bg-white/10 backdrop-blur-md rounded-lg p-8 max-w-md text-center border border-white/20">
+                            <p className="text-white text-lg mb-2">Visualização de arquivo</p>
+                            <p className="text-white/70 text-sm">{attachment.name}</p>
+                            <Button variant="secondary" className="mt-4">Baixar arquivo</Button>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    <img
-                      src={currentAttachment.url}
-                      alt={currentAttachment.name}
-                      className={cn(
-                        "max-w-full max-h-[85vh] object-contain shadow-2xl",
-                        isLoading && "opacity-0"
-                      )}
-                      onLoad={handleImageLoad}
-                      onError={handleImageError}
-                    />
-                  </div>
-                ) : (
-                  <div className="bg-background rounded-lg p-8 max-w-md text-center">
-                    <p className="text-foreground">Visualização de arquivo não disponível</p>
-                    <p className="text-muted-foreground text-sm mt-2">{currentAttachment.name}</p>
-                  </div>
-                )}
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
 
-                {/* Informações do anexo */}
-                <div className="mt-4 bg-black/50 backdrop-blur-sm rounded-lg px-4 py-2">
-                  <p className="text-white text-sm font-medium">{currentAttachment.name}</p>
-                  
-                  <p className="text-white/60 text-xs mt-1">
-                    {currentIndex + 1} de {attachments.length}
-                  </p>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </DialogContent>
+                <CarouselPrevious className="hidden md:flex left-4 h-12 w-12 rounded-full bg-black/50 border-none text-white hover:bg-black/70 hover:text-white" />
+                <CarouselNext className="hidden md:flex right-4 h-12 w-12 rounded-full bg-black/50 border-none text-white hover:bg-black/70 hover:text-white" />
+              </Carousel>
+
+              {/* Informações do anexo (Overlay fixo na inferior) */}
+              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-50 bg-black/50 backdrop-blur-sm rounded-lg px-4 py-2 pointer-events-none">
+                {currentAttachment && (
+                  <>
+                    <p className="text-white text-sm font-medium text-center">{currentAttachment.name}</p>
+                    <p className="text-white/60 text-xs mt-1 text-center">
+                      {currentIndex + 1} de {attachments.length}
+                    </p>
+                  </>
+                )}
+              </div>
+
+            </motion.div>
+          </motion.div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
     </Dialog>
   );
 }

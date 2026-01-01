@@ -1,3 +1,4 @@
+//messageinput.tsx caixa de enviar mensagem
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -92,7 +93,8 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(function Messa
   };
 
   const focusInput = () => {
-    textareaRef.current?.focus();
+    // preventScroll: true helps stop iOS from shifting the UI up
+    textareaRef.current?.focus({ preventScroll: true });
   };
 
   useImperativeHandle(ref, () => ({
@@ -158,12 +160,12 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(function Messa
       <div className="relative flex flex-col border rounded-md shadow-sm bg-background transition-all">
 
         <form
-        className="flex flex-col"
-        onSubmit={(e) => {
-          e.preventDefault();
-          submitMessage();
-        }}
-      >
+          className="flex flex-col"
+          onSubmit={(e) => {
+            e.preventDefault();
+            submitMessage();
+          }}
+        >
           {/* File Previews Area */}
           {selectedFiles.length > 0 && (
             <div className="px-4 pt-4 pb-2 flex flex-wrap gap-2">

@@ -1,7 +1,5 @@
 import { useEffect } from "react";
 
-const IOS_KEYBOARD_THRESHOLD_PX = 100;
-
 const isIOSDevice = () => {
   if (typeof navigator === "undefined") return false;
   return (
@@ -13,35 +11,16 @@ const isIOSDevice = () => {
 export function useAppViewport() {
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!isIOSDevice()) return;
+    if (isIOSDevice()) return;
 
     const visualViewport = window.visualViewport;
 
     const updateVars = () => {
-      const height = visualViewport?.height ?? window.innerHeight;
+      if (!visualViewport) return;
       document.documentElement.style.setProperty(
         "--app-height",
-        `${Math.round(height)}px`
+        `${Math.round(visualViewport.height)}px`
       );
-
-      const keyboardHeight = visualViewport
-        ? Math.max(0, Math.round(window.innerHeight - visualViewport.height))
-        : 0;
-      const keyboardOpen = keyboardHeight > IOS_KEYBOARD_THRESHOLD_PX;
-
-      if (keyboardOpen) {
-        document.documentElement.style.setProperty("--safe-bottom", "0px");
-        document.documentElement.style.setProperty(
-          "--keyboard-height",
-          `${keyboardHeight}px`
-        );
-      } else {
-        document.documentElement.style.setProperty(
-          "--safe-bottom",
-          "env(safe-area-inset-bottom)"
-        );
-        document.documentElement.style.setProperty("--keyboard-height", "0px");
-      }
     };
 
     const scheduleUpdate = () => {
@@ -49,10 +28,9 @@ export function useAppViewport() {
     };
 
     scheduleUpdate();
+
     window.addEventListener("resize", scheduleUpdate);
     window.addEventListener("orientationchange", scheduleUpdate);
-    window.addEventListener("focusin", scheduleUpdate);
-    window.addEventListener("focusout", scheduleUpdate);
 
     if (visualViewport) {
       visualViewport.addEventListener("resize", scheduleUpdate);
@@ -62,8 +40,6 @@ export function useAppViewport() {
     return () => {
       window.removeEventListener("resize", scheduleUpdate);
       window.removeEventListener("orientationchange", scheduleUpdate);
-      window.removeEventListener("focusin", scheduleUpdate);
-      window.removeEventListener("focusout", scheduleUpdate);
 
       if (visualViewport) {
         visualViewport.removeEventListener("resize", scheduleUpdate);

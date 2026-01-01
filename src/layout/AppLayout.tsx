@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+//applayout.tsx div geral da página
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SidebarProvider } from "@/context/sidebar-context";
 import { Sidebar } from "./Sidebar";
 import { TicketList } from "@/features/tickets/TicketList";
@@ -13,10 +14,19 @@ export function AppLayout() {
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isNewTicketOpen, setIsNewTicketOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const prevSelectedTicket = useRef<Ticket | null>(null);
   const prevIsDetailsOpen = useRef(false);
   const prevIsNewTicketOpen = useRef(false);
   const isMobileRef = useRef(false);
+  const edgeGuardRef = useRef<HTMLDivElement>(null);
+  const isIOS = useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+    return (
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    );
+  }, []);
 
   const handleSelectTicket = (ticket: Ticket) => {
     setSelectedTicket(ticket);
@@ -29,7 +39,9 @@ export function AppLayout() {
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 767px)");
     const updateIsMobile = () => {
-      isMobileRef.current = mediaQuery.matches;
+      const matches = mediaQuery.matches;
+      isMobileRef.current = matches;
+      setIsMobile(matches);
     };
     updateIsMobile();
 
@@ -49,12 +61,34 @@ export function AppLayout() {
   }, []);
 
   useEffect(() => {
+    const edgeGuard = edgeGuardRef.current;
+    if (!edgeGuard || !isIOS || !isMobile) return;
+
+    const preventSwipeBack = (event: TouchEvent) => {
+      if (event.touches.length > 1) return;
+      event.preventDefault();
+    };
+
+    edgeGuard.addEventListener("touchstart", preventSwipeBack, { passive: false });
+    edgeGuard.addEventListener("touchmove", preventSwipeBack, { passive: false });
+
+    return () => {
+      edgeGuard.removeEventListener("touchstart", preventSwipeBack);
+      edgeGuard.removeEventListener("touchmove", preventSwipeBack);
+    };
+  }, [isIOS, isMobile]);
+
+  useEffect(() => {
     if (!isMobileRef.current) return;
     if (!window.history.state || window.history.state?.ticketsBase !== true) {
       window.history.replaceState({ ticketsBase: true }, "");
     }
 
     const handlePopState = () => {
+      const state = window.history.state;
+      if (state?.attachmentViewer || state?.attachmentViewerBase) {
+        return;
+      }
       if (isNewTicketOpen) {
         setIsNewTicketOpen(false);
         window.history.pushState({ ticketsBase: true }, "");
@@ -101,7 +135,14 @@ export function AppLayout() {
 
   return (
     <SidebarProvider>
-      <div className="h-[var(--app-height)] w-full bg-background text-foreground flex">
+      <div className="h-[100dvh] [height:var(--app-height,100dvh)] w-full bg-background text-foreground flex">
+        {isIOS && isMobile && (
+          <div
+            ref={edgeGuardRef}
+            className="fixed left-0 top-0 h-full w-5 z-50 touch-none bg-transparent"
+            aria-hidden="true"
+          />
+        )}
         {/* Sidebar recolhível com ícones */}
         <Sidebar />
 

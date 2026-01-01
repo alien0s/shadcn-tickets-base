@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AppLayout } from "./layout/AppLayout";
 import { DashboardPage } from "@/pages/DashboardPage";
@@ -5,6 +6,7 @@ import { HelpCenterPage } from "@/pages/HelpCenterPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { UsersPage } from "@/pages/UsersPage";
 import { useAppViewport } from "@/hooks/useAppViewport";
+import { useIsApplePlatform } from "@/hooks/useIsApplePlatform";
 
 type UserRole = "admin" | "agent" | "client";
 
@@ -14,6 +16,13 @@ const currentUserRole: UserRole = "agent";
 export default function App() {
   const initialPath = currentUserRole === "client" ? "/tickets" : "/dashboard";
   useAppViewport();
+  const isApplePlatform = useIsApplePlatform();
+
+  useEffect(() => {
+    if (!isApplePlatform) {
+      document.documentElement.classList.add("font-inter");
+    }
+  }, [isApplePlatform]);
 
   return (
     <Routes>
