@@ -29,7 +29,6 @@ export function AttachmentViewer({
   const [api, setApi] = useState<CarouselApi>();
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [isLoading, setIsLoading] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
   const hasPushedStateRef = useRef(false);
   const baseStateRef = useRef<History["state"] | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -60,26 +59,6 @@ export function AttachmentViewer({
     };
   }, [api]);
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mediaQuery = window.matchMedia("(max-width: 767px)");
-    const updateIsMobile = () => setIsMobile(mediaQuery.matches);
-    updateIsMobile();
-
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener("change", updateIsMobile);
-    } else {
-      mediaQuery.addListener(updateIsMobile);
-    }
-
-    return () => {
-      if (mediaQuery.removeEventListener) {
-        mediaQuery.removeEventListener("change", updateIsMobile);
-      } else {
-        mediaQuery.removeListener(updateIsMobile);
-      }
-    };
-  }, []);
 
   const requestClose = () => {
     if (typeof window === "undefined") {

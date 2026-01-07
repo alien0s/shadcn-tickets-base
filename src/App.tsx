@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import { TicketsLayout } from "./layout/TicketsLayout";
+import { TicketsPage } from "@/pages/TicketsPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { HelpCenterPage } from "@/pages/HelpCenterPage";
 import { SettingsPage } from "@/pages/SettingsPage";
@@ -28,7 +28,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Navigate to={initialPath} replace />} />
       <Route path="/dashboard" element={<DashboardPage />} />
-      <Route path="/tickets" element={<TicketsLayout />} />
+      <Route path="/tickets" element={<TicketsPage />} />
       <Route path="/help-center" element={<HelpCenterPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/users" element={<UsersPage />} />
