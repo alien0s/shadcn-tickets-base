@@ -122,7 +122,7 @@ const dashboardApi = {
 export function DashboardPage() {
   return (
     <SidebarProvider>
-      <div className="min-h-[100dvh] [min-height:var(--app-height,100dvh)] w-full bg-background text-foreground flex">
+      <div className="h-[var(--app-height,100dvh)] w-full bg-background text-foreground flex overflow-hidden">
         <Sidebar />
         <DashboardShell />
       </div>
@@ -146,9 +146,13 @@ function DashboardShell() {
   }, []);
 
   return (
-    <main className="flex-1 overflow-y-auto md:pt-0">
-      <div className="mx-auto max-w-7xl px-3 sm:px-4 pt-3 pb-5 sm:px-5 lg:px-8">
-        <DashboardHeader onRefresh={loadDashboard} isLoading={isLoading} />
+    <main className="flex-1 min-h-0 overflow-y-auto md:pt-0">
+      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-border h-14">
+        <div className="mx-auto max-w-7xl px-3 sm:px-4 pt-3 pb-3 sm:px-5 lg:px-8 h-full">
+          <DashboardHeader onRefresh={loadDashboard} isLoading={isLoading} />
+        </div>
+      </div>
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 pt-3 pb-5 sm:px-5 lg:px-8 md:pt-2 md:pb-2">
         {isLoading || !data ? (
           <DashboardSkeleton />
         ) : (
@@ -168,9 +172,8 @@ function DashboardHeader({
 }) {
   const { toggleSidebar } = useSidebar();
   return (
-    <div className="flex flex-col gap-3 pb-4">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-3">
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center gap-3">
         <Button
           variant="outline"
           size="icon"
@@ -179,23 +182,20 @@ function DashboardHeader({
         >
           <PanelRight className="h-4 w-4" />
         </Button>
-          <div className="space-y-1">
-          
+        <div className="space-y-1">
           <h1 className="text-2xl font-bold leading-tight">Dashboard</h1>
         </div>
       </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2 self-start"
-          onClick={onRefresh}
-          disabled={isLoading}
-        >
-          <RefreshCcw className={cn("h-4 w-4", isLoading && "animate-spin")} />
-          Atualizar
-        </Button>
-      </div>
-      
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-2"
+        onClick={onRefresh}
+        disabled={isLoading}
+      >
+        <RefreshCcw className={cn("h-4 w-4", isLoading && "animate-spin")} />
+        Atualizar
+      </Button>
     </div>
   );
 }
@@ -241,14 +241,14 @@ function DashboardGrid({ data }: { data: DashboardData }) {
   ] as const;
 
   return (
-    <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="space-y-4 md:space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 md:gap-2">
         {metrics.map((metric, index) => (
           <MetricCard key={metric.label} metric={metric} delay={index * 60} />
         ))}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 xl:grid-cols-2 md:gap-3">
         <ReplyTimeCard data={data.replyTime} />
         <TicketVolumeCard data={data.ticketVolume} />
       </div>
@@ -281,7 +281,7 @@ function MetricCard({
       className="animate-in fade-in slide-in-from-bottom-2 duration-500 rounded-2xl shadow-sm"
       style={{ animationDelay: `${delay}ms` }}
     >
-      <CardHeader className="pb-4">
+      <CardHeader className="p-6 pb-4 md:p-4 md:pb-3">
         <div className="flex items-start justify-between gap-3">
           <div className="rounded-lg bg-muted/80 p-2 text-muted-foreground">
             <Icon className="h-5 w-5" />
@@ -303,7 +303,7 @@ function MetricCard({
           {metric.value.toLocaleString("pt-BR")}
         </div>
       </CardHeader>
-      <CardContent className="pt-0 space-y-1.5">
+      <CardContent className="p-6 pt-0 space-y-1.5 md:px-4 md:pb-4">
         <p className="text-sm font-semibold">{metric.headline}</p>
         <p className="text-sm text-muted-foreground">{metric.body}</p>
       </CardContent>
@@ -322,7 +322,7 @@ function ReplyTimeCard({ data }: { data: DashboardData["replyTime"] }) {
 
   return (
     <Card className="overflow-hidden animate-in fade-in slide-in-from-bottom-3 duration-500">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row items-center justify-between p-6 md:p-4">
         <div>
           <CardDescription>Tempo de resposta (minutos)</CardDescription>
           <CardTitle className="text-3xl">
@@ -340,7 +340,7 @@ function ReplyTimeCard({ data }: { data: DashboardData["replyTime"] }) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="p-6 pt-0 md:px-4 md:pb-4">
         <div className="rounded-lg bg-gradient-to-b from-primary/5 to-primary/0 border border-border p-4">
           <div
             className="w-full"
@@ -405,7 +405,7 @@ function TicketVolumeCard({ data }: { data: DashboardData["ticketVolume"] }) {
 
   return (
     <Card className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-row items-center justify-between p-6 md:p-4">
         <div>
           <CardDescription>{data.periodLabel}</CardDescription>
           <CardTitle className="text-2xl">Volume de tickets</CardTitle>
@@ -420,7 +420,7 @@ function TicketVolumeCard({ data }: { data: DashboardData["ticketVolume"] }) {
           </span>
         </div>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className="p-6 pt-0 md:px-4 md:pb-4">
         <div className="grid grid-cols-2 gap-2 mb-4">
           <div className="rounded-lg border border-border bg-secondary/30 px-3 py-2">
             <p className="text-xs text-muted-foreground">Ticket Solved</p>
@@ -434,13 +434,13 @@ function TicketVolumeCard({ data }: { data: DashboardData["ticketVolume"] }) {
           </div>
         </div>
 
-        <div className="flex items-end gap-3 h-44">
+        <div className="flex items-end gap-3 h-44 md:h-36">
           {data.series.map((item) => {
             const createdHeight = Math.max(8, (item.created / maxValue) * 100);
             const solvedHeight = Math.max(8, (item.solved / maxValue) * 100);
             return (
               <div key={item.label} className="flex flex-1 flex-col items-center gap-2">
-                <div className="flex w-full items-end gap-2 h-32">
+                <div className="flex w-full items-end gap-2 h-32 md:h-24">
                   <div
                     className="flex-1 rounded-md bg-emerald-500/80"
                     style={{ height: `${solvedHeight}%` }}

@@ -1,24 +1,9 @@
 import { TICKET_STATUS_STYLES } from "@/config/ticket-constants";
 import { cn } from "@/lib/utils";
-import type { TicketStatus } from "./TicketListItem";
-
-export type CanonicalStatus = "aberto" | "pendente" | "fechado";
+import type { TicketStatus } from "../types/ticketTypes";
+import { normalizeStatus, type CanonicalStatus } from "../utils/status";
 
 type StatusVariantKey = CanonicalStatus | "default";
-
-const STATUS_ALIASES: Record<string, CanonicalStatus> = {
-  aberto: "aberto",
-  open: "aberto",
-  pendente: "pendente",
-  pending: "pendente",
-  fechado: "fechado",
-  closed: "fechado",
-};
-
-export function normalizeStatus(status: TicketStatus): CanonicalStatus | null {
-  const key = STATUS_ALIASES[status.toLowerCase()];
-  return key ?? null;
-}
 
 export function getStatusVariant(status: TicketStatus) {
   const normalized = normalizeStatus(status);
@@ -40,7 +25,13 @@ export function getStatusVariant(status: TicketStatus) {
   };
 }
 
-export function StatusPill({ status, className }: { status: TicketStatus; className?: string }) {
+export function StatusPill({
+  status,
+  className,
+}: {
+  status: TicketStatus;
+  className?: string;
+}) {
   const variant = getStatusVariant(status);
   const Icon = variant.icon;
 

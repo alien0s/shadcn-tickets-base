@@ -9,7 +9,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { TICKET_PRIORITY_STYLES, type TicketPriorityKey, TICKET_TYPE_STYLES, type TicketTypeKey } from "@/config/ticket-constants";
+import {
+  TICKET_PRIORITY_STYLES,
+  type TicketPriorityKey,
+  TICKET_TYPE_STYLES,
+  type TicketTypeKey,
+} from "@/config/ticket-constants";
 import { FileDropZone } from "@/components/common/FileDropZone";
 import { cn } from "@/lib/utils";
 
@@ -97,8 +102,8 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
             <div className="space-y-1">
               <label className="text-sm font-medium">Tipo</label>
               <div className="flex gap-2">
-                {(Object.keys(TICKET_TYPE_STYLES) as TicketTypeKey[])
-                  .map((key) => {
+                {(Object.keys(TICKET_TYPE_STYLES) as TicketTypeKey[]).map(
+                  (key) => {
                     const style = TICKET_TYPE_STYLES[key];
                     const isSelected = ticketType === key;
                     const Icon = style.icon;
@@ -118,15 +123,16 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
                         {style.label}
                       </button>
                     );
-                  })}
+                  }
+                )}
               </div>
             </div>
 
             <div className="space-y-1">
               <label className="text-sm font-medium">Prioridade</label>
               <div className="flex gap-2">
-                {(Object.keys(TICKET_PRIORITY_STYLES) as TicketPriorityKey[])
-                  .map((key) => {
+                {(Object.keys(TICKET_PRIORITY_STYLES) as TicketPriorityKey[]).map(
+                  (key) => {
                     const style = TICKET_PRIORITY_STYLES[key];
                     const isSelected = priority === key;
                     return (
@@ -137,14 +143,15 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
                         className={cn(
                           "px-3 py-1 rounded-md text-xs font-medium transition-all border",
                           isSelected
-                            ? style.className + " border-transparent"
+                            ? `${style.className} border-transparent`
                             : "bg-transparent text-muted-foreground border-border hover:bg-accent"
                         )}
                       >
                         {style.label}
                       </button>
                     );
-                  })}
+                  }
+                )}
               </div>
             </div>
 

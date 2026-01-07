@@ -19,7 +19,7 @@ export function useAppViewport() {
       if (!visualViewport) return;
       document.documentElement.style.setProperty(
         "--app-height",
-        `${Math.round(visualViewport.height)}px`
+        `${Number(visualViewport.height.toFixed(1))}px`
       );
     };
 
@@ -48,3 +48,5 @@ export function useAppViewport() {
     };
   }, []);
 }
+
+

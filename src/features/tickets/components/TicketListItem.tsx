@@ -1,35 +1,8 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { type TicketTypeKey, TICKET_PRIORITY_STYLES, TICKET_TYPE_STYLES } from "@/config/ticket-constants";
+import { TICKET_PRIORITY_STYLES, TICKET_TYPE_STYLES } from "@/config/ticket-constants";
 import { HelpCircle } from "lucide-react";
 import { StatusPill } from "./StatusPill";
-
-export type TicketStatus =
-  | "aberto"
-  | "pendente"
-  | "fechado"
-  | "open"
-  | "pending"
-  | "closed";
-
-export type TicketPriority =
-  | "baixa"
-  | "media"
-  | "alta"
-  | "low"
-  | "medium"
-  | "high";
-
-export type Ticket = {
-  id: string;
-  subject: string;
-  status: TicketStatus;
-  priority: TicketPriority;
-  avatarUrl?: string;
-  type?: TicketTypeKey;
-  requester?: string; // Nome do solicitante
-  dateLabel: string; // ex: "12 Nov"
-  entity?: string; // ex: "anra", "aceam"
-};
+import type { Ticket, TicketPriority } from "../types/ticketTypes";
 
 type Props = {
   ticket: Ticket;
@@ -41,15 +14,17 @@ export function TicketListItem({ ticket, onClick, isActive = false }: Props) {
   const priorityPill = getPriorityPill(ticket.priority);
   const TypeIcon = ticket.type ? TICKET_TYPE_STYLES[ticket.type].icon : null;
   const fallbackInitial =
-    (ticket.requester || ticket.subject || "").trim().charAt(0).toUpperCase() || "?";
+    (ticket.requester || ticket.subject || "").trim().charAt(0).toUpperCase() ||
+    "?";
 
   return (
     <button
       onClick={onClick}
-      className={`w-full px-3 py-2 flex items-start gap-3 clean-shadow text-left focus:outline-none transition-colors ${isActive
-        ? "bg-accent border-l-2 border-l-primary"
-        : "hover:bg-accent/60 focus:bg-accent/60"
-        }`}
+      className={`w-full px-3 py-2 flex items-start gap-3 clean-shadow text-left focus:outline-none transition-colors ${
+        isActive
+          ? "bg-accent border-l-2 border-l-primary"
+          : "hover:bg-accent/60 focus:bg-accent/60"
+      }`}
     >
       {/* Avatar maior */}
       <Avatar className="h-10 w-10 rounded-lg mt-[2px] bg-muted/70">
@@ -59,7 +34,7 @@ export function TicketListItem({ ticket, onClick, isActive = false }: Props) {
         </AvatarFallback>
       </Avatar>
 
-      {/* Conteúdo principal */}
+      {/* Conteudo principal */}
       <div className="flex-1 flex flex-col min-w-0">
         <div className="flex items-start justify-between gap-2">
           <span className="text-sm font-medium truncate">
@@ -119,5 +94,3 @@ function getPriorityPill(priority: TicketPriority) {
     className: "bg-muted text-muted-foreground",
   };
 }
-
-export default TicketListItem;

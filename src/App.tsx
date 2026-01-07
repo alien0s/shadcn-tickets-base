@@ -1,10 +1,10 @@
 import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import { AppLayout } from "./layout/AppLayout";
+import { TicketsLayout } from "./layout/TicketsLayout";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { HelpCenterPage } from "@/pages/HelpCenterPage";
 import { SettingsPage } from "@/pages/SettingsPage";
-import { UsersPage } from "@/pages/UsersPage";
+import { UsersPage } from "@/pages/users/UsersPage";
 import { useAppViewport } from "@/hooks/useAppViewport";
 import { useIsApplePlatform } from "@/hooks/useIsApplePlatform";
 
@@ -28,7 +28,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<Navigate to={initialPath} replace />} />
       <Route path="/dashboard" element={<DashboardPage />} />
-      <Route path="/tickets" element={<AppLayout />} />
+      <Route path="/tickets" element={<TicketsLayout />} />
       <Route path="/help-center" element={<HelpCenterPage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/users" element={<UsersPage />} />
