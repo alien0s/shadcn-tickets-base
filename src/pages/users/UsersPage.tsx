@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { AppLayout } from "@/layout/AppLayout";
 import { UsersHeader } from "@/features/users/components/UsersHeader";
 import { UsersToolbar } from "@/features/users/components/UsersToolbar";
 import { UsersTable } from "@/features/users/components/UsersTable";
+import { NewUserDialog } from "@/features/users/components/NewUserDialog";
 import { useUsers } from "@/features/users/hooks/useUsers";
 
 export function UsersPage() {
   const { search, setSearch, filteredUsers } = useUsers();
+  const [isNewUserOpen, setIsNewUserOpen] = useState(false);
 
   return (
     <AppLayout>
@@ -19,6 +22,7 @@ export function UsersPage() {
                   <UsersToolbar
                     search={search}
                     onSearchChange={setSearch}
+                    onNewUserClick={() => setIsNewUserOpen(true)}
                   />
                 </div>
                 <UsersToolbar
@@ -32,6 +36,7 @@ export function UsersPage() {
           </div>
         </div>
       </div>
+      <NewUserDialog open={isNewUserOpen} onOpenChange={setIsNewUserOpen} />
     </AppLayout>
   );
 }

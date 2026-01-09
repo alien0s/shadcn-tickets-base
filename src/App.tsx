@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { TicketsPage } from "@/pages/TicketsPage";
-import { DashboardPage } from "@/pages/DashboardPage";
+import { DashboardTicketsPage } from "@/pages/DashboardTicketsPage";
 import { HelpCenterPage } from "@/pages/HelpCenterPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { UsersPage } from "@/pages/users/UsersPage";
@@ -14,7 +14,7 @@ type UserRole = "admin" | "agent" | "client";
 const currentUserRole: UserRole = "agent";
 
 export default function App() {
-  const initialPath = currentUserRole === "client" ? "/tickets" : "/dashboard";
+  const initialPath = currentUserRole === "client" ? "/tickets" : "/dashboardtickets";
   useAppViewport();
   const isApplePlatform = useIsApplePlatform();
 
@@ -27,7 +27,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to={initialPath} replace />} />
-      <Route path="/dashboard" element={<DashboardPage />} />
+      <Route path="/dashboardtickets" element={<DashboardTicketsPage />} />
       <Route path="/tickets" element={<TicketsPage />} />
       <Route path="/help-center" element={<HelpCenterPage />} />
       <Route path="/settings" element={<SettingsPage />} />

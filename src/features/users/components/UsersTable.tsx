@@ -30,9 +30,9 @@ export function UsersTable({ users }: UsersTableProps) {
                     Nome
                   </th>
                   <th className="px-3 py-3 text-left font-semibold">Email</th>
-                  <th className="px-3 py-3 text-left font-semibold">Funcao</th>
+                  <th className="px-3 py-3 text-left font-semibold">Função</th>
                   <th className="px-3 py-3 text-left font-semibold">Entidade</th>
-                  <th className="px-3 py-3 text-left font-semibold">Acoes</th>
+                  <th className="px-3 py-3 text-left font-semibold">Ações</th>
                 </tr>
               </thead>
               <tbody>

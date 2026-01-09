@@ -1,6 +1,6 @@
 import type { RefObject } from "react";
 import { SidebarProvider } from "@/context/sidebar-context";
-import { Sidebar } from "./Sidebar";
+import { Sidebar } from "@/features/sidebar/components/Sidebar";
 import { TicketList } from "@/features/tickets/components/TicketList";
 import { ChatWindow } from "@/features/chat/components/ChatWindow";
 import { TicketDetails } from "@/features/tickets/components/TicketDetails";
@@ -14,7 +14,7 @@ type TicketsLayoutProps = {
   isNewTicketOpen: boolean;
   isMobile: boolean;
   isIOS: boolean;
-  edgeGuardRef: RefObject<HTMLDivElement>;
+  edgeGuardRef: RefObject<HTMLDivElement | null>;
   onSelectTicket: (ticket: Ticket) => void;
   onBack: () => void;
   onToggleDetails: () => void;

@@ -24,18 +24,15 @@ import {
   Sun,
   Moon,
 } from "lucide-react";
-import { useTheme } from "@/context/theme-context";
-import { useNavigate } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { UserNavProps } from "../types";
 
-interface UserNavProps {
-  isCollapsed: boolean;
-}
-
-export function UserNav({ isCollapsed }: UserNavProps) {
-  const { theme, setTheme } = useTheme();
-  const navigate = useNavigate();
-
+export function UserNav({
+  isCollapsed,
+  theme,
+  setTheme,
+  onNavigateSettings,
+}: UserNavProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -95,11 +92,7 @@ export function UserNav({ isCollapsed }: UserNavProps) {
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem
-            onSelect={() => {
-              navigate("/settings");
-            }}
-          >
+          <DropdownMenuItem onSelect={onNavigateSettings}>
             <Settings className="mr-2 h-4 w-4" />
             Configuracoes
           </DropdownMenuItem>

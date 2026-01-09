@@ -5,12 +5,14 @@ import { ListFilter, Search, UserPlus } from "lucide-react";
 type UsersToolbarProps = {
   search: string;
   onSearchChange: (value: string) => void;
+  onNewUserClick?: () => void;
   variant?: "actions" | "search";
 };
 
 export function UsersToolbar({
   search,
   onSearchChange,
+  onNewUserClick,
   variant = "actions",
 }: UsersToolbarProps) {
   if (variant === "search") {
@@ -21,7 +23,7 @@ export function UsersToolbar({
             <Search className="h-4 w-4" />
           </span>
           <Input
-            placeholder="Pesquisar usuário"
+            placeholder="Pesquisar usuario"
             className="pl-8 h-9 md:text-sm"
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
@@ -39,7 +41,7 @@ export function UsersToolbar({
             <Search className="h-4 w-4" />
           </span>
           <Input
-            placeholder="Pesquisar usuário"
+            placeholder="Pesquisar usuario"
             className="pl-8 h-9 md:text-sm"
             value={search}
             onChange={(event) => onSearchChange(event.target.value)}
@@ -49,9 +51,9 @@ export function UsersToolbar({
           <ListFilter className="h-4 w-4" />
           Filtros
         </Button>
-        <Button size="sm" className="gap-2">
+        <Button size="sm" className="gap-2" onClick={onNewUserClick}>
           <UserPlus className="h-4 w-4" />
-          Criar usuário
+          Criar usuario
         </Button>
       </div>
 
@@ -59,9 +61,9 @@ export function UsersToolbar({
         <Button variant="outline" size="icon" className="h-9 w-9">
           <ListFilter className="h-4 w-4" />
         </Button>
-        <Button size="sm" className="gap-2">
+        <Button size="sm" className="gap-2" onClick={onNewUserClick}>
           <UserPlus className="h-4 w-4" />
-          Criar usuário
+          Criar usuario
         </Button>
       </div>
     </>
