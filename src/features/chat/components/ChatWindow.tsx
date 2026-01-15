@@ -29,6 +29,8 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const mobileScrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<MessageInputHandle>(null);
+  const previousMessageCountRef = useRef(0);
+  const [newMessageId, setNewMessageId] = useState<string | null>(null);
   const { imageMessages, messages, sendMessage, typingIndicator } =
     useChatMessages();
 
@@ -37,7 +39,10 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
       if (!mobileScrollRef.current) return;
       requestAnimationFrame(() => {
         if (mobileScrollRef.current) {
-          mobileScrollRef.current.scrollTop = mobileScrollRef.current.scrollHeight;
+          mobileScrollRef.current.scrollTo({
+            top: mobileScrollRef.current.scrollHeight,
+            behavior: "smooth",
+          });
         }
       });
       return;
@@ -51,7 +56,10 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
 
     requestAnimationFrame(() => {
       if (viewport) {
-        viewport.scrollTop = viewport.scrollHeight;
+        viewport.scrollTo({
+          top: viewport.scrollHeight,
+          behavior: "smooth",
+        });
       }
     });
   };
@@ -80,6 +88,18 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
     const timeoutId = setTimeout(scrollToBottom, 0);
     return () => clearTimeout(timeoutId);
   }, [messages.length]);
+
+  useEffect(() => {
+    const previousCount = previousMessageCountRef.current;
+    if (messages.length > previousCount && previousCount > 0) {
+      const latestMessage = messages[messages.length - 1];
+      setNewMessageId(latestMessage.id);
+      const timeoutId = setTimeout(() => setNewMessageId(null), 240);
+      previousMessageCountRef.current = messages.length;
+      return () => clearTimeout(timeoutId);
+    }
+    previousMessageCountRef.current = messages.length;
+  }, [messages]);
 
   useEffect(() => {
     if (!isMobile) return;
@@ -163,6 +183,7 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
                     isOwn={message.isOwn}
                     content={message.content}
                     timestamp={message.timestamp}
+                    isNew={newMessageId === message.id}
                   />
                 );
               }
@@ -177,6 +198,7 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
                     fileSize={message.fileSize}
                     fileUrl={message.fileUrl}
                     timestamp={message.timestamp}
+                    isNew={newMessageId === message.id}
                   />
                 );
               }
@@ -190,6 +212,7 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
                   alt={message.alt}
                   timestamp={message.timestamp}
                   onImageClick={() => handleImageClick(message.id)}
+                  isNew={newMessageId === message.id}
                 />
               );
             })}
@@ -228,6 +251,7 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
                     isOwn={message.isOwn}
                     content={message.content}
                     timestamp={message.timestamp}
+                    isNew={newMessageId === message.id}
                   />
                 );
               }
@@ -242,6 +266,7 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
                     fileSize={message.fileSize}
                     fileUrl={message.fileUrl}
                     timestamp={message.timestamp}
+                    isNew={newMessageId === message.id}
                   />
                 );
               }
@@ -255,6 +280,7 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
                   alt={message.alt}
                   timestamp={message.timestamp}
                   onImageClick={() => handleImageClick(message.id)}
+                  isNew={newMessageId === message.id}
                 />
               );
             })}

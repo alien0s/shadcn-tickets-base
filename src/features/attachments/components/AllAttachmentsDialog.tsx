@@ -6,7 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileItem } from "@/components/FileItem";
+import { FileItem } from "@/features/files/components/FileItem";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AttachmentItem } from "../types/attachmentTypes";
 

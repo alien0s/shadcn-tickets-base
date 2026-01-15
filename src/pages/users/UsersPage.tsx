@@ -7,7 +7,21 @@ import { NewUserDialog } from "@/features/users/components/NewUserDialog";
 import { useUsers } from "@/features/users/hooks/useUsers";
 
 export function UsersPage() {
-  const { search, setSearch, filteredUsers } = useUsers();
+  const {
+    search,
+    setSearch,
+    filteredUsers,
+    paginatedUsers,
+    page,
+    totalPages,
+    setPage,
+    entities,
+    roles,
+    selectedEntities,
+    selectedRoles,
+    toggleEntity,
+    toggleRole,
+  } = useUsers();
   const [isNewUserOpen, setIsNewUserOpen] = useState(false);
 
   return (
@@ -23,15 +37,32 @@ export function UsersPage() {
                     search={search}
                     onSearchChange={setSearch}
                     onNewUserClick={() => setIsNewUserOpen(true)}
+                    entities={entities}
+                    roles={roles}
+                    selectedEntities={selectedEntities}
+                    selectedRoles={selectedRoles}
+                    onToggleEntity={toggleEntity}
+                    onToggleRole={toggleRole}
                   />
                 </div>
                 <UsersToolbar
                   search={search}
                   onSearchChange={setSearch}
                   variant="search"
+                  entities={entities}
+                  roles={roles}
+                  selectedEntities={selectedEntities}
+                  selectedRoles={selectedRoles}
+                  onToggleEntity={toggleEntity}
+                  onToggleRole={toggleRole}
                 />
               </div>
-              <UsersTable users={filteredUsers} />
+              <UsersTable
+                users={paginatedUsers}
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+              />
             </div>
           </div>
         </div>

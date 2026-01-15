@@ -5,8 +5,11 @@ import { DashboardTicketsPage } from "@/pages/DashboardTicketsPage";
 import { HelpCenterPage } from "@/pages/HelpCenterPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { UsersPage } from "@/pages/users/UsersPage";
+import { LoginPage } from "@/pages/LoginPage";
+import { ForgotPasswordPage } from "@/features/auth";
 import { useAppViewport } from "@/hooks/useAppViewport";
 import { useIsApplePlatform } from "@/hooks/useIsApplePlatform";
+import { Toaster } from "@/components/ui/sonner";
 
 type UserRole = "admin" | "agent" | "client";
 
@@ -25,15 +28,20 @@ export default function App() {
   }, [isApplePlatform]);
 
   return (
-    <Routes>
-      <Route path="/" element={<Navigate to={initialPath} replace />} />
+    <>
+      <Routes>
+        <Route path="/" element={<Navigate to={initialPath} replace />} />
       <Route path="/dashboardtickets" element={<DashboardTicketsPage />} />
       <Route path="/tickets" element={<TicketsPage />} />
       <Route path="/help-center" element={<HelpCenterPage />} />
       <Route path="/settings" element={<SettingsPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/users" element={<UsersPage />} />
-      {/* fallback */}
-      <Route path="*" element={<Navigate to={initialPath} replace />} />
-    </Routes>
+        {/* fallback */}
+        <Route path="*" element={<Navigate to={initialPath} replace />} />
+      </Routes>
+      <Toaster />
+    </>
   );
 }

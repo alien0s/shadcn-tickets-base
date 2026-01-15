@@ -6,9 +6,17 @@ import { UsersPagination } from "./UsersPagination";
 
 type UsersTableProps = {
   users: UserRecord[];
+  page: number;
+  totalPages: number;
+  onPageChange: (nextPage: number) => void;
 };
 
-export function UsersTable({ users }: UsersTableProps) {
+export function UsersTable({
+  users,
+  page,
+  totalPages,
+  onPageChange,
+}: UsersTableProps) {
   return (
     <div className="flex-1 min-h-0 overflow-hidden rounded-lg border border-border bg-background shadow-sm flex flex-col">
       {users.length === 0 ? (
@@ -43,7 +51,11 @@ export function UsersTable({ users }: UsersTableProps) {
             </table>
           </div>
           <Separator />
-          <UsersPagination />
+          <UsersPagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={onPageChange}
+          />
         </>
       )}
     </div>

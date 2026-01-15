@@ -25,6 +25,8 @@ import {
   Moon,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/features/auth";
 import type { UserNavProps } from "../types";
 
 export function UserNav({
@@ -33,6 +35,14 @@ export function UserNav({
   setTheme,
   onNavigateSettings,
 }: UserNavProps) {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -135,7 +145,10 @@ export function UserNav({
           </TabsList>
         </Tabs>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="text-red-500 hover:text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/20 cursor-pointer">
+        <DropdownMenuItem
+          className="text-red-500 hover:text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/20 cursor-pointer"
+          onSelect={handleLogout}
+        >
           <LogOut className="mr-2 h-4 w-4" />
           Sair
         </DropdownMenuItem>

@@ -15,7 +15,7 @@ export function SidebarItem({
       size={collapsed ? "icon" : size}
       className={[
         "sidebar-nav-btn justify-start",
-        collapsed ? "justify-center w-10" : "gap-2 w-full pl-2.5",
+        collapsed ? "justify-start w-full pl-[0.87rem]" : "gap-2 w-full pl-[0.85rem]",
         active
           ? "sidebar-nav-active hover:bg-primary/10 hover:text-primary dark:hover:bg-gray-800 dark:hover:text-foreground"
           : "text-muted-foreground",

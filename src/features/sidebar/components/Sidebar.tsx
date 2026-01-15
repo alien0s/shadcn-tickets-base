@@ -1,14 +1,21 @@
 import { useSidebar } from "@/context/sidebar-context";
 import { Button } from "@/components/ui/button";
 import { NavLink } from "react-router-dom";
-import { House, LifeBuoy, MessageCircle, PanelLeft } from "lucide-react";
+import {
+  FileText,
+  House,
+  LifeBuoy,
+  MessageCircle,
+  PanelLeft,
+  Users,
+} from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { SidebarItem } from "./SidebarItem";
-import { SidebarUserSection } from "./SidebarUserSection";
+import { UserNav } from "./UserNav";
 import { useSidebarOutsideClose } from "../hooks/useSidebarOutsideClose";
 import { useUserNav } from "../hooks/useUserNav";
 
@@ -19,7 +26,7 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Backdrop - apenas mobile quando sidebar estÇ­ aberto */}
+      {/* Backdrop - apenas mobile quando sidebar estiver aberto */}
       {!isCollapsed && (
         <div
           className="fixed inset-0 bg-black/50 z-40 md:hidden"
@@ -48,7 +55,7 @@ export function Sidebar() {
             )}
           </div>
 
-          {/* BotÇœo de colapsar sidebar */}
+          {/* Botao de colapsar sidebar */}
           <div
             className={[
               "flex items-center",
@@ -75,13 +82,9 @@ export function Sidebar() {
           </div>
         </div>
 
-        {/* NavegaÇõÇœo principal */}
-        <nav
-          className={[
-            "flex-1 min-h-0 flex flex-col py-3 gap-1 px-2 overflow-y-auto",
-            // isCollapsed ? "items-center" : "", // Removed to fix animation
-          ].join(" ")}
-        >
+        {/* Navegacao principal */}
+        <nav className="flex-1 min-h-0 grid grid-rows-[1fr_auto] py-3 px-2">
+          <div className="min-h-0 flex flex-col gap-1 overflow-y-auto">
           <NavLink to="/dashboardtickets" className="block">
             {({ isActive }) => (
               <SidebarItem
@@ -115,10 +118,48 @@ export function Sidebar() {
               />
             )}
           </NavLink>
-        </nav>
 
-        {/* Itens inferiores: Suporte, DocumentaÇõÇœo e perfil */}
-        <SidebarUserSection isCollapsed={isCollapsed} userNav={userNav} />
+          </div>
+
+          {/* Itens inferiores: Suporte, Documentacao e perfil */}
+          <div className="pt-3 flex flex-col gap-1">
+            <NavLink to="/users" className="block">
+              {({ isActive }) => (
+                <SidebarItem
+                  icon={Users}
+                  label="Usuarios"
+                  collapsed={isCollapsed}
+                  active={isActive}
+                />
+              )}
+            </NavLink>
+            <NavLink to="/users" className="block">
+              {({ isActive }) => (
+                <SidebarItem
+                  icon={LifeBuoy}
+                  label="Suporte"
+                  collapsed={isCollapsed}
+                  active={isActive}
+                />
+              )}
+            </NavLink>
+            <NavLink to="/users" className="block">
+              {({ isActive }) => (
+                <SidebarItem
+                  icon={FileText}
+                  label="Documentação"
+                  collapsed={isCollapsed}
+                  active={isActive}
+                />
+              )}
+            </NavLink>
+            
+
+            <div className="mt-2">
+              <UserNav isCollapsed={isCollapsed} {...userNav} />
+            </div>
+          </div>
+        </nav>
       </aside>
     </>
   );

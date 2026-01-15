@@ -3,7 +3,7 @@ import type { Ticket } from "../types/ticketTypes";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FileItem } from "@/components/FileItem";
+import { FileItem } from "@/features/files/components/FileItem";
 import { Mail, Phone, X } from "lucide-react";
 import { AttachmentViewer } from "@/features/attachments/components/AttachmentViewer";
 import { AllAttachmentsDialog } from "@/features/attachments/components/AllAttachmentsDialog";

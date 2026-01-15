@@ -8,7 +8,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +15,9 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ShieldCheck, Headset, User } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type Props = {
   open: boolean;
@@ -33,14 +34,18 @@ const ROLE_OPTIONS = [
 
 const ENTITY_OPTIONS = ["ANRA", "ACeAm", "Asur", "MLA", "UNoB"];
 
+const PERMISSION_OPTIONS = [
+  { key: "admin", label: "Admin", icon: ShieldCheck },
+  { key: "agent", label: "Agente", icon: Headset },
+  { key: "user", label: "Usuario", icon: User },
+] as const;
+
+type PermissionKey = (typeof PERMISSION_OPTIONS)[number]["key"];
+
 export function NewUserDialog({ open, onOpenChange }: Props) {
   const [role, setRole] = useState(ROLE_OPTIONS[0]);
   const [entity, setEntity] = useState(ENTITY_OPTIONS[0]);
-  const [permissions, setPermissions] = useState({
-    admin: false,
-    agent: false,
-    user: false,
-  });
+  const [permission, setPermission] = useState<PermissionKey>("admin");
   const [shouldAutoFocus, setShouldAutoFocus] = useState(false);
 
   useEffect(() => {
@@ -85,8 +90,9 @@ export function NewUserDialog({ open, onOpenChange }: Props) {
             console.log("Criando usuario:", {
               role,
               entity,
-              permissions,
+              permission,
             });
+            toast.success("Usuario criado com sucesso");
             onOpenChange(false);
           }}
         >
@@ -136,61 +142,27 @@ export function NewUserDialog({ open, onOpenChange }: Props) {
 
             <div className="space-y-1">
               <label className="text-sm font-medium">Permissoes</label>
-              <div className="grid gap-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="permission-admin"
-                    checked={permissions.admin}
-                    onCheckedChange={(value) =>
-                      setPermissions((prev) => ({
-                        ...prev,
-                        admin: Boolean(value),
-                      }))
-                    }
-                  />
-                  <label
-                    htmlFor="permission-admin"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                  >
-                    Admin
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="permission-agent"
-                    checked={permissions.agent}
-                    onCheckedChange={(value) =>
-                      setPermissions((prev) => ({
-                        ...prev,
-                        agent: Boolean(value),
-                      }))
-                    }
-                  />
-                  <label
-                    htmlFor="permission-agent"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                  >
-                    Agente
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="permission-user"
-                    checked={permissions.user}
-                    onCheckedChange={(value) =>
-                      setPermissions((prev) => ({
-                        ...prev,
-                        user: Boolean(value),
-                      }))
-                    }
-                  />
-                  <label
-                    htmlFor="permission-user"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                  >
-                    Usuario
-                  </label>
-                </div>
+              <div className="grid grid-cols-3 gap-2">
+                {PERMISSION_OPTIONS.map((option) => {
+                  const Icon = option.icon;
+                  const isSelected = permission === option.key;
+                  return (
+                    <button
+                      key={option.key}
+                      type="button"
+                      onClick={() => setPermission(option.key)}
+                      className={cn(
+                        "flex flex-col items-center justify-center gap-1 rounded-md border px-2 py-2 text-xs font-medium transition-all",
+                        isSelected
+                          ? "bg-muted text-foreground border-border"
+                          : "bg-transparent text-muted-foreground border-border hover:bg-accent"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {option.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

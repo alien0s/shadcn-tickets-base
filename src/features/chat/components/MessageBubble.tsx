@@ -1,11 +1,12 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { cn } from "@/lib/utils";
-import { FileItem } from "@/components/FileItem";
+import { FileItem } from "@/features/files/components/FileItem";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 type BaseMessageProps = {
   isOwn: boolean;
   timestamp?: string;
+  isNew?: boolean;
 };
 
 type TextMessageProps = BaseMessageProps & {
@@ -32,12 +33,10 @@ type MessageBubbleProps = TextMessageProps | FileMessageProps | ImageMessageProp
 export const MessageBubble = React.memo(function MessageBubble(
   props: MessageBubbleProps
 ) {
-  const { isOwn, timestamp } = props;
-  // Guard animation class so it does not re-apply on every parent render.
-  const animationClass = useMemo(
-    () => "animate-in fade-in slide-in-from-bottom-2 duration-200",
-    []
-  );
+  const { isOwn, timestamp, isNew } = props;
+  const animationClass = isNew
+    ? "animate-in fade-in slide-in-from-bottom-2 duration-200"
+    : "";
   const avatarUrl = isOwn
     ? "https://img.wattpad.com/21bf8fcb4e0790256056b6cc1ad4943569479292/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f776174747061642d6d656469612d736572766963652f53746f7279496d6167652f354b3576414f686f516e4c3368673d3d2d3332383734303530362e313438383033353235653662663366313836333836383732303237302e6a7067?s=fit&w=720&h=720"
     : "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSU6TAn8zOX5VYek6Hq0ToTCdAbi0cyjHVQ8g&s";
@@ -138,7 +137,9 @@ export const MessageBubble = React.memo(function MessageBubble(
             </AvatarFallback>
           </Avatar>
         )}
-        <div className={cn(bubbleBaseClass, "p-2 overflow-hidden", animationClass)}>
+        <div
+          className={cn(bubbleBaseClass, "p-2 overflow-hidden", animationClass)}
+        >
           <div className="relative w-48 h-48 rounded-md overflow-hidden bg-muted">
             <img
               src={props.imageUrl}
