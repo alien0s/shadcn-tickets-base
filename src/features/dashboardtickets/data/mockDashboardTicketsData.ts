@@ -10,7 +10,8 @@ export const MOCK_DASHBOARD_TICKETS_DATA: DashboardTicketsData = {
   replyTime: {
     averageMinutes: 1679,
     weekChange: -8,
-    highlight: { label: "05 Fev 2024", value: 400 },
+    // ✅ manter label consistente com points.label para o highlight funcionar
+    highlight: { label: "05 Fev", value: 400 },
     points: [
       { label: "01 Fev", value: 1180 },
       { label: "02 Fev", value: 1340 },

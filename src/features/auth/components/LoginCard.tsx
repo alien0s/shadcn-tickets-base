@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -17,32 +17,64 @@ import { BRAND_NAME } from "@/config/brand";
 
 export function LoginCard() {
   const navigate = useNavigate();
-  const { login, isLoading } = useAuth();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const { login, isLoading } = useAuth(); // login async + estado loading vindo do contexto/hook
 
-  const handleForgotPassword = () => {
-    const search = email ? `?email=${encodeURIComponent(email)}` : "";
+  const [email, setEmail] = useState(""); // controlled input
+  const [password, setPassword] = useState(""); // controlled input
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false); // toggle visibilidade
+
+  const handleForgotPassword = useCallback(() => {
+    // Mantém UX: se o usuário já digitou email, preenche na tela de recuperação
+    const normalizedEmail = email.trim(); // evita mandar " " na querystring
+    const search = normalizedEmail
+      ? `?email=${encodeURIComponent(normalizedEmail)}`
+      : "";
     navigate(`/forgot-password${search}`);
-  };
+  }, [email, navigate]);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    await login({ email, password });
-  };
+  const togglePasswordVisibility = useCallback(() => {
+    setIsPasswordVisible((prev) => !prev); // handler estável
+  }, []);
+
+  const handleSubmit = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+
+      // Normaliza entrada (muito comum usuário colar com espaços)
+      const normalizedEmail = email.trim();
+      const normalizedPassword = password; // se quiser, pode .trim(), mas senha geralmente não deve
+
+      // Evita submit duplicado se o usuário apertar Enter rápido
+      if (isLoading) return;
+
+      await login({ email: normalizedEmail, password: normalizedPassword }); // hook decide como tratar erro/toast
+    },
+    [email, password, login, isLoading]
+  );
+
+  const handleGoogleLogin = useCallback(() => {
+    // TODO(API/OAuth): implementar fluxo real de Google OAuth
+    // Ex: auth.loginWithGoogle()
+    console.warn("Google login not implemented yet");
+  }, []);
+
+  const handleSignup = useCallback(() => {
+    // TODO: ajustar rota real de cadastro (se existir)
+    // navigate("/signup");
+    console.warn("Signup not implemented yet");
+  }, []);
 
   return (
     <Card className="w-full max-w-sm shadow-sm">
       <div className="px-6 pt-6 text-center">
         <div className="text-2xl font-semibold">{BRAND_NAME}</div>
       </div>
+
       <CardHeader className="space-y-1 text-center">
         <CardTitle className="text-xl">Login na sua conta</CardTitle>
-        <CardDescription>
-          Informe seu email para acessar sua conta.
-        </CardDescription>
+        <CardDescription>Informe seu email para acessar sua conta.</CardDescription>
       </CardHeader>
+
       <CardContent>
         <form className="grid gap-4" onSubmit={handleSubmit}>
           <div className="grid gap-2">
@@ -52,10 +84,14 @@ export function LoginCard() {
               type="email"
               placeholder="m@exemplo.com"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => setEmail(event.target.value)} // ok inline; pode virar useCallback se quiser
               required
+              autoComplete="email" // melhora UX em browsers/password managers
+              disabled={isLoading} // evita editar enquanto envia
+              inputMode="email" // melhora teclado mobile
             />
           </div>
+
           <div className="grid gap-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Senha</Label>
@@ -64,24 +100,32 @@ export function LoginCard() {
                 variant="link"
                 className="h-auto p-0 text-xs"
                 onClick={handleForgotPassword}
+                disabled={isLoading} // evita navegação acidental enquanto envia
               >
                 Esqueceu sua senha?
               </Button>
             </div>
+
             <div className="relative">
               <Input
                 id="password"
                 type={isPasswordVisible ? "text" : "password"}
                 value={password}
+                placeholder="Digite sua senha"
                 onChange={(event) => setPassword(event.target.value)}
                 required
                 className="pr-10"
+                autoComplete="current-password" // melhora UX e password managers
+                disabled={isLoading}
               />
+
               <button
                 type="button"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                onClick={() => setIsPasswordVisible((prev) => !prev)}
+                onClick={togglePasswordVisibility}
                 aria-label={isPasswordVisible ? "Ocultar senha" : "Mostrar senha"}
+                aria-pressed={isPasswordVisible} // a11y: indica estado do toggle
+                disabled={isLoading as unknown as boolean} // HTMLButtonElement aceita disabled; se preferir use <Button variant="ghost" ...>
               >
                 {isPasswordVisible ? (
                   <EyeOff className="h-4 w-4" />
@@ -91,15 +135,29 @@ export function LoginCard() {
               </button>
             </div>
           </div>
+
           <Button type="submit" disabled={isLoading}>
             {isLoading ? "Entrando..." : "Login"}
           </Button>
-          <Button type="button" variant="outline">
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleGoogleLogin}
+            disabled={isLoading}
+          >
             Login com Google
           </Button>
+
           <div className="text-center text-xs text-muted-foreground">
-            Nao tem conta?{" "}
-            <Button type="button" variant="link" className="h-auto p-0 text-xs">
+            Não tem conta?{" "}
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto p-0 text-xs"
+              onClick={handleSignup}
+              disabled={isLoading}
+            >
               Cadastre-se
             </Button>
           </div>

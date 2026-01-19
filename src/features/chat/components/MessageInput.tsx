@@ -1,24 +1,37 @@
-//messageinput.tsx caixa de enviar mensagem
+// MessageInput.tsx (caixa de enviar mensagem)
 import React, {
-  useState,
-  useRef,
+  useCallback,
   useEffect,
+  useMemo,
+  useRef,
+  useState,
   forwardRef,
   useImperativeHandle,
 } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Send, Paperclip, X, FileText } from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Send } from "lucide-react";
+import { toast } from "sonner";
 import type { SendMessagePayload } from "../types/chatTypes";
+import { useFileAttachments } from "@/features/UploadFileMessage/hooks/useFileAttachments";
+import { AttachmentPreviews } from "@/features/UploadFileMessage/components/AttachmentPreviews";
+import { AttachmentPicker } from "@/features/UploadFileMessage/components/AttachmentPicker";
+import { formatFileSize } from "@/features/UploadFileMessage/utils/formatFileSize";
+
+type AttachmentsController = {
+  selectedFiles: File[];
+  filePreviews: Array<string | null>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>; // ✅ ref pode ser null no primeiro render
+  removeFile: (index: number) => void;
+  clearFiles: () => void;
+  handleFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handlePaste: (event: React.ClipboardEvent) => void;
+  triggerFileInput: () => void;
+};
 
 type Props = {
   onSend?: (payload: SendMessagePayload) => void;
+  attachments?: AttachmentsController; // permite controller externo (ChatWindow) ou interno (hook)
 };
 
 export type MessageInputHandle = {
@@ -26,92 +39,83 @@ export type MessageInputHandle = {
 };
 
 export const MessageInput = forwardRef<MessageInputHandle, Props>(
-  function MessageInput({ onSend }, ref) {
-    const [message, setMessage] = useState("");
-    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-    const [filePreviews, setFilePreviews] = useState<string[]>([]);
-    const [shouldAutoFocus, setShouldAutoFocus] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement>(null);
+  function MessageInput({ onSend, attachments }, ref) {
+    const [message, setMessage] = useState(""); // texto digitado
+    const [shouldAutoFocus, setShouldAutoFocus] = useState(false); // autofocus só no desktop
     const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-    // Track previews for cleanup.
-    const previewsRef = useRef<string[]>([]);
+    // Controller interno (caso ChatWindow não injete attachments externos)
+    const internalAttachments = useFileAttachments({
+      maxFiles: 10,
+      onDuplicateFiles: (duplicates) => {
+        if (duplicates.length === 0) return;
+        const names = duplicates.map((file) => file.name).join(", ");
+        toast.warning(`Arquivo já adicionado: ${names}`);
+      },
+    });
 
-    // Update ref whenever previews change.
-    useEffect(() => {
-      previewsRef.current = filePreviews;
-    }, [filePreviews]);
+    // Usa controller externo (ChatWindow) se existir; senão usa o interno
+    const controller = attachments ?? internalAttachments;
 
-    // Cleanup on unmount only.
-    useEffect(() => {
-      return () => {
-        previewsRef.current.forEach((url) => URL.revokeObjectURL(url));
-      };
+    const {
+      selectedFiles,
+      filePreviews,
+      fileInputRef,
+      removeFile,
+      clearFiles,
+      handleFileChange,
+      handlePaste,
+      triggerFileInput,
+    } = controller;
+
+    const focusInput = useCallback(() => {
+      // preventScroll reduz o "pulo" do teclado no iOS
+      textareaRef.current?.focus({ preventScroll: true });
     }, []);
 
-    const addFiles = (files: File[]) => {
-      if (selectedFiles.length >= 10) return;
+    useImperativeHandle(
+      ref,
+      () => ({
+        focus: focusInput,
+      }),
+      [focusInput]
+    );
 
-      const availableSlots = 10 - selectedFiles.length;
-      const newFiles = Array.from(files).slice(0, availableSlots);
-
-      if (newFiles.length === 0) return;
-
-      setSelectedFiles((prev) => [...prev, ...newFiles]);
-
-      const newPreviews = newFiles.map((file) => URL.createObjectURL(file));
-      setFilePreviews((prev) => [...prev, ...newPreviews]);
-    };
-
-    const clearFiles = () => {
-      setFilePreviews((prev) => {
-        prev.forEach((url) => URL.revokeObjectURL(url));
-        return [];
-      });
-      setSelectedFiles([]);
-    };
-
-    const formatFileSize = (bytes: number) => {
-      if (bytes < 1024) return `${bytes} B`;
-      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-    };
-
-    const submitMessage = () => {
-      const trimmed = message.trim();
-      if (!trimmed && selectedFiles.length === 0) return;
-
-      const filesToSend = selectedFiles.map((file, index) => {
+    // Monta o payload de arquivos (memo evita recriar array em render sem necessidade)
+    const filesToSend = useMemo(() => {
+      return selectedFiles.map((file, index) => {
         const kind: "image" | "file" = file.type.startsWith("image/")
           ? "image"
           : "file";
+
+        const preview = filePreviews[index]; // pode ser string ou null
         return {
           name: file.name,
           sizeLabel: formatFileSize(file.size),
-          url: filePreviews[index] ?? "",
+          url: typeof preview === "string" ? preview : "", // fallback seguro
           kind,
         };
       });
+    }, [selectedFiles, filePreviews]);
+
+    const submitMessage = useCallback(() => {
+      const trimmed = message.trim();
+      if (!trimmed && selectedFiles.length === 0) return; // nada para enviar
 
       onSend?.({ text: trimmed, files: filesToSend });
-      setMessage("");
-      clearFiles();
-      focusInput();
-    };
 
-    const focusInput = () => {
-      // preventScroll: true helps stop iOS from shifting the UI up.
-      textareaRef.current?.focus({ preventScroll: true });
-    };
+      setMessage(""); // limpa campo
+      clearFiles(); // limpa anexos + revoga previews no hook
+      focusInput(); // devolve foco
+    }, [message, selectedFiles.length, onSend, filesToSend, clearFiles, focusInput]);
 
-    useImperativeHandle(ref, () => ({
-      focus: focusInput,
-    }));
-
+    // Decide autofocus: desktop sim, mobile não
     useEffect(() => {
       if (typeof window === "undefined") return;
-      const mediaQuery = window.matchMedia("(max-width: 767px)");
-      const updateAutoFocus = () => setShouldAutoFocus(!mediaQuery.matches);
+
+      const mediaQuery = window.matchMedia("(max-width: 767px)"); // < md
+      const updateAutoFocus = () => setShouldAutoFocus(!mediaQuery.matches); // desktop true
+
       updateAutoFocus();
 
       if (mediaQuery.addEventListener) {
@@ -131,38 +135,13 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(
 
     useEffect(() => {
       if (!shouldAutoFocus) return;
-      focusInput();
-    }, [shouldAutoFocus]);
-
-    const handleFileClick = () => {
-      fileInputRef.current?.click();
-    };
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files.length > 0) {
-        addFiles(Array.from(e.target.files));
-      }
-    };
-
-    const handlePaste = (e: React.ClipboardEvent) => {
-      if (e.clipboardData.files && e.clipboardData.files.length > 0) {
-        e.preventDefault();
-        addFiles(Array.from(e.clipboardData.files));
-      }
-    };
-
-    const removeFile = (index: number) => {
-      setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-      setFilePreviews((prev) => {
-        URL.revokeObjectURL(prev[index]);
-        return prev.filter((_, i) => i !== index);
-      });
-    };
+      focusInput(); // foca quando entra em desktop
+    }, [shouldAutoFocus, focusInput]);
 
     return (
       <div
         className="px-3 pb-4 bg-background max-[767px]:pb-[calc(0.75rem+var(--safe-bottom, env(safe-area-inset-bottom)))]"
-        onClick={focusInput}
+        onClick={focusInput} // clique na área foca o input
       >
         <div className="relative flex flex-col border rounded-md shadow-sm bg-background transition-all">
           <form
@@ -172,56 +151,31 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(
               submitMessage();
             }}
           >
-            {/* File Previews Area */}
-            {selectedFiles.length > 0 && (
-              <div className="px-4 pt-4 pb-2 flex flex-wrap gap-2">
-                {selectedFiles.map((file, index) => (
-                  <div key={index} className="relative group">
-                    <div className="relative h-16 w-16 rounded-md overflow-hidden border border-border flex items-center justify-center bg-muted/20">
-                      {file.type.startsWith("image/") ? (
-                        <img
-                          src={filePreviews[index]}
-                          alt="Preview"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <FileText
-                          className={`h-8 w-8 ${
-                            file.type === "application/pdf"
-                              ? "text-red-500"
-                              : "text-muted-foreground"
-                          }`}
-                        />
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => removeFile(index)}
-                      className="absolute -top-1.5 -right-1.5 bg-background border border-border rounded-full p-0.5 shadow-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+            {/* Previews dos anexos */}
+            <AttachmentPreviews
+              files={selectedFiles}
+              previews={filePreviews} // (string|null)[]
+              onRemove={removeFile}
+            />
 
             <Textarea
               rows={1}
               ref={textareaRef}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              onPaste={handlePaste}
+              onPaste={handlePaste} // cola imagem/arquivo do clipboard (Ctrl+V)
               placeholder="Digite uma mensagem"
               className="resize-none border-0 shadow-none focus-visible:ring-0 px-4 py-3 min-h-[50px] max-h-[200px] text-base"
               style={{ height: "auto" }}
               onKeyDown={(e) => {
+                // Enter envia / Shift+Enter quebra linha
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   submitMessage();
                 }
               }}
               onInput={(e) => {
+                // Auto-resize baseado no conteúdo
                 const target = e.target as HTMLTextAreaElement;
                 target.style.height = "auto";
                 target.style.height = `${target.scrollHeight}px`;
@@ -230,34 +184,12 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(
 
             <div className="flex items-center justify-between px-3 pb-3">
               <div className="flex items-center gap-4">
-                {/* Document Attachment */}
-                <input
-                  type="file"
-                  multiple
-                  className="hidden"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
+                <AttachmentPicker
+                  fileInputRef={fileInputRef} // ✅ agora tipado com null também
+                  onFileChange={handleFileChange}
+                  onTrigger={triggerFileInput}
                   accept="image/*,.pdf,.doc,.docx"
                 />
-                <TooltipProvider>
-                  <Tooltip delayDuration={0}>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={handleFileClick}
-                        className="text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <Paperclip className="h-5 w-5" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="top"
-                      className="bg-black text-white px-2 py-1 text-xs border-none rounded-md"
-                    >
-                      <p>Attach file</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
               </div>
 
               <Button
@@ -265,6 +197,7 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(
                 size="icon"
                 variant="ghost"
                 className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full ml-auto"
+                aria-label="Enviar mensagem"
               >
                 <Send className="h-5 w-5" />
               </Button>

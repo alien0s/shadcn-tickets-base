@@ -267,20 +267,21 @@ export function ProfileSection({
       </div>
 
       <Dialog open={isCropOpen} onOpenChange={setIsCropOpen}>
-        <DialogContent className="w-[90vw] h-[90vw] max-w-[520px] max-h-[520px] sm:w-[520px] sm:h-[520px] rounded-none">
+        <DialogContent className="flex flex-col w-[100dvw] h-[100dvh] max-w-[100dvw] max-h-[100dvh] rounded-none sm:w-[520px] sm:h-[520px] sm:max-w-[520px] sm:max-h-[520px]">
           <DialogHeader>
             <DialogTitle>Ajustar foto</DialogTitle>
           </DialogHeader>
           {imageSrc ? (
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4 flex-1 min-h-0">
               <ImageCropper
                 image={imageSrc}
                 aspectRatio={1}
                 onCropChange={setCropArea}
                 zoom={zoom}
                 onZoomChange={setZoom}
+                className="flex-1 min-h-[280px] w-full self-center sm:flex-none sm:h-[320px]"
               />
-              <div className="space-y-2">
+              <div className="space-y-2 hidden sm:block">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium">Zoom</span>
                   <span className="text-muted-foreground">
@@ -303,7 +304,7 @@ export function ProfileSection({
               Selecione uma imagem para recortar.
             </div>
           )}
-          <DialogFooter className="gap-2">
+          <DialogFooter className="mt-auto gap-2">
             <Button
               type="button"
               variant="outline"

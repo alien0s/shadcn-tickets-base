@@ -17,6 +17,7 @@ import {
 } from "@/config/ticket-constants";
 import { FileDropZone } from "@/components/common/FileDropZone";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 type Props = {
   open: boolean;
@@ -90,6 +91,7 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
             console.log("Criando ticket com prioridade:", priority);
             console.log("Tipo:", ticketType);
             console.log("Arquivos:", files);
+            toast.success("Ticket criado com sucesso");
             onOpenChange(false);
           }}
         >
@@ -167,7 +169,15 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
 
             <div className="space-y-1">
               <label className="text-sm font-medium">Anexos</label>
-              <FileDropZone files={files} onFilesChange={setFiles} />
+              <FileDropZone
+                files={files}
+                onFilesChange={setFiles}
+                onDuplicateFiles={(duplicates) => {
+                  if (duplicates.length === 0) return;
+                  const names = duplicates.map((file) => file.name).join(", ");
+                  toast.warning(`Arquivo ja adicionado: ${names}`);
+                }}
+              />
             </div>
           </div>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Card,
@@ -15,21 +15,30 @@ import { BRAND_NAME } from "@/config/brand";
 import { usePageTitle } from "@/hooks/usePageTitle";
 
 export function ForgotPasswordPage() {
-  const { isAuthenticated } = useAuth();
-  const [searchParams] = useSearchParams();
+  const { isAuthenticated } = useAuth(); // auth guard (evita ver página logado)
+  const [searchParams] = useSearchParams(); // lê querystring (?email=...)
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
-  const [isSubmitted, setIsSubmitted] = useState(false);
 
+  // Inicializa o email com o valor da URL (evita 1 render extra do useEffect)
+  const [email, setEmail] = useState(() => searchParams.get("email") ?? ""); // lazy init
+  const [isSubmitted, setIsSubmitted] = useState(false); // controla UI "enviado"
+
+  usePageTitle("Recuperação de senha"); // título da página
+
+  // Mantém email sincronizado se querystring mudar (mas só atualiza se realmente mudar)
   useEffect(() => {
-    const storedEmail = searchParams.get("email") ?? "";
-    setEmail(storedEmail);
+    const nextEmail = searchParams.get("email") ?? ""; // extrai da URL
+    setEmail((prev) => (prev === nextEmail ? prev : nextEmail)); // evita setState inútil
   }, [searchParams]);
 
-  usePageTitle("Recuperação de senha");
+  // Handler estável para voltar ao login (evita duplicação e funções inline)
+  const goToLogin = useCallback(() => {
+    navigate("/login");
+  }, [navigate]);
 
+  // Guard: se já logado, não mostra a página
   if (isAuthenticated) {
-    return <Navigate to="/dashboardtickets" replace />;
+    return <Navigate to="/dashboardtickets" replace />; // replace evita voltar pra página via "back"
   }
 
   return (
@@ -38,19 +47,22 @@ export function ForgotPasswordPage() {
         <div className="px-6 pt-6 text-center">
           <div className="text-2xl font-semibold">{BRAND_NAME}</div>
         </div>
+
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-xl">Recuperar senha</CardTitle>
           <CardDescription>
             Informe seu email para receber o link de recuperação.
           </CardDescription>
         </CardHeader>
+
         <CardContent>
           {isSubmitted ? (
             <div className="space-y-4 text-center">
               <p className="text-sm text-muted-foreground">
                 Se o email existir, enviaremos um link para redefinir a senha.
               </p>
-              <Button type="button" onClick={() => navigate("/login")}>
+
+              <Button type="button" onClick={goToLogin}>
                 Voltar para login
               </Button>
             </div>
@@ -59,7 +71,12 @@ export function ForgotPasswordPage() {
               className="grid gap-4"
               onSubmit={(event) => {
                 event.preventDefault();
-                setIsSubmitted(true);
+
+                // TODO(API): aqui você chamará a rota de recovery:
+                // await authApi.forgotPassword({ email })
+                // e então: setIsSubmitted(true)
+
+                setIsSubmitted(true); // mantém comportamento atual (mock)
               }}
             >
               <div className="grid gap-2">
@@ -69,16 +86,18 @@ export function ForgotPasswordPage() {
                   type="email"
                   placeholder="m@exemplo.com"
                   value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  onChange={(event) => setEmail(event.target.value)} // controlled input
                   required
                 />
               </div>
+
               <Button type="submit">Enviar link</Button>
+
               <Button
                 type="button"
                 variant="link"
                 className="h-auto p-0 text-xs"
-                onClick={() => navigate("/login")}
+                onClick={goToLogin} // reuse handler
               >
                 Voltar para login
               </Button>

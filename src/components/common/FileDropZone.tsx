@@ -1,153 +1,270 @@
-import React, { useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Upload, X, File as FileIcon, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FileDropZoneProps {
-    files: File[];
-    onFilesChange: (files: File[]) => void;
-    className?: string;
-    dropZoneClassName?: string;
-    maxFiles?: number;
+  files: File[];
+  onFilesChange: (files: File[]) => void;
+  className?: string;
+  dropZoneClassName?: string;
+  maxFiles?: number;
+  accept?: string;
+
+  /**
+   * Se o usuário tentar adicionar arquivo que já existe,
+   * chamamos isso pra você disparar Sonner (toast).
+   *
+   * Ex no parent:
+   * onDuplicateFiles={(dups) => toast(`Arquivo já adicionado: ${dups[0].name}`)}
+   */
+  onDuplicateFiles?: (duplicates: File[]) => void;
 }
 
-export function FileDropZone({ files, onFilesChange, className, dropZoneClassName, maxFiles = 4 }: FileDropZoneProps) {
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const [isDragging, setIsDragging] = useState(false);
+function getFileKey(file: File) {
+  // Identidade prática de arquivo pro front.
+  return `${file.name}-${file.size}-${file.lastModified}`;
+}
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const newFiles = Array.from(e.target.files);
-            const availableSlots = maxFiles - files.length;
-            const filesToAdd = newFiles.slice(0, availableSlots);
+export function FileDropZone({
+  files,
+  onFilesChange,
+  className,
+  dropZoneClassName,
+  maxFiles = 4,
+  accept,
+  onDuplicateFiles,
+}: FileDropZoneProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
-            if (filesToAdd.length > 0) {
-                onFilesChange([...files, ...filesToAdd]);
-            }
+  // Set com as chaves dos arquivos atuais, pra checar duplicado rápido (O(1)).
+  const existingKeys = useMemo(() => {
+    return new Set(files.map(getFileKey));
+  }, [files]);
+
+  /**
+   * Previews de imagens (blob URLs) criadas UMA vez por arquivo.
+   * Evita criar URL nova a cada render e evita vazamento.
+   */
+  const previewUrlByKey = useMemo(() => {
+    const map = new Map<string, string>();
+
+    for (const file of files) {
+      if (file.type.startsWith("image/")) {
+        map.set(getFileKey(file), URL.createObjectURL(file));
+      }
+    }
+
+    return map;
+  }, [files]);
+
+  useEffect(() => {
+    return () => {
+      for (const url of previewUrlByKey.values()) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [previewUrlByKey]);
+
+  /**
+   * Adiciona arquivos respeitando:
+   * - maxFiles
+   * - NÃO duplicar arquivos já adicionados
+   *
+   * Se houver duplicados, chama onDuplicateFiles([...]) pra você avisar o usuário.
+   */
+  const addFiles = useCallback(
+    (incoming: File[]) => {
+      if (incoming.length === 0) return;
+
+      const duplicates: File[] = [];
+      const uniqueToAdd: File[] = [];
+
+      for (const file of incoming) {
+        const key = getFileKey(file);
+
+        if (existingKeys.has(key)) {
+          duplicates.push(file);
+          continue;
         }
-    };
 
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(true);
-    };
+        uniqueToAdd.push(file);
+      }
 
-    const handleDragLeave = (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
-    };
+      // Se teve duplicado, avisamos (pra você usar Sonner)
+      if (duplicates.length > 0) {
+        onDuplicateFiles?.(duplicates);
+      }
 
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragging(false);
-        if (e.dataTransfer.files) {
-            const newFiles = Array.from(e.dataTransfer.files);
-            const availableSlots = maxFiles - files.length;
-            const filesToAdd = newFiles.slice(0, availableSlots);
+      // Respeita limite de slots
+      const availableSlots = Math.max(0, maxFiles - files.length);
+      if (availableSlots === 0) return;
 
-            if (filesToAdd.length > 0) {
-                onFilesChange([...files, ...filesToAdd]);
-            }
-        }
-    };
+      const filesToAdd = uniqueToAdd.slice(0, availableSlots);
+      if (filesToAdd.length === 0) return;
 
-    const removeFile = (index: number) => {
-        const updatedFiles = files.filter((_, i) => i !== index);
-        onFilesChange(updatedFiles);
-    };
+      onFilesChange([...files, ...filesToAdd]);
+    },
+    [existingKeys, files, maxFiles, onFilesChange, onDuplicateFiles]
+  );
 
-    const triggerFileInput = () => {
-        fileInputRef.current?.click();
-    };
+  const handleFileSelect = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const list = e.currentTarget.files;
+      if (list) addFiles(Array.from(list));
 
-    return (
-        <div className={cn("space-y-2", className)}>
-            <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                multiple
-                onChange={handleFileSelect}
-            />
+      // Permite selecionar o MESMO arquivo novamente (senão o onChange pode não disparar)
+      e.currentTarget.value = "";
+    },
+    [addFiles]
+  );
 
-            {files.length === 0 ? (
-                /* Dropzone Area */
-                <div
-                    onClick={triggerFileInput}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    className={cn(
-                        "border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-colors",
-                        isDragging
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:bg-muted/50",
-                        dropZoneClassName
-                    )}
-                >
-                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mb-3">
-                        <Upload className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <p className="text-sm font-medium sm:hidden">
-                        Toque para escolher um arquivo
-                    </p>
-                    <p className="text-sm font-medium hidden sm:block">
-                        Drop your image here or click to browse
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">Max size: 5MB</p>
-                </div>
-            ) : (
-                /* File List + Add Button */
-                <div className="grid grid-cols-4 gap-2">
-                    {files.map((file, index) => (
-                        <div
-                            key={index}
-                            className="relative group rounded-md border bg-muted/50 overflow-hidden aspect-square flex flex-col items-center justify-center p-2 text-center"
-                        >
-                            <button
-                                type="button"
-                                onClick={() => removeFile(index)}
-                                className="absolute top-1 right-1 h-6 w-6 rounded-full bg-background/80 hover:bg-background flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                            >
-                                <X className="h-3.5 w-3.5" />
-                            </button>
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging((prev) => (prev ? prev : true));
+  }, []);
 
-                            {file.type.startsWith("image/") ? (
-                                <div className="relative w-full h-full flex items-center justify-center">
-                                    <img
-                                        src={URL.createObjectURL(file)}
-                                        alt={file.name}
-                                        className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-100 transition-opacity"
-                                        onLoad={(e) => URL.revokeObjectURL(e.currentTarget.src)}
-                                    />
-                                </div>
-                            ) : (
-                                <FileIcon className="h-8 w-8 text-muted-foreground mb-2" />
-                            )}
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
 
-                            <span className="text-[10px] text-muted-foreground w-full truncate px-1 absolute bottom-1 bg-background/50 backdrop-blur-sm">
-                                {file.name}
-                            </span>
-                        </div>
-                    ))}
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
 
-                    {/* Add Button */}
-                    {files.length < maxFiles && (
-                        <div
-                            onClick={triggerFileInput}
-                            onDragOver={handleDragOver}
-                            onDragLeave={handleDragLeave}
-                            onDrop={handleDrop}
-                            className={cn(
-                                "border-2 border-dashed rounded-md bg-muted/30 hover:bg-muted/50 cursor-pointer flex flex-col items-center justify-center aspect-square transition-colors",
-                                isDragging ? "border-primary bg-primary/5" : "border-border"
-                            )}
-                        >
-                            <Plus className="h-6 w-6 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground mt-1">Adicionar</span>
-                        </div>
-                    )}
-                </div>
-            )}
+      const list = e.dataTransfer.files;
+      if (list) addFiles(Array.from(list));
+    },
+    [addFiles]
+  );
+
+  const removeFile = useCallback(
+    (index: number) => {
+      onFilesChange(files.filter((_, i) => i !== index));
+    },
+    [files, onFilesChange]
+  );
+
+  const triggerFileInput = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  return (
+    <div className={cn("space-y-2", className)}>
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        multiple
+        accept={accept}
+        onChange={handleFileSelect}
+      />
+
+      {files.length === 0 ? (
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={triggerFileInput}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") triggerFileInput();
+          }}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={cn(
+            "border-2 border-dashed rounded-lg p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-colors outline-none",
+            isDragging
+              ? "border-primary bg-primary/5"
+              : "border-border hover:bg-muted/50",
+            dropZoneClassName
+          )}
+        >
+          <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center mb-3">
+            <Upload className="h-5 w-5 text-muted-foreground" />
+          </div>
+
+          <p className="text-sm font-medium sm:hidden">
+            Toque para escolher um arquivo
+          </p>
+          <p className="text-sm font-medium hidden sm:block">
+            Arraste os arquivos aqui ou clique para procurar
+          </p>
+
+          <p className="text-xs text-muted-foreground mt-1">
+            Máx. {maxFiles} arquivos
+          </p>
         </div>
-    );
+      ) : (
+        <div className="grid grid-cols-4 gap-2">
+          {files.map((file, index) => {
+            const key = getFileKey(file);
+            const previewUrl = previewUrlByKey.get(key);
+
+            return (
+              <div
+                key={key}
+                className="relative group rounded-md border bg-muted/50 overflow-hidden aspect-square flex flex-col items-center justify-center p-2 text-center"
+                title={file.name}
+              >
+                <button
+                  type="button"
+                  onClick={() => removeFile(index)}
+                  className="absolute top-1 right-1 h-6 w-6 rounded-full bg-background/80 hover:bg-background flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                  aria-label={`Remover ${file.name}`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+
+                {previewUrl ? (
+                  <img
+                    src={previewUrl}
+                    alt={file.name}
+                    className="absolute inset-0 w-full h-full object-cover opacity-50 group-hover:opacity-100 transition-opacity"
+                    draggable={false}
+                  />
+                ) : (
+                  <FileIcon className="h-8 w-8 text-muted-foreground mb-2" />
+                )}
+
+                <span className="text-[10px] text-muted-foreground w-full truncate px-1 absolute bottom-1 bg-background/50 backdrop-blur-sm">
+                  {file.name}
+                </span>
+              </div>
+            );
+          })}
+
+          {files.length < maxFiles && (
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={triggerFileInput}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") triggerFileInput();
+              }}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={cn(
+                "border-2 border-dashed rounded-md bg-muted/30 hover:bg-muted/50 cursor-pointer flex flex-col items-center justify-center aspect-square transition-colors outline-none",
+                isDragging ? "border-primary bg-primary/5" : "border-border"
+              )}
+            >
+              <Plus className="h-6 w-6 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground mt-1">
+                Adicionar
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }

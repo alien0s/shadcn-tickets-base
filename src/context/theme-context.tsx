@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 type Theme = "light" | "dark" | "system";
 type ThemeContextValue = {
@@ -9,57 +17,102 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 const STORAGE_KEY = "theme";
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
+/**
+ * Valida string vinda do localStorage para não aceitar lixo.
+ */
+function normalizeStoredTheme(value: string | null): Theme {
+  if (value === "light" || value === "dark" || value === "system") return value;
+  return "system";
+}
+
+/**
+ * Aplica tema no <html>.
+ * Padrão Tailwind/shadcn: usar apenas a classe "dark".
+ * - dark => <html class="dark">
+ * - light => <html> sem classe dark
+ */
+function applyResolvedTheme(resolved: "light" | "dark") {
+  const root = document.documentElement;
+  if (resolved === "dark") root.classList.add("dark");
+  else root.classList.remove("dark");
+}
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window === "undefined") return "system";
-    const stored = window.localStorage.getItem(STORAGE_KEY) as Theme | null;
-    return stored === "light" || stored === "dark" || stored === "system"
-      ? stored
-      : "system";
+    return normalizeStoredTheme(window.localStorage.getItem(STORAGE_KEY));
   });
 
+  /**
+   * Setter estável para o app inteiro.
+   * Aqui é só um wrapper pra manter referência estável e permitir regras futuras.
+   */
+  const setTheme = useCallback((next: Theme) => {
+    setThemeState(next);
+  }, []);
+
+  /**
+   * Aplica o tema no DOM.
+   * - Se theme = system: segue o SO e escuta mudanças.
+   * - Se theme = light/dark: aplica fixo e não precisa de listener.
+   */
   useEffect(() => {
-    const root = document.documentElement;
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const applyTheme = (nextTheme: "light" | "dark") => {
-      root.classList.remove("light", "dark");
-      root.classList.add(nextTheme);
+
+    const resolveSystemTheme = () =>
+      mediaQuery.matches ? "dark" : "light";
+
+    const handleSystemChange = () => {
+      applyResolvedTheme(resolveSystemTheme());
     };
 
     if (theme === "system") {
-      applyTheme(mediaQuery.matches ? "dark" : "light");
-      const handleChange = (event: MediaQueryListEvent) => {
-        applyTheme(event.matches ? "dark" : "light");
-      };
+      // aplica baseado no sistema
+      applyResolvedTheme(resolveSystemTheme());
 
+      // escuta mudanças do sistema
       if (mediaQuery.addEventListener) {
-        mediaQuery.addEventListener("change", handleChange);
+        mediaQuery.addEventListener("change", handleSystemChange);
       } else {
-        mediaQuery.addListener(handleChange);
+        mediaQuery.addListener(handleSystemChange);
       }
 
       return () => {
         if (mediaQuery.removeEventListener) {
-          mediaQuery.removeEventListener("change", handleChange);
+          mediaQuery.removeEventListener("change", handleSystemChange);
         } else {
-          mediaQuery.removeListener(handleChange);
+          mediaQuery.removeListener(handleSystemChange);
         }
       };
     }
 
-    applyTheme(theme);
+    // tema fixo
+    applyResolvedTheme(theme);
   }, [theme]);
 
+  /**
+   * Persistência:
+   * - Se usuário escolhe "system", podemos remover do storage (fica "sem preferência").
+   * - Se escolhe light/dark, salvamos.
+   */
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    if (theme === "system") {
+      window.localStorage.removeItem(STORAGE_KEY);
+      return;
+    }
+
     window.localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 
-  return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
+  /**
+   * Memo evita recriar o objeto do value em toda render.
+   * Menos renders desnecessários em quem consome o context.
+   */
+  const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
+
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useTheme() {

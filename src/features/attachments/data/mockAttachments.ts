@@ -1,13 +1,20 @@
+// mockAttachments.ts
 import type { AttachmentViewerItem } from "../types/attachmentTypes";
 
+/**
+ * MOCK somente para desenvolvimento.
+ * Quando a API real entrar:
+ * - esse arquivo pode ser removido
+ * - os dados virão de request (ex.: /tickets/:id/attachments)
+ */
 export const mockAttachmentViewerItems: AttachmentViewerItem[] = [
   {
-    id: "1",
-    url: "https://www.minhatatuagem.com/wp-content/uploads/2022/07/fotos-tumblr-9.jpg",
-    type: "image",
-    name: "screenshot-issue.jpg",
-    sharedBy: "Agent Lisa",
-    sharedDate: "May 25th",
+    id: "1", // id estável (na API pode ser number ou uuid)
+    url: "https://www.minhatatuagem.com/wp-content/uploads/2022/07/fotos-tumblr-9.jpg", // url pública (mock)
+    type: "image", // união discriminada: facilita render condicional no viewer
+    name: "screenshot-issue.jpg", // nome original do arquivo
+    sharedBy: "Agent Lisa", // autor (na API pode ser userId + displayName)
+    sharedAt: "2025-05-25T12:00:00.000Z", // ✅ ISO (melhor pra formatar no front)
   },
   {
     id: "2",
@@ -15,15 +22,15 @@ export const mockAttachmentViewerItems: AttachmentViewerItem[] = [
     type: "image",
     name: "error-details.jpg",
     sharedBy: "You",
-    sharedDate: "May 24th",
+    sharedAt: "2025-05-24T12:00:00.000Z",
   },
   {
     id: "3",
-    url: "https://picsum.photos/seed/3/1200/800",
+    url: "https://picsum.photos/seed/3/1200/800", // seed garante imagem "estável" (não muda a cada reload)
     type: "image",
     name: "bug-screenshot.png",
     sharedBy: "Agent Lisa",
-    sharedDate: "May 23rd",
+    sharedAt: "2025-05-23T12:00:00.000Z",
   },
   {
     id: "4",
@@ -31,6 +38,6 @@ export const mockAttachmentViewerItems: AttachmentViewerItem[] = [
     type: "image",
     name: "console-log.jpg",
     sharedBy: "You",
-    sharedDate: "May 22nd",
+    sharedAt: "2025-05-22T12:00:00.000Z",
   },
 ];
