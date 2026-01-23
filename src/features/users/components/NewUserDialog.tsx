@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -24,16 +24,19 @@ type Props = {
   onOpenChange: (open: boolean) => void;
 };
 
+// Opções de função/cargo (constante fora do componente)
 const ROLE_OPTIONS = [
   "Atendimento",
   "Financeiro",
-  "Operacoes",
+  "Operações",
   "Comercial",
   "Suporte",
 ];
 
+// Opções de entidade (constante fora do componente)
 const ENTITY_OPTIONS = ["ANRA", "ACeAm", "Asur", "MLA", "UNoB"];
 
+// Opções de permissão com ícones (constante fora do componente)
 const PERMISSION_OPTIONS = [
   { key: "admin", label: "Admin", icon: ShieldCheck },
   { key: "agent", label: "Agente", icon: Headset },
@@ -43,30 +46,61 @@ const PERMISSION_OPTIONS = [
 type PermissionKey = (typeof PERMISSION_OPTIONS)[number]["key"];
 
 export function NewUserDialog({ open, onOpenChange }: Props) {
+  // Estados do formulário
   const [role, setRole] = useState(ROLE_OPTIONS[0]);
   const [entity, setEntity] = useState(ENTITY_OPTIONS[0]);
   const [permission, setPermission] = useState<PermissionKey>("admin");
+  
+  // Controla auto-focus do dialog (desabilitado em mobile)
   const [shouldAutoFocus, setShouldAutoFocus] = useState(false);
 
+  // Detecta se é mobile para desabilitar auto-focus
   useEffect(() => {
     if (typeof window === "undefined") return;
+
     const mediaQuery = window.matchMedia("(max-width: 767px)");
     const updateAutoFocus = () => setShouldAutoFocus(!mediaQuery.matches);
+    
+    // Define valor inicial
     updateAutoFocus();
 
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener("change", updateAutoFocus);
-    } else {
-      mediaQuery.addListener(updateAutoFocus);
-    }
+    // Atualiza quando o tamanho da tela muda
+    mediaQuery.addEventListener("change", updateAutoFocus);
 
     return () => {
-      if (mediaQuery.removeEventListener) {
-        mediaQuery.removeEventListener("change", updateAutoFocus);
-      } else {
-        mediaQuery.removeListener(updateAutoFocus);
-      }
+      mediaQuery.removeEventListener("change", updateAutoFocus);
     };
+  }, []);
+
+  // Handler para fechar o dialog
+  const handleClose = useCallback(() => {
+    onOpenChange(false);
+  }, [onOpenChange]);
+
+  // Handler para submit do formulário
+  const handleSubmit = useCallback(
+    (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      
+      // Log dos dados do novo usuário (substituir por API call)
+      console.log("Criando usuario:", {
+        role,
+        entity,
+        permission,
+      });
+      
+      // Exibe notificação de sucesso
+      toast.success("Usuario criado com sucesso");
+      
+      // Fecha o dialog
+      onOpenChange(false);
+    },
+    [role, entity, permission, onOpenChange]
+  );
+
+  // Handler para selecionar permissão
+  const handlePermissionSelect = useCallback((key: PermissionKey) => {
+    setPermission(key);
   }, []);
 
   return (
@@ -85,23 +119,16 @@ export function NewUserDialog({ open, onOpenChange }: Props) {
 
         <form
           className="flex flex-col flex-1 min-h-0 gap-4 overflow-y-auto sm:overflow-visible"
-          onSubmit={(event) => {
-            event.preventDefault();
-            console.log("Criando usuario:", {
-              role,
-              entity,
-              permission,
-            });
-            toast.success("Usuario criado com sucesso");
-            onOpenChange(false);
-          }}
+          onSubmit={handleSubmit}
         >
           <div className="space-y-4 pr-1 pl-1 flex-1 min-h-0">
+            {/* Campo de nome */}
             <div className="space-y-1">
               <label className="text-sm font-medium">Nome de usuario</label>
               <Input placeholder="Digite o nome completo" required />
             </div>
 
+            {/* Campo de email */}
             <div className="space-y-1">
               <label className="text-sm font-medium">Email</label>
               <Input
@@ -112,6 +139,7 @@ export function NewUserDialog({ open, onOpenChange }: Props) {
               />
             </div>
 
+            {/* Seleção de função/cargo */}
             <div className="space-y-1">
               <label className="text-sm font-medium">Funcao</label>
               <DropdownMenu>
@@ -140,6 +168,7 @@ export function NewUserDialog({ open, onOpenChange }: Props) {
               </DropdownMenu>
             </div>
 
+            {/* Seleção de permissões (botões visuais) */}
             <div className="space-y-1">
               <label className="text-sm font-medium">Permissoes</label>
               <div className="grid grid-cols-3 gap-2">
@@ -150,7 +179,7 @@ export function NewUserDialog({ open, onOpenChange }: Props) {
                     <button
                       key={option.key}
                       type="button"
-                      onClick={() => setPermission(option.key)}
+                      onClick={() => handlePermissionSelect(option.key)}
                       className={cn(
                         "flex flex-col items-center justify-center gap-1 rounded-md border px-2 py-2 text-xs font-medium transition-all",
                         isSelected
@@ -166,6 +195,7 @@ export function NewUserDialog({ open, onOpenChange }: Props) {
               </div>
             </div>
 
+            {/* Seleção de entidade */}
             <div className="space-y-1">
               <label className="text-sm font-medium">Entidade</label>
               <DropdownMenu>
@@ -195,13 +225,14 @@ export function NewUserDialog({ open, onOpenChange }: Props) {
             </div>
           </div>
 
+          {/* Footer com botões de ação */}
           <DialogFooter className="sticky bottom-0 left-0 right-0 flex-row w-full gap-2 bg-background pt-4 pb-[calc(0.5rem+var(--safe-bottom, env(safe-area-inset-bottom)))] sm:justify-end sm:space-x-0 sm:pb-0">
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="flex-1 sm:flex-none"
-              onClick={() => onOpenChange(false)}
+              onClick={handleClose}
             >
               Cancelar
             </Button>

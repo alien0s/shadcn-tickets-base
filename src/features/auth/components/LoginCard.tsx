@@ -111,7 +111,7 @@ export function LoginCard() {
                 id="password"
                 type={isPasswordVisible ? "text" : "password"}
                 value={password}
-                placeholder="Digite sua senha"
+                placeholder="••••••••"
                 onChange={(event) => setPassword(event.target.value)}
                 required
                 className="pr-10"

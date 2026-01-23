@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import {
   Avatar,
   AvatarFallback,
@@ -27,7 +28,14 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth";
+import { cn } from "@/lib/utils";
 import type { UserNavProps } from "../types";
+
+type ThemeValue = "light" | "dark" | "system";
+
+function isThemeValue(value: string): value is ThemeValue {
+  return value === "light" || value === "dark" || value === "system";
+}
 
 export function UserNav({
   isCollapsed,
@@ -38,20 +46,44 @@ export function UserNav({
   const navigate = useNavigate();
   const { logout } = useAuth();
 
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
-  };
+  const handleLogout = useCallback(async () => {
+    // ✅ API-ready: se logout virar async, mantemos previsível
+    try {
+      await Promise.resolve(logout());
+    } finally {
+      navigate("/login");
+    }
+  }, [logout, navigate]);
+
+  const handleThemeChange = useCallback(
+    (value: string) => {
+      if (!isThemeValue(value)) return; // ✅ evita casts e valores inválidos
+      setTheme(value);
+    },
+    [setTheme]
+  );
+
+  const handleNavigateSettings = useCallback(
+    (event: Event) => {
+      // ✅ Radix DropdownMenuItem dispara `onSelect` com Event.
+      // Previne comportamento padrão para evitar fechamento/seleção causar side effects inesperados.
+      event.preventDefault();
+      onNavigateSettings();
+    },
+    [onNavigateSettings]
+  );
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
+          type="button" // ✅ evita submit acidental
           variant="ghost"
-          className={[
+          className={cn(
             "w-full justify-start h-auto py-2 px-1.5",
-            isCollapsed ? "hover:bg-transparent" : "",
-          ].join(" ")}
+            isCollapsed && "hover:bg-transparent"
+          )}
+          aria-label="Abrir menu do usuário"
         >
           <div className="flex items-center gap-2 w-full">
             <Avatar className="h-8 w-8 rounded-lg">
@@ -61,6 +93,7 @@ export function UserNav({
               />
               <AvatarFallback className="rounded-lg">CN</AvatarFallback>
             </Avatar>
+
             {!isCollapsed && (
               <div className="flex flex-col items-start flex-1 text-left">
                 <span className="text-sm font-semibold">shadcn</span>
@@ -93,63 +126,84 @@ export function UserNav({
             </div>
           </div>
         </DropdownMenuLabel>
+
         <DropdownMenuSeparator />
+
         <DropdownMenuGroup>
           <DropdownMenuItem>
-            <Sparkles className="mr-2 h-4 w-4" />
+            <Sparkles className="mr-2 h-4 w-4" aria-hidden="true" />
             Upgrade to Pro
           </DropdownMenuItem>
         </DropdownMenuGroup>
+
         <DropdownMenuSeparator />
+
         <DropdownMenuGroup>
-          <DropdownMenuItem onSelect={onNavigateSettings}>
-            <Settings className="mr-2 h-4 w-4" />
+          <DropdownMenuItem onSelect={handleNavigateSettings}>
+            <Settings className="mr-2 h-4 w-4" aria-hidden="true" />
             Configuracoes
           </DropdownMenuItem>
+
           <DropdownMenuItem>
-            <BadgeCheck className="mr-2 h-4 w-4" />
+            <BadgeCheck className="mr-2 h-4 w-4" aria-hidden="true" />
             Account
           </DropdownMenuItem>
+
           <DropdownMenuItem>
-            <CreditCard className="mr-2 h-4 w-4" />
+            <CreditCard className="mr-2 h-4 w-4" aria-hidden="true" />
             Billing
           </DropdownMenuItem>
+
           <DropdownMenuItem>
-            <Bell className="mr-2 h-4 w-4" />
+            <Bell className="mr-2 h-4 w-4" aria-hidden="true" />
             Notifications
           </DropdownMenuItem>
         </DropdownMenuGroup>
+
         <DropdownMenuSeparator />
+
         <DropdownMenuLabel className="text-xs text-muted-foreground">
           Tema
         </DropdownMenuLabel>
-        <Tabs
-          value={theme}
-          onValueChange={(value) =>
-            setTheme(value as "light" | "dark" | "system")
-          }
-        >
+
+        <Tabs value={theme} onValueChange={handleThemeChange}>
           <TabsList className="h-8 rounded-lg bg-muted p-1 w-full">
-            <TabsTrigger value="system" className="h-6 text-xs px-2 rounded-md flex-1">
-              <Monitor className="h-3.5 w-3.5 mr-1.5" />
+            <TabsTrigger
+              value="system"
+              className="h-6 text-xs px-2 rounded-md flex-1"
+            >
+              <Monitor className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
               Sistema
             </TabsTrigger>
-            <TabsTrigger value="light" className="h-6 text-xs px-2 rounded-md flex-1">
-              <Sun className="h-3.5 w-3.5 mr-1.5" />
+
+            <TabsTrigger
+              value="light"
+              className="h-6 text-xs px-2 rounded-md flex-1"
+            >
+              <Sun className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
               Dia
             </TabsTrigger>
-            <TabsTrigger value="dark" className="h-6 text-xs px-2 rounded-md flex-1">
-              <Moon className="h-3.5 w-3.5 mr-1.5" />
+
+            <TabsTrigger
+              value="dark"
+              className="h-6 text-xs px-2 rounded-md flex-1"
+            >
+              <Moon className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
               Noite
             </TabsTrigger>
           </TabsList>
         </Tabs>
+
         <DropdownMenuSeparator />
+
         <DropdownMenuItem
           className="text-red-500 hover:text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/20 cursor-pointer"
-          onSelect={handleLogout}
+          onSelect={(event) => {
+            event.preventDefault(); // ✅ mantém consistente com outros onSelect
+            void handleLogout();
+          }}
         >
-          <LogOut className="mr-2 h-4 w-4" />
+          <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
           Sair
         </DropdownMenuItem>
       </DropdownMenuContent>

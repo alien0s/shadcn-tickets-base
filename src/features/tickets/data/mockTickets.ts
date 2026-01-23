@@ -1,6 +1,10 @@
 import type { Ticket } from "../types/ticketTypes";
 
-const TICKET_AVATARS: Record<string, string> = {
+const FALLBACK_AVATAR =
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTf0EDQTODg7aIfRjNG_0y3AS3dqGNWPNlJRA&s"; // ✅ fallback seguro
+
+// ✅ Permite falta de chave sem quebrar tipagem
+const TICKET_AVATARS: Record<string, string | undefined> = {
   "1": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTf0EDQTODg7aIfRjNG_0y3AS3dqGNWPNlJRA&s",
   "2": "https://i.pinimg.com/736x/27/57/78/2757784d2e6f5d047987321cf8d5bb89.jpg",
   "3": "https://favim.com/pd/s1/orig/160107/boy-icon-random-tumblr-Favim.com-3852801.jpg",
@@ -58,15 +62,16 @@ const BASE_TICKETS = [
     entity: "aceam",
     type: "sugestao",
   },
-] satisfies ReadonlyArray<Omit<Ticket, "avatarUrl">>;
+] as const satisfies ReadonlyArray<Omit<Ticket, "avatarUrl">>; // ✅ mantém literals + valida shape
 
 export const mockTickets: Ticket[] = BASE_TICKETS.map((ticket) => ({
   ...ticket,
-  avatarUrl: TICKET_AVATARS[ticket.id],
+  // ✅ nunca deixa undefined escapar (evita flicker/fallback estranho no AvatarImage)
+  avatarUrl: TICKET_AVATARS[ticket.id] ?? FALLBACK_AVATAR,
 }));
 
 export const mockEntities = [
   { id: "anra", name: "Anra" },
   { id: "aceam", name: "Aceam" },
   { id: "unob", name: "Unob" },
-];
+] as const; // ✅ estabilidade e tipagem literal

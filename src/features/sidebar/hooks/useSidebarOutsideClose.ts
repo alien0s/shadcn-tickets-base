@@ -9,33 +9,44 @@ export function useSidebarOutsideClose({
   isCollapsed,
   closeSidebar,
 }: UseSidebarOutsideCloseParams) {
-  const sidebarRef = useRef<HTMLElement>(null);
+  // ✅ ref corretamente tipada (pode ser null)
+  const sidebarRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (window.innerWidth >= 768 || isCollapsed) return;
+    // ✅ SSR safety
+    if (typeof window === "undefined" || typeof document === "undefined") return;
 
-      const target = event.target as Node;
+    const isDesktop = () => window.matchMedia("(min-width: 768px)").matches;
 
-      if (sidebarRef.current && sidebarRef.current.contains(target)) {
-        return;
-      }
+    const handlePointerDown = (event: PointerEvent | MouseEvent) => {
+      if (isDesktop() || isCollapsed) return;
 
-      const clickedElement = event.target as HTMLElement;
+      const targetNode = event.target;
+      if (!(targetNode instanceof Node)) return;
+
+      // Clique dentro da sidebar -> não fecha
+      if (sidebarRef.current && sidebarRef.current.contains(targetNode)) return;
+
+      // Para `.closest`, precisamos de Element (Text nodes não têm closest)
+      const targetEl = event.target instanceof Element ? event.target : null;
+
+      // Ignora cliques dentro de dropdowns/menus Radix
       const isInsideDropdown =
-        clickedElement.closest('[role="menu"]') ||
-        clickedElement.closest('[data-radix-menu-content]') ||
-        clickedElement.closest('[data-radix-popper-content-wrapper]');
+        targetEl?.closest('[role="menu"]') ||
+        targetEl?.closest('[data-radix-menu-content]') ||
+        targetEl?.closest('[data-radix-popper-content-wrapper]');
 
-      if (isInsideDropdown) {
-        return;
-      }
+      if (isInsideDropdown) return;
 
       closeSidebar();
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    // ✅ pointerdown cobre mouse + touch de forma mais consistente
+    document.addEventListener("pointerdown", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
   }, [isCollapsed, closeSidebar]);
 
   return sidebarRef;

@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -9,6 +10,8 @@ export function SecuritySection({
   twoFactorEnabled,
   onToggleTwoFactor,
 }: SecuritySectionProps) {
+  const twoFactorSwitchId = useId(); // ✅ a11y: associa switch ao rótulo
+
   return (
     <>
       <div className="flex flex-col gap-2 border-b border-border px-1 pb-4 sm:flex-row sm:items-center sm:justify-between sm:px-0">
@@ -35,8 +38,14 @@ export function SecuritySection({
                 Ultima alteracao ha 3 meses.
               </p>
             </div>
-            <Button variant="outline" size="icon" aria-label="Editar senha">
-              <Edit3 className="h-4 w-4" />
+
+            <Button
+              type="button" // ✅ evita submit acidental
+              variant="outline"
+              size="icon"
+              aria-label="Editar senha"
+            >
+              <Edit3 className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
         </ProfileField>
@@ -55,18 +64,23 @@ export function SecuritySection({
                       ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-100"
                       : "bg-muted text-muted-foreground"
                   )}
+                  aria-label={`Autenticação em duas etapas ${twoFactorEnabled ? "ativada" : "desativada"}`} // ✅ a11y sem mudar UI
                 >
-                  <ShieldCheck className="h-3.5 w-3.5" />
+                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                   {twoFactorEnabled ? "Ativada" : "Desativada"}
                 </span>
               </div>
+
               <p className="text-xs text-muted-foreground">
                 Receba um codigo no email ao fazer login.
               </p>
             </div>
+
             <Switch
+              id={twoFactorSwitchId}
               checked={twoFactorEnabled}
               onCheckedChange={onToggleTwoFactor}
+              aria-label="Alternar autenticação em duas etapas" // ✅ a11y
             />
           </div>
         </ProfileField>

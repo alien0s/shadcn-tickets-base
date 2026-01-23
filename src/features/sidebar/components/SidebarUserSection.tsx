@@ -9,12 +9,12 @@ type SidebarUserSectionProps = {
   userNav: UserNavState;
 };
 
-export function SidebarUserSection({
-  isCollapsed,
-  userNav,
-}: SidebarUserSectionProps) {
+export function SidebarUserSection({ isCollapsed, userNav }: SidebarUserSectionProps) {
   return (
-    <div className="px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex flex-col gap-1">
+    <div
+      className="px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex flex-col gap-1"
+      aria-label="Seção de usuário"
+    >
       <NavLink to="/users" className="block">
         {({ isActive }) => (
           <SidebarItem
@@ -25,6 +25,8 @@ export function SidebarUserSection({
           />
         )}
       </NavLink>
+
+      {/* Itens abaixo são placeholders (sem navegação). Mantidos sem alteração de comportamento. */}
       <SidebarItem
         icon={LifeBuoy}
         label="Suporte"

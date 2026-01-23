@@ -1,7 +1,11 @@
 import type { ComponentType } from "react";
+import type { LucideIcon } from "lucide-react";
+
+// ✅ aceita lucide (ideal) e continua aceitando qualquer componente compatível com className
+export type SidebarIcon = LucideIcon | ComponentType<{ className?: string }>;
 
 export type SidebarItemProps = {
-  icon: ComponentType<{ className?: string }>;
+  icon: SidebarIcon;
   label: string;
   collapsed: boolean;
   active?: boolean;

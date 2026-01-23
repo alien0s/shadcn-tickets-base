@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -48,12 +49,29 @@ export function TicketList({
     toggleStatus,
     entities,
   } = useTicketsList();
+
   const { toggleSidebar } = useSidebar();
 
-  const handleSelectTicket = (ticket: Ticket) => {
-    setSelectedTicketId(ticket.id);
-    onSelectTicket?.(ticket);
-  };
+  const handleSelectTicket = useCallback(
+    (ticket: Ticket) => {
+      setSelectedTicketId(ticket.id);
+      onSelectTicket?.(ticket);
+    },
+    [onSelectTicket, setSelectedTicketId]
+  );
+
+  /**
+   * ✅ Evita criar handler inline em TODA renderização.
+   * - Ainda existe 1 handler por ticket (natural), mas só é recriado quando `filteredTickets` muda.
+   * - Ajuda quando TicketListItem usa React.memo.
+   */
+  const ticketClickHandlers = useMemo(() => {
+    const map = new Map<string, () => void>();
+    for (const ticket of filteredTickets) {
+      map.set(ticket.id, () => handleSelectTicket(ticket));
+    }
+    return map;
+  }, [filteredTickets, handleSelectTicket]);
 
   // Componente de filtros reutilizavel
   const FilterContent = () => (
@@ -140,17 +158,19 @@ export function TicketList({
             size="icon"
             className="h-8 w-8 md:hidden"
             onClick={toggleSidebar}
+            aria-label="Abrir menu lateral"
           >
-            <PanelRight className="h-4 w-4" />
+            <PanelRight className="h-4 w-4" aria-hidden="true" />
           </Button>
           <span className="text-lg font-bold">Tickets</span>
         </div>
+
         <Button
           size="sm"
           className="bg-primary text-primary-foreground hover:bg-primary/90"
           onClick={() => onNewTicketOpenChange(true)}
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-4 w-4" aria-hidden="true" />
           Novo ticket
         </Button>
       </div>
@@ -160,7 +180,7 @@ export function TicketList({
         <div className="flex gap-2">
           <div className="relative flex-1">
             <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
-              <Search className="h-4 w-4" />
+              <Search className="h-4 w-4" aria-hidden="true" />
             </span>
             <Input
               value={search}
@@ -170,11 +190,16 @@ export function TicketList({
             />
           </div>
 
-          {/* Botao de Filtro - Desktop (Dropdown para Entidades) */}
+          {/* Botao de Filtro - Desktop */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="icon" className="h-9 w-9 hidden md:flex">
-                <ListFilter className="h-4 w-4" />
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 hidden md:flex"
+                aria-label="Abrir filtros"
+              >
+                <ListFilter className="h-4 w-4" aria-hidden="true" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
@@ -197,6 +222,7 @@ export function TicketList({
                   </div>
                 ))}
               </div>
+
               <DropdownMenuSeparator />
               <DropdownMenuLabel>Entidades</DropdownMenuLabel>
 
@@ -220,11 +246,16 @@ export function TicketList({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Botao de Filtro - Mobile (Popover com todos os filtros) */}
+          {/* Botao de Filtro - Mobile */}
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="icon" className="h-9 w-9 md:hidden">
-                <Filter className="h-4 w-4" />
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 md:hidden"
+                aria-label="Abrir filtros"
+              >
+                <Filter className="h-4 w-4" aria-hidden="true" />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-80" align="end">
@@ -237,9 +268,8 @@ export function TicketList({
         </div>
       </div>
 
-      {/* Tabs: Todos / Não lido + Filter Type - Apenas Desktop */}
+      {/* Tabs: Apenas Desktop */}
       <div className="px-3 border-border hidden md:flex items-center gap-4">
-        {/* Status Tabs (Compact) */}
         <Tabs
           value={statusFilter}
           onValueChange={(v) => setStatusFilter(v as "todos" | "nao-lido")}
@@ -255,7 +285,6 @@ export function TicketList({
           </TabsList>
         </Tabs>
 
-        {/* Type Tabs (Square Icons, Separate) */}
         <TicketTypeTabs value={ticketTypeFilter} onValueChange={setTicketTypeFilter} />
       </div>
 
@@ -271,7 +300,7 @@ export function TicketList({
                   key={ticket.id}
                   ticket={ticket}
                   isActive={selectedTicketId === ticket.id}
-                  onClick={() => handleSelectTicket(ticket)}
+                  onClick={ticketClickHandlers.get(ticket.id) ?? (() => handleSelectTicket(ticket))} // fallback seguro
                 />
               ))}
 
@@ -285,7 +314,10 @@ export function TicketList({
         </div>
       </ScrollArea>
 
-      <NewTicketDialog open={isNewTicketOpen} onOpenChange={onNewTicketOpenChange} />
+      <NewTicketDialog
+        open={isNewTicketOpen}
+        onOpenChange={onNewTicketOpenChange}
+      />
     </div>
   );
 }

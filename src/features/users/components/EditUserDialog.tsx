@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,14 +27,20 @@ type Props = {
   onOpenChange: (open: boolean) => void;
 };
 
+// Opções de entidade (constante fora do componente para evitar recriação)
 const ENTITY_OPTIONS = ["ANRA", "ACeAm", "Asur", "MLA", "UNoB"];
 
 export function EditUserDialog({ user, open, onOpenChange }: Props) {
+  // Estado do avatar (URL da imagem exibida)
   const [avatarSrc, setAvatarSrc] = useState(user.avatar ?? "");
   const previousAvatarUrl = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Estados do modal de crop
   const [isCropOpen, setIsCropOpen] = useState(false);
   const [isSavingCrop, setIsSavingCrop] = useState(false);
+
+  // Hook customizado para gerenciar crop de imagem
   const {
     imageSrc,
     setImageSrc,
@@ -44,84 +50,105 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
     setZoom,
     loadFile,
   } = useImageCropper({ initialImage: user.avatar ?? "" });
+
+  // Estados do formulário (valores iniciais e atuais)
   const [initialValues, setInitialValues] = useState({
     firstName: "",
     lastName: "",
     email: "",
     entity: "",
   });
+  
   const [formValues, setFormValues] = useState({
     firstName: "",
     lastName: "",
     email: "",
     entity: "",
   });
+
+  // Controla auto-focus do dialog (desabilitado em mobile)
   const [shouldAutoFocus, setShouldAutoFocus] = useState(false);
 
+  // Sincroniza valores do formulário quando o usuário muda
   useEffect(() => {
     const nameParts = user.name.trim().split(" ");
     const firstName = nameParts[0] || "";
     const lastName = nameParts.slice(1).join(" ");
+    
     const nextValues = {
       firstName,
       lastName,
       email: user.email,
       entity: user.entity,
     };
+    
     setInitialValues(nextValues);
     setFormValues(nextValues);
     setAvatarSrc(user.avatar ?? "");
     setImageSrc(user.avatar ?? "");
   }, [user.avatar, user.email, user.entity, user.name, setImageSrc]);
 
+  // Gerencia limpeza de URLs blob do avatar
   useEffect(() => {
     const previous = previousAvatarUrl.current;
+    
+    // Libera memória de URLs blob antigas
     if (previous && previous.startsWith("blob:") && previous !== avatarSrc) {
       URL.revokeObjectURL(previous);
     }
+    
     previousAvatarUrl.current = avatarSrc;
+  }, [avatarSrc]);
+
+  // Detecta se é mobile para desabilitar auto-focus
+  useEffect(() => {
     if (typeof window === "undefined") return;
+
     const mediaQuery = window.matchMedia("(max-width: 767px)");
     const updateAutoFocus = () => setShouldAutoFocus(!mediaQuery.matches);
+    
+    // Define valor inicial
     updateAutoFocus();
 
-    if (mediaQuery.addEventListener) {
-      mediaQuery.addEventListener("change", updateAutoFocus);
-    } else {
-      mediaQuery.addListener(updateAutoFocus);
-    }
+    // Atualiza quando o tamanho da tela muda
+    mediaQuery.addEventListener("change", updateAutoFocus);
 
     return () => {
-      if (mediaQuery.removeEventListener) {
-        mediaQuery.removeEventListener("change", updateAutoFocus);
-      } else {
-        mediaQuery.removeListener(updateAutoFocus);
-      }
+      mediaQuery.removeEventListener("change", updateAutoFocus);
     };
   }, []);
 
-  const isDirty =
-    formValues.firstName !== initialValues.firstName ||
-    formValues.lastName !== initialValues.lastName ||
-    formValues.email !== initialValues.email ||
-    formValues.entity !== initialValues.entity;
+  // Verifica se o formulário foi modificado (memoizado para evitar recálculo)
+  const isDirty = useMemo(
+    () =>
+      formValues.firstName !== initialValues.firstName ||
+      formValues.lastName !== initialValues.lastName ||
+      formValues.email !== initialValues.email ||
+      formValues.entity !== initialValues.entity,
+    [formValues, initialValues]
+  );
 
-  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+  // Handler para quando o usuário seleciona uma imagem
+  const handleFileChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    
     loadFile(file);
     setIsCropOpen(true);
-    event.target.value = "";
-  };
+    event.target.value = ""; // Limpa input para permitir reupload do mesmo arquivo
+  }, [loadFile]);
 
-  const handleOpenCrop = () => {
+  // Abre modal de crop com a imagem atual
+  const handleOpenCrop = useCallback(() => {
     if (!avatarSrc) return;
     setImageSrc(avatarSrc);
     setIsCropOpen(true);
-  };
+  }, [avatarSrc, setImageSrc]);
 
-  const handleSaveCrop = async () => {
+  // Salva a imagem recortada
+  const handleSaveCrop = useCallback(async () => {
     if (!imageSrc || !cropArea) return;
+    
     setIsSavingCrop(true);
     try {
       const blob = await cropImage(imageSrc, cropArea);
@@ -131,7 +158,43 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
     } finally {
       setIsSavingCrop(false);
     }
-  };
+  }, [imageSrc, cropArea]);
+
+  // Handler para atualizar firstName
+  const handleFirstNameChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setFormValues((prev) => ({ ...prev, firstName: event.target.value }));
+  }, []);
+
+  // Handler para atualizar lastName
+  const handleLastNameChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setFormValues((prev) => ({ ...prev, lastName: event.target.value }));
+  }, []);
+
+  // Handler para atualizar email
+  const handleEmailChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setFormValues((prev) => ({ ...prev, email: event.target.value }));
+  }, []);
+
+  // Handler para atualizar entidade
+  const handleEntityChange = useCallback((value: string) => {
+    setFormValues((prev) => ({ ...prev, entity: value }));
+  }, []);
+
+  // Handler para abrir input de arquivo
+  const handleUploadClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  // Handler para fechar dialog
+  const handleClose = useCallback(() => {
+    onOpenChange(false);
+  }, [onOpenChange]);
+
+  // Handler para submit do formulário
+  const handleSubmit = useCallback((event: React.FormEvent) => {
+    event.preventDefault();
+    onOpenChange(false);
+  }, [onOpenChange]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -149,12 +212,10 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
 
         <form
           className="mt-3 flex flex-col flex-1 min-h-0 gap-4 overflow-y-auto sm:overflow-visible"
-          onSubmit={(event) => {
-            event.preventDefault();
-            onOpenChange(false);
-          }}
+          onSubmit={handleSubmit}
         >
           <div className="space-y-4 pr-1 pl-1 flex-1 min-h-0">
+            {/* Seção de avatar e informações do usuário */}
             <div className="flex flex-col gap-4 border-b border-border px-1 pb-4 sm:flex-row sm:items-center sm:justify-between sm:px-0">
               <div className="flex items-center gap-3">
                 <button
@@ -177,6 +238,8 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
                   </p>
                 </div>
               </div>
+
+              {/* Botões de ação do avatar */}
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" className="gap-1.5" type="button">
                   <Trash2 className="h-4 w-4" />
@@ -186,7 +249,7 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
                   size="sm"
                   className="gap-1.5"
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={handleUploadClick}
                 >
                   <Upload className="h-4 w-4" />
                   Upload
@@ -201,7 +264,9 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
               </div>
             </div>
 
+            {/* Campos do formulário */}
             <div className="divide-y divide-border">
+              {/* Campo de nome (dividido em primeiro nome e sobrenome) */}
               <ProfileField
                 title="Nome"
                 description="Nome exibido para clientes e equipe."
@@ -212,27 +277,18 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
                     id="firstName"
                     value={formValues.firstName}
                     placeholder="Primeiro nome"
-                    onChange={(event) =>
-                      setFormValues((prev) => ({
-                        ...prev,
-                        firstName: event.target.value,
-                      }))
-                    }
+                    onChange={handleFirstNameChange}
                   />
                   <Input
                     id="lastName"
                     value={formValues.lastName}
                     placeholder="Sobrenome"
-                    onChange={(event) =>
-                      setFormValues((prev) => ({
-                        ...prev,
-                        lastName: event.target.value,
-                      }))
-                    }
+                    onChange={handleLastNameChange}
                   />
                 </div>
               </ProfileField>
 
+              {/* Campo de email */}
               <ProfileField
                 title="Email"
                 description="Defina como entrar em contato com voçe."
@@ -242,16 +298,12 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
                     id="email"
                     type="email"
                     value={formValues.email}
-                    onChange={(event) =>
-                      setFormValues((prev) => ({
-                        ...prev,
-                        email: event.target.value,
-                      }))
-                    }
+                    onChange={handleEmailChange}
                   />
                 </div>
               </ProfileField>
 
+              {/* Campo de entidade */}
               <ProfileField
                 title="Entidade"
                 description="Organização vinculada ao seu perfil."
@@ -259,12 +311,7 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
                 <EntitySelect
                   options={ENTITY_OPTIONS}
                   value={formValues.entity}
-                  onChange={(value) =>
-                    setFormValues((prev) => ({
-                      ...prev,
-                      entity: value,
-                    }))
-                  }
+                  onChange={handleEntityChange}
                 />
               </ProfileField>
             </div>
@@ -276,13 +323,14 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
             </div>
           </div>
 
+          {/* Footer com botões de ação */}
           <DialogFooter className="sticky bottom-0 left-0 right-0 flex-row w-full gap-2 bg-background pt-4 pb-[calc(0.5rem+var(--safe-bottom, env(safe-area-inset-bottom)))] sm:justify-end sm:space-x-0 sm:pb-0">
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="flex-1 sm:flex-none"
-              onClick={() => onOpenChange(false)}
+              onClick={handleClose}
             >
               Cancelar
             </Button>
@@ -297,6 +345,8 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
             </Button>
           </DialogFooter>
         </form>
+
+        {/* Dialog de crop de imagem (nested) */}
         <Dialog open={isCropOpen} onOpenChange={setIsCropOpen}>
           <DialogContent className="flex flex-col w-[100dvw] h-[100dvh] max-w-[100dvw] max-h-[100dvh] rounded-none sm:w-[520px] sm:h-[520px] sm:max-w-[520px] sm:max-h-[520px]">
             <DialogHeader>
@@ -304,6 +354,7 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
             </DialogHeader>
             {imageSrc ? (
               <div className="flex flex-col gap-4 flex-1 min-h-0">
+                {/* Componente de crop de imagem */}
                 <ImageCropper
                   image={imageSrc}
                   aspectRatio={1}
@@ -312,6 +363,8 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
                   onZoomChange={setZoom}
                   className="flex-1 min-h-[280px] w-full self-center sm:flex-none sm:h-[320px]"
                 />
+                
+                {/* Slider de zoom (apenas desktop) */}
                 <div className="space-y-2 hidden sm:block">
                   <div className="flex items-center justify-between text-sm">
                     <span className="font-medium">Zoom</span>
@@ -335,6 +388,8 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
                 Selecione uma imagem para recortar.
               </div>
             )}
+            
+            {/* Footer do modal de crop */}
             <DialogFooter className="mt-auto gap-2">
               <Button
                 type="button"

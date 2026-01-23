@@ -1,8 +1,9 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { TICKET_PRIORITY_STYLES, TICKET_TYPE_STYLES } from "@/config/ticket-constants";
-import { HelpCircle } from "lucide-react";
+import { TICKET_TYPE_STYLES, type TicketTypeKey } from "@/config/ticket-constants";
 import { StatusPill } from "./StatusPill";
-import type { Ticket, TicketPriority } from "../types/ticketTypes";
+import { PriorityPill } from "./PriorityPill";
+import type { Ticket } from "../types/ticketTypes";
+import { cn } from "@/lib/utils";
 
 type Props = {
   ticket: Ticket;
@@ -11,25 +12,35 @@ type Props = {
 };
 
 export function TicketListItem({ ticket, onClick, isActive = false }: Props) {
-  const priorityPill = getPriorityPill(ticket.priority);
-  const TypeIcon = ticket.type ? TICKET_TYPE_STYLES[ticket.type].icon : null;
+  // ✅ SSR/Api-safe: evita crash se vier type inesperado
+  const typeKey = ticket.type as TicketTypeKey | undefined;
+  const typeStyle = typeKey ? TICKET_TYPE_STYLES[typeKey] : undefined;
+  const TypeIcon = typeStyle?.icon ?? null;
+
   const fallbackInitial =
-    (ticket.requester || ticket.subject || "").trim().charAt(0).toUpperCase() ||
-    "?";
+    (ticket.requester || ticket.subject || "").trim().charAt(0).toUpperCase() || "?";
 
   return (
     <button
+      type="button" // ✅ evita submit acidental se este item cair dentro de algum <form> no futuro
       onClick={onClick}
-      className={`w-full px-3 py-2 flex items-start gap-3 clean-shadow text-left focus:outline-none transition-colors ${
+      aria-current={isActive ? "true" : undefined} // ✅ ajuda leitores de tela para item ativo
+      className={cn(
+        "w-full px-3 py-2 flex items-start gap-3 clean-shadow text-left focus:outline-none transition-colors",
         isActive
           ? "bg-accent border-l-2 border-l-primary"
           : "hover:bg-accent/60 focus:bg-accent/60"
-      }`}
+      )}
+      title={ticket.subject} // ✅ tooltip útil sem mudar UI
     >
       {/* Avatar maior */}
       <Avatar className="h-10 w-10 rounded-lg mt-[2px] bg-muted/70">
-        <AvatarImage src={ticket.avatarUrl} alt={ticket.requester || "Solicitante"} />
-        <AvatarFallback className="rounded-full text-xs font-semibold">
+        <AvatarImage
+          src={ticket.avatarUrl}
+          alt={ticket.requester || "Solicitante"}
+        />
+        
+        <AvatarFallback className="rounded-lg text-xs font-semibold">
           {fallbackInitial}
         </AvatarFallback>
       </Avatar>
@@ -51,46 +62,20 @@ export function TicketListItem({ ticket, onClick, isActive = false }: Props) {
 
         <div className="mt-1 flex items-center gap-2">
           <StatusPill status={ticket.status} />
-          <span
-            className={`inline-flex items-center h-5 px-1.5 py-0.5 rounded-md text-[11px] font-medium border ${priorityPill.className}`}
-          >
-            <priorityPill.icon className="h-3 w-3 mr-1.5" />
-            {priorityPill.label}
-          </span>
+          <PriorityPill priority={ticket.priority} />
 
           {/* Icon Type Next to Priority */}
           {TypeIcon && (
             <span
               className="inline-flex items-center justify-center h-5 w-5 rounded-md border border-border text-muted-foreground bg-transparent"
-              title={ticket.type}
+              title={typeStyle?.label ?? String(ticket.type)} // ✅ title mais amigável
+              aria-label={typeStyle?.label ?? "Tipo do ticket"}
             >
-              <TypeIcon className="h-3 w-3" />
+              <TypeIcon className="h-3 w-3" aria-hidden="true" />
             </span>
           )}
         </div>
       </div>
     </button>
   );
-}
-
-function getPriorityPill(priority: TicketPriority) {
-  const value = priority.toLowerCase();
-
-  if (value === "baixa" || value === "low") {
-    return TICKET_PRIORITY_STYLES.baixa;
-  }
-
-  if (value === "media" || value === "medium") {
-    return TICKET_PRIORITY_STYLES.media;
-  }
-
-  if (value === "alta" || value === "high") {
-    return TICKET_PRIORITY_STYLES.alta;
-  }
-
-  return {
-    label: priority,
-    icon: HelpCircle,
-    className: "bg-muted text-muted-foreground",
-  };
 }

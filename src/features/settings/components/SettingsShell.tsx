@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from "react";
 import { useSidebar } from "@/context/sidebar-context";
 import { Button } from "@/components/ui/button";
 import { PanelRight } from "lucide-react";
@@ -15,44 +16,85 @@ export function SettingsShell() {
   const { entities, selectedEntity, setSelectedEntity } = useEntities();
   const { twoFactorEnabled, setTwoFactorEnabled } = useTwoFactor();
 
-  const renderContent = () => {
+  // ✅ handlers estáveis (evita passar funções instáveis para children)
+  const handleToggleSidebar = useCallback(() => {
+    toggleSidebar();
+  }, [toggleSidebar]);
+
+  const handleSelectSection = useCallback(
+    (sectionId: typeof activeSection) => {
+      setActiveSection(sectionId);
+    },
+    [setActiveSection]
+  );
+
+  const handleChangeEntity = useCallback(
+    (value: string) => {
+      setSelectedEntity(value);
+    },
+    [setSelectedEntity]
+  );
+
+  const handleToggleTwoFactor = useCallback(
+    (next: boolean) => {
+      setTwoFactorEnabled(next);
+    },
+    [setTwoFactorEnabled]
+  );
+
+  // ✅ calcula label do placeholder uma vez
+  const activeSectionLabel = useMemo(() => {
+    return sections.find((section) => section.id === activeSection)?.label || "Em breve";
+  }, [sections, activeSection]);
+
+  // ✅ conteúdo memoizado (evita re-render extra e find duplicado)
+  const content = useMemo(() => {
     if (activeSection === "general") {
       return (
         <ProfileSection
           entities={entities}
           selectedEntity={selectedEntity}
-          onChangeEntity={setSelectedEntity}
+          onChangeEntity={handleChangeEntity}
         />
       );
     }
+
     if (activeSection === "security") {
       return (
         <SecuritySection
           twoFactorEnabled={twoFactorEnabled}
-          onToggleTwoFactor={setTwoFactorEnabled}
+          onToggleTwoFactor={handleToggleTwoFactor}
         />
       );
     }
-    return (
-      <PlaceholderSection
-        title={sections.find((section) => section.id === activeSection)?.label || "Em breve"}
-      />
-    );
-  };
+
+    return <PlaceholderSection title={activeSectionLabel} />;
+  }, [
+    activeSection,
+    entities,
+    selectedEntity,
+    twoFactorEnabled,
+    handleChangeEntity,
+    handleToggleTwoFactor,
+    activeSectionLabel,
+  ]);
 
   return (
-    <main className="flex-1 flex flex-col overflow-hidden">
+    <main className="flex-1 flex flex-col overflow-hidden" role="main">
       <div className="h-14 border-b border-border flex items-center">
         <div className="mx-auto max-w-6xl w-full flex items-center px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
             <Button
+              type="button" // ✅ evita submit acidental
               variant="outline"
               size="icon"
               className="md:hidden"
-              onClick={toggleSidebar}
+              onClick={handleToggleSidebar}
+              aria-label="Abrir/fechar menu lateral" // ✅ a11y
             >
-              <PanelRight className="h-4 w-4" />
+              <PanelRight className="h-4 w-4" aria-hidden="true" />
             </Button>
+
             <h1 className="text-xl font-semibold">Configuracões</h1>
           </div>
         </div>
@@ -64,9 +106,10 @@ export function SettingsShell() {
             <SettingsNav
               sections={sections}
               activeSection={activeSection}
-              onSelect={setActiveSection}
+              onSelect={handleSelectSection}
             />
-            <section className="flex flex-col">{renderContent()}</section>
+
+            <section className="flex flex-col">{content}</section>
           </div>
         </div>
       </div>

@@ -1,0 +1,342 @@
+📱 useAppViewport
+
+Hook React que ajusta dinamicamente a altura da aplicação para lidar com barras de interface móvel (barra de endereço, teclado virtual, etc).
+
+---
+
+🎯 Problema que resolve
+
+Em dispositivos móveis, o valor CSS 100vh não considera a altura real disponível porque:
+
+- Barra de endereço do navegador aparece e desaparece ao scrollar
+- Teclado virtual ocupa espaço quando ativo
+- Barras de navegação do sistema ocupam espaço
+
+Isso causa layouts quebrados, conteúdo cortado ou espaços em branco indesejados.
+
+Antes (sem o hook):
+`css
+.app {
+  height: 100vh; / Não funciona bem em mobile /
+}
+`
+❌ Layout quebrado quando barra de endereço aparece/desaparece
+
+Depois (com o hook):
+`css
+.app {
+  height: 100vh; / Fallback /
+  height: var(--app-height, 100vh); / Valor dinâmico /
+}
+`
+✅ Layout sempre se ajusta à altura real disponível
+
+---
+
+📦 Instalação
+
+Copie o arquivo useAppViewport.ts para sua pasta de hooks:
+
+`
+src/
+├── hooks/
+│   └── useAppViewport.ts
+`
+
+---
+
+🚀 Uso Básico
+
+1. Adicione o hook no componente raiz
+
+`tsx
+import { useAppViewport } from "@/hooks/useAppViewport";
+
+export function App() {
+  // Inicializa o hook (executar apenas UMA vez na raiz)
+  useAppViewport();
+
+  return (
+    <div className="app-container">
+      {/ Seu conteúdo /}
+    </div>
+  );
+}
+`
+
+2. Use a variável CSS --app-height
+
+`css
+/ global.css /
+.app-container {
+  height: 100vh; / Fallback para navegadores antigos e iOS /
+  height: var(--app-height, 100vh); / Valor dinâmico /
+}
+
+/ Ou com Tailwind /
+.app-container {
+  @apply h-screen; / Fallback /
+  height: var(--app-height, 100vh);
+}
+`
+
+---
+
+🔧 Exemplos Práticos
+
+Exemplo 1: Layout full-screen em mobile
+
+`tsx
+import { useAppViewport } from "@/hooks/useAppViewport";
+
+export function App() {
+  useAppViewport();
+
+  return (
+    <div className="app-wrapper">
+      <Header />
+      <MainContent />
+      <Footer />
+    </div>
+  );
+}
+`
+
+`css
+.app-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: var(--app-height, 100vh); / Ajusta dinamicamente /
+}
+`
+
+Exemplo 2: Modal full-screen
+
+`css
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  height: var(--app-height, 100vh); / Ocupa toda a tela real /
+  background: rgba(0, 0, 0, 0.8);
+}
+`
+
+Exemplo 3: Seção hero com altura completa
+
+`css
+.hero-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  height: var(--app-height, 100vh); / Adapta ao viewport real /
+}
+`
+
+---
+
+⚙️ Como Funciona
+
+1. Detecção de dispositivo
+`typescript
+// Identifica se é iOS (iPhone, iPad, iPod)
+const isIOSDevice = () => {
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+};
+`
+
+2. Atualização dinâmica
+`typescript
+// Define variável CSS com altura real
+document.documentElement.style.setProperty(
+  "--app-height",
+  ${visualViewport.height}px
+);
+`
+
+3. Listeners de eventos
+Atualiza --app-height quando:
+- ✅ Janela redimensiona (resize)
+- ✅ Orientação muda (orientationchange)
+- ✅ Viewport muda (visualViewport.resize)
+- ✅ Teclado aparece/desaparece (visualViewport.scroll)
+
+---
+
+🍎 Comportamento no iOS
+
+O hook NÃO executa em dispositivos iOS.
+
+Por quê?
+- iOS tem implementação inconsistente da API visualViewport
+- O comportamento nativo de 100vh funciona melhor em iOS
+- Evita bugs e comportamentos inesperados
+
+Resultado:
+- Android/Desktop: Usa var(--app-height) com valor dinâmico
+- iOS: Usa o fallback 100vh (comportamento padrão)
+
+---
+
+🎨 Integração com Tailwind CSS
+
+Opção 1: Classe utilitária customizada
+
+`javascript
+// tailwind.config.js
+module.exports = {
+  theme: {
+    extend: {
+      height: {
+        'screen-dynamic': 'var(--app-height, 100vh)',
+      },
+    },
+  },
+};
+`
+
+`tsx
+// Uso
+<div className="h-screen-dynamic">
+  Conteúdo
+</div>
+`
+
+Opção 2: Classe CSS global
+
+`css
+/ global.css /
+@layer utilities {
+  .h-screen-safe {
+    height: 100vh;
+    height: var(--app-height, 100vh);
+  }
+}
+`
+
+`tsx
+// Uso
+<div className="h-screen-safe">
+  Conteúdo
+</div>
+`
+
+---
+
+⚡ Performance
+
+Otimizações implementadas:
+
+✅ requestAnimationFrame: Atualiza no frame ideal do navegador  
+✅ Debounce implícito: RAF evita múltiplas atualizações no mesmo frame  
+✅ Cleanup automático: Remove listeners ao desmontar  
+✅ Early return: Não executa em SSR ou iOS  
+
+Impacto:
+- Sem jank durante scroll
+- Sem stuttering no resize
+- Performance nativa em iOS
+
+---
+
+🐛 Troubleshooting
+
+Problema: --app-height não está definida
+
+Causa: Hook não foi executado no componente raiz
+
+Solução:
+`tsx
+// ✅ CORRETO: No componente raiz (_app.tsx ou App.tsx)
+export function App() {
+  useAppViewport();
+  return <Layout />;
+}
+
+// ❌ ERRADO: Em componente filho
+export function Header() {
+  useAppViewport(); // Não faça isso
+  return <header />;
+}
+`
+
+---
+
+Problema: Layout quebrado em iOS
+
+Causa: Não está usando fallback 100vh
+
+Solução:
+`css
+/ ❌ ERRADO /
+.container {
+  height: var(--app-height);
+}
+
+/ ✅ CORRETO /
+.container {
+  height: 100vh; / Fallback primeiro /
+  height: var(--app-height, 100vh);
+}
+`
+
+---
+
+Problema: Valor não atualiza quando teclado aparece
+
+Causa: Navegador não suporta visualViewport API
+
+Solução: Isso é esperado. Use o fallback:
+`css
+.input-container {
+  height: 100vh;
+  height: var(--app-height, 100vh);
+  / O fallback funciona na maioria dos casos /
+}
+`
+
+---
+
+📱 Compatibilidade
+
+| Firefox Android | ✅ Completo | Usa --app-height dinâmico |
+| Safari iOS | ⚠️ Desabilitado | Usa fallback 100vh |
+| Desktop (todos) | ✅ Funciona | Usa --app-height (igual a 100vh) |
+
+---
+
+📝 Notas Importantes
+
+1. Execute apenas uma vez: Adicione o hook no componente raiz, não em múltiplos lugares
+2. Sempre use fallback: height: 100vh; height: var(--app-height, 100vh);
+3. Teste em dispositivos reais: Simuladores nem sempre replicam o comportamento
+4. SSR-safe: Não quebra em Next.js ou outras ferramentas SSR
+
+---
+
+🔗 Referências
+
+- Visual Viewport API - MDN
+- CSS Custom Properties - MDN
+- The 100vh problem on mobile
+
+---
+
+📄 Licença
+
+Este hook é parte do projeto e está disponível para uso interno.
+
+---
+
+👥 Contribuindo
+
+Encontrou um bug ou tem sugestões de melhoria? Entre em contato com o time de desenvolvimento.
+
+---
+
+Última atualização: Janeiro 2026  
+Versão: 1.0.0

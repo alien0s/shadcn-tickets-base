@@ -1,3 +1,4 @@
+import { memo, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ListFilter, Search, UserPlus } from "lucide-react";
@@ -24,7 +25,7 @@ type UsersToolbarProps = {
   variant?: "actions" | "search";
 };
 
-export function UsersToolbar({
+function UsersToolbarComponent({
   search,
   onSearchChange,
   onNewUserClick,
@@ -36,6 +37,67 @@ export function UsersToolbar({
   onToggleRole,
   variant = "actions",
 }: UsersToolbarProps) {
+  // Handler para mudança de busca
+  const handleSearchChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      onSearchChange(event.target.value);
+    },
+    [onSearchChange]
+  );
+
+  // Componente de conteúdo de filtros (memoizado para evitar recriação)
+  const FilterContent = useMemo(
+    () => (
+      <div className="space-y-4">
+        {/* Filtros de entidades */}
+        <div>
+          <label className="text-sm font-medium mb-2 block">Entidades</label>
+          <div className="space-y-2">
+            {entities.map((entity) => (
+              <div key={entity} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`entity-${entity}`}
+                  checked={selectedEntities.includes(entity)}
+                  onCheckedChange={() => onToggleEntity(entity)}
+                />
+                <label
+                  htmlFor={`entity-${entity}`}
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  {entity}
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Filtros de funções/cargos */}
+        <div>
+          <label className="text-sm font-medium mb-2 block">Funcao</label>
+          <div className="space-y-2">
+            {roles.map((role) => (
+              <div key={role} className="flex items-center space-x-2">
+                <Checkbox
+                  id={`role-${role}`}
+                  checked={selectedRoles.includes(role)}
+                  onCheckedChange={() => onToggleRole(role)}
+                />
+                <label
+                  htmlFor={`role-${role}`}
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  {role}
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    ),
+    [entities, roles, selectedEntities, selectedRoles, onToggleEntity, onToggleRole]
+  );
+
+  // Variant "search" - apenas barra de busca (mobile)
   if (variant === "search") {
     return (
       <div className="flex items-center gap-2 md:hidden">
@@ -47,62 +109,19 @@ export function UsersToolbar({
             placeholder="Pesquisar usuário"
             className="pl-8 h-9 md:text-sm"
             value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
+            onChange={handleSearchChange}
           />
         </div>
       </div>
     );
   }
 
-  const FilterContent = () => (
-    <div className="space-y-4">
-      <div>
-        <label className="text-sm font-medium mb-2 block">Entidades</label>
-        <div className="space-y-2">
-          {entities.map((entity) => (
-            <div key={entity} className="flex items-center space-x-2">
-              <Checkbox
-                id={`entity-${entity}`}
-                checked={selectedEntities.includes(entity)}
-                onCheckedChange={() => onToggleEntity(entity)}
-              />
-              <label
-                htmlFor={`entity-${entity}`}
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-              >
-                {entity}
-              </label>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <label className="text-sm font-medium mb-2 block">Funcao</label>
-        <div className="space-y-2">
-          {roles.map((role) => (
-            <div key={role} className="flex items-center space-x-2">
-              <Checkbox
-                id={`role-${role}`}
-                checked={selectedRoles.includes(role)}
-                onCheckedChange={() => onToggleRole(role)}
-              />
-              <label
-                htmlFor={`role-${role}`}
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-              >
-                {role}
-              </label>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-
+  // Variant "actions" (default) - toolbar completo
   return (
     <>
+      {/* Toolbar desktop - busca, filtros e botão de criar */}
       <div className="hidden md:flex items-center gap-2 flex-1 justify-end">
+        {/* Campo de busca */}
         <div className="relative w-[200px]">
           <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
             <Search className="h-4 w-4" />
@@ -111,9 +130,11 @@ export function UsersToolbar({
             placeholder="Pesquisar usuário"
             className="pl-8 h-9 md:text-sm"
             value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
+            onChange={handleSearchChange}
           />
         </div>
+
+        {/* Dropdown de filtros */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-1.5">
@@ -122,6 +143,7 @@ export function UsersToolbar({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
+            {/* Seção de entidades */}
             <DropdownMenuLabel>Entidades</DropdownMenuLabel>
             <div className="p-2 space-y-2">
               {entities.map((entity) => (
@@ -140,7 +162,10 @@ export function UsersToolbar({
                 </div>
               ))}
             </div>
+
             <DropdownMenuSeparator />
+
+            {/* Seção de funções */}
             <DropdownMenuLabel>Funcao</DropdownMenuLabel>
             <div className="p-2 space-y-2">
               {roles.map((role) => (
@@ -161,13 +186,17 @@ export function UsersToolbar({
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        {/* Botão de criar usuário */}
         <Button size="sm" className="gap-2" onClick={onNewUserClick}>
           <UserPlus className="h-4 w-4" />
           Criar usuário
         </Button>
       </div>
 
+      {/* Toolbar mobile - filtros em popover e botão de criar */}
       <div className="flex items-center gap-2 md:hidden">
+        {/* Popover de filtros */}
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" size="icon" className="h-9 w-9">
@@ -177,10 +206,12 @@ export function UsersToolbar({
           <PopoverContent className="w-80" align="end">
             <div className="space-y-4">
               <h3 className="font-semibold text-lg">Filtros</h3>
-              <FilterContent />
+              {FilterContent}
             </div>
           </PopoverContent>
         </Popover>
+
+        {/* Botão de criar usuário */}
         <Button size="sm" className="gap-2" onClick={onNewUserClick}>
           <UserPlus className="h-4 w-4" />
           Criar usuario
@@ -189,3 +220,6 @@ export function UsersToolbar({
     </>
   );
 }
+
+// Memoiza para evitar re-renders desnecessários
+export const UsersToolbar = memo(UsersToolbarComponent);

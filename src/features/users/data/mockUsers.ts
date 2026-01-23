@@ -1,3 +1,5 @@
+// Tipo que representa um registro de usuário
+// TODO: Quando integrar com API, garantir que o backend retorna esse formato
 export type UserRecord = {
   id: string;
   name: string;
@@ -6,6 +8,20 @@ export type UserRecord = {
   role: string;
   avatar?: string;
 };
+
+// Dados mockados de usuários para desenvolvimento
+// TODO: Substituir por chamadas de API reais
+// Exemplo de integração futura:
+// export const fetchUsers = async (params: {
+//   page: number;
+//   limit: number;
+//   search?: string;
+//   entities?: string[];
+//   roles?: string[];
+// }) => {
+//   const response = await api.get('/users', { params });
+//   return response.data; // { users: UserRecord[], totalPages: number, total: number }
+// };
 
 export const mockUsers: UserRecord[] = [
   {
@@ -261,3 +277,72 @@ export const mockUsers: UserRecord[] = [
       "https://i.pinimg.com/736x/8c/1f/3b/8c1f3b5d6e7f8a9b0c1d2e3f4a5b6c7d.jpg",
   },
 ];
+
+// Funções utilitárias para trabalhar com dados mockados
+// TODO: Remover quando API estiver integrada
+
+/**
+ * Simula busca de usuários com filtros
+ * @param search - Termo de busca (nome ou email)
+ * @param entities - Array de entidades para filtrar
+ * @param roles - Array de funções para filtrar
+ */
+export function filterMockUsers(
+  search: string,
+  entities: string[],
+  roles: string[]
+): UserRecord[] {
+  return mockUsers.filter((user) => {
+    // Filtra por busca (nome ou email)
+    const matchesSearch =
+      !search ||
+      user.name.toLowerCase().includes(search.toLowerCase()) ||
+      user.email.toLowerCase().includes(search.toLowerCase());
+
+    // Filtra por entidades selecionadas (se houver)
+    const matchesEntity =
+      entities.length === 0 || entities.includes(user.entity);
+
+    // Filtra por funções selecionadas (se houver)
+    const matchesRole = roles.length === 0 || roles.includes(user.role);
+
+    return matchesSearch && matchesEntity && matchesRole;
+  });
+}
+
+/**
+ * Simula paginação de usuários
+ * @param users - Array de usuários já filtrados
+ * @param page - Página atual (começando em 1)
+ * @param pageSize - Quantidade de itens por página
+ */
+export function paginateMockUsers(
+  users: UserRecord[],
+  page: number,
+  pageSize: number = 10
+): { users: UserRecord[]; totalPages: number; total: number } {
+  const startIndex = (page - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedUsers = users.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(users.length / pageSize);
+
+  return {
+    users: paginatedUsers,
+    totalPages,
+    total: users.length,
+  };
+}
+
+/**
+ * Obtém todas as entidades únicas dos usuários
+ */
+export function getUniqueEntities(): string[] {
+  return Array.from(new Set(mockUsers.map((user) => user.entity)));
+}
+
+/**
+ * Obtém todas as funções únicas dos usuários
+ */
+export function getUniqueRoles(): string[] {
+  return Array.from(new Set(mockUsers.map((user) => user.role)));
+}

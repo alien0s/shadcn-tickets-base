@@ -1,3 +1,4 @@
+import type { LucideIcon } from "lucide-react";
 import { TICKET_STATUS_STYLES } from "@/config/ticket-constants";
 import { cn } from "@/lib/utils";
 import type { TicketStatus } from "../types/ticketTypes";
@@ -5,14 +6,23 @@ import { normalizeStatus, type CanonicalStatus } from "../utils/status";
 
 type StatusVariantKey = CanonicalStatus | "default";
 
-export function getStatusVariant(status: TicketStatus) {
+type StatusVariant = {
+  key: StatusVariantKey;
+  label: string;
+  icon: LucideIcon; // ✅ evita JSX namespace e combina com lucide
+  className: string;
+};
+
+export function getStatusVariant(status: TicketStatus): StatusVariant {
   const normalized = normalizeStatus(status);
+
   if (!normalized) {
+    const fallback = TICKET_STATUS_STYLES.default;
     return {
-      key: "default" as StatusVariantKey,
+      key: "default",
       label: status,
-      icon: TICKET_STATUS_STYLES.default.icon,
-      className: TICKET_STATUS_STYLES.default.className,
+      icon: fallback.icon,
+      className: fallback.className,
     };
   }
 
@@ -25,25 +35,24 @@ export function getStatusVariant(status: TicketStatus) {
   };
 }
 
-export function StatusPill({
-  status,
-  className,
-}: {
+type StatusPillProps = {
   status: TicketStatus;
   className?: string;
-}) {
+};
+
+export function StatusPill({ status, className }: StatusPillProps) {
   const variant = getStatusVariant(status);
   const Icon = variant.icon;
 
   return (
     <span
       className={cn(
-        "inline-flex items-center h-5 px-1.5 py-0.5 rounded-md text-[11px] font-medium border",
+        "inline-flex items-center h-5 px-1.5 py-0.5 rounded-md text-[11px] font-medium border whitespace-nowrap leading-none",
         variant.className,
         className
       )}
     >
-      <Icon className="h-3 w-3 mr-1.5" />
+      <Icon className="h-3 w-3 mr-1.5" aria-hidden="true" />
       {variant.label}
     </span>
   );
