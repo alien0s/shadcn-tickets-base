@@ -16,6 +16,7 @@ export function TicketListItem({ ticket, onClick, isActive = false }: Props) {
   const typeKey = ticket.type as TicketTypeKey | undefined;
   const typeStyle = typeKey ? TICKET_TYPE_STYLES[typeKey] : undefined;
   const TypeIcon = typeStyle?.icon ?? null;
+  const unreadCount = ticket.unreadCount ?? 0;
 
   const fallbackInitial =
     (ticket.requester || ticket.subject || "").trim().charAt(0).toUpperCase() || "?";
@@ -26,7 +27,7 @@ export function TicketListItem({ ticket, onClick, isActive = false }: Props) {
       onClick={onClick}
       aria-current={isActive ? "true" : undefined} // ✅ ajuda leitores de tela para item ativo
       className={cn(
-        "w-full px-3 py-2 flex items-start gap-3 clean-shadow text-left focus:outline-none transition-colors",
+        "w-full min-w-0 px-3 py-2 flex items-start gap-3 clean-shadow text-left focus:outline-none transition-colors",
         isActive
           ? "bg-accent border-l-2 border-l-primary"
           : "hover:bg-accent/60 focus:bg-accent/60"
@@ -46,18 +47,29 @@ export function TicketListItem({ ticket, onClick, isActive = false }: Props) {
       </Avatar>
 
       {/* Conteudo principal */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 max-w-full">
         <div className="flex items-start justify-between gap-2">
           <span className="text-sm font-medium truncate">
             {ticket.requester || "Sem nome"}
           </span>
-          <span className="text-[11px] text-muted-foreground whitespace-nowrap flex-shrink-0">
-            {ticket.dateLabel}
-          </span>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {unreadCount > 0 && (
+              <span
+                className="inline-flex min-w-5 h-5 px-1.5 items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-semibold"
+                aria-label={`${unreadCount} mensagens não lidas`}
+                title={`${unreadCount} mensagens não lidas`}
+              >
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </span>
+            )}
+            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+              {ticket.dateLabel}
+            </span>
+          </div>
         </div>
 
-        <span className="text-xs text-muted-foreground truncate mb-1 block">
-          {ticket.subject}
+        <span className="text-xs text-muted-foreground mb-1 block overflow-hidden whitespace-nowrap text-ellipsis max-w-full">
+          {ticket.title ?? ticket.subject}
         </span>
 
         <div className="mt-1 flex items-center gap-2">

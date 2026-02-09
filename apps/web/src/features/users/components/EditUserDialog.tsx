@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Check, Trash2, Upload } from "lucide-react";
+import { Check, ChevronDown, Headset, ShieldCheck, Trash2, Upload, User } from "lucide-react";
 import type { UserRecord } from "../data/mockUsers";
 import { getInitials } from "../utils/getInitials";
 import {
@@ -20,17 +20,65 @@ import {
 } from "@/features/ImageCropper";
 import { EntitySelect } from "@/features/settings/components/EntitySelect";
 import { ProfileField } from "@/features/settings/components/ProfileField";
+import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useDepartments } from "@/hooks/useDepartments";
+import { useEntities } from "@/hooks/useEntities";
+import { api } from "@/lib/api";
+import { toast } from "sonner";
 
-type Props = {
+export type EditUserDialogProps = {
   user: UserRecord;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  isAdmin?: boolean;
+  onUpdated?: (data: {
+    name?: string;
+    last_name?: string;
+    email?: string;
+    entity_id?: string;
+    department_id?: string;
+    role_id?: string;
+  }) => void;
 };
 
-// Opções de entidade (constante fora do componente para evitar recriação)
-const ENTITY_OPTIONS = ["ANRA", "ACeAm", "Asur", "MLA", "UNoB"];
+// Opções de permissão com ícones (constante fora do componente)
+const PERMISSION_OPTIONS = [
+  { key: "admin", label: "Admin", icon: ShieldCheck },
+  { key: "agent", label: "Agente", icon: Headset },
+  { key: "user", label: "Usuario", icon: User },
+] as const;
 
-export function EditUserDialog({ user, open, onOpenChange }: Props) {
+type PermissionKey = (typeof PERMISSION_OPTIONS)[number]["key"];
+
+const ROLE_ID_BY_PERMISSION: Record<PermissionKey, string> = {
+  admin: "650e8400-e29b-41d4-a716-446655440000",
+  agent: "650e8400-e29b-41d4-a716-446655440001",
+  user: "650e8400-e29b-41d4-a716-446655440002",
+};
+
+const PERMISSION_BY_ROLE_ID: Record<string, PermissionKey> = {
+  "650e8400-e29b-41d4-a716-446655440000": "admin",
+  "650e8400-e29b-41d4-a716-446655440001": "agent",
+  "650e8400-e29b-41d4-a716-446655440002": "user",
+};
+
+export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUserDialogProps) {
+  type UpdatedUser = {
+    id: string;
+    name: string;
+    last_name?: string;
+    email?: string;
+    entity_id?: string;
+    department_id?: string;
+    role_id?: string;
+  };
   // Estado do avatar (URL da imagem exibida)
   const [avatarSrc, setAvatarSrc] = useState(user.avatar ?? "");
   const previousAvatarUrl = useRef<string | null>(null);
@@ -39,6 +87,7 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
   // Estados do modal de crop
   const [isCropOpen, setIsCropOpen] = useState(false);
   const [isSavingCrop, setIsSavingCrop] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Hook customizado para gerenciar crop de imagem
   const {
@@ -56,15 +105,24 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
     firstName: "",
     lastName: "",
     email: "",
-    entity: "",
   });
   
   const [formValues, setFormValues] = useState({
     firstName: "",
     lastName: "",
     email: "",
-    entity: "",
   });
+
+  const [initialEntityId, setInitialEntityId] = useState("");
+  const [selectedEntityName, setSelectedEntityName] = useState("");
+  const [entityId, setEntityId] = useState("");
+  const [departmentId, setDepartmentId] = useState("");
+  const [initialDepartmentId, setInitialDepartmentId] = useState("");
+  const [permission, setPermission] = useState<PermissionKey>("admin");
+  const [initialPermission, setInitialPermission] = useState<PermissionKey>("admin");
+
+  const { departments, isLoading: isLoadingDepartments } = useDepartments();
+  const { entities, isLoading: isLoadingEntities } = useEntities();
 
   // Controla auto-focus do dialog (desabilitado em mobile)
   const [shouldAutoFocus, setShouldAutoFocus] = useState(false);
@@ -79,14 +137,39 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
       firstName,
       lastName,
       email: user.email,
-      entity: user.entity,
     };
     
     setInitialValues(nextValues);
     setFormValues(nextValues);
+    setSelectedEntityName(user.entity);
+    const nextPermission = (user.role_id && PERMISSION_BY_ROLE_ID[user.role_id]) || "admin";
+    setPermission(nextPermission);
+    setInitialPermission(nextPermission);
     setAvatarSrc(user.avatar ?? "");
     setImageSrc(user.avatar ?? "");
-  }, [user.avatar, user.email, user.entity, user.name, setImageSrc]);
+  }, [setImageSrc, user.avatar, user.email, user.entity, user.name]);
+
+  useEffect(() => {
+    if (entities.length === 0) return;
+
+    const match = entities.find((item) => item.name === user.entity);
+    const nextId = match?.id ?? entities[0].id;
+    const nextName = match?.name ?? entities[0].name;
+
+    setEntityId((current) => current || nextId);
+    setInitialEntityId((current) => current || nextId);
+    setSelectedEntityName((current) => current || nextName);
+  }, [entities, user.entity]);
+
+  useEffect(() => {
+    if (departments.length === 0) return;
+
+    const match = departments.find((item) => item.name === user.role);
+    const nextId = match?.id ?? departments[0].id;
+
+    setDepartmentId((current) => current || nextId);
+    setInitialDepartmentId((current) => current || nextId);
+  }, [departments, user.role]);
 
   // Gerencia limpeza de URLs blob do avatar
   useEffect(() => {
@@ -124,8 +207,19 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
       formValues.firstName !== initialValues.firstName ||
       formValues.lastName !== initialValues.lastName ||
       formValues.email !== initialValues.email ||
-      formValues.entity !== initialValues.entity,
-    [formValues, initialValues]
+      entityId !== initialEntityId ||
+      departmentId !== initialDepartmentId ||
+      permission !== initialPermission,
+    [
+      departmentId,
+      entityId,
+      formValues,
+      initialDepartmentId,
+      initialEntityId,
+      initialValues,
+      initialPermission,
+      permission,
+    ]
   );
 
   // Handler para quando o usuário seleciona uma imagem
@@ -175,10 +269,19 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
     setFormValues((prev) => ({ ...prev, email: event.target.value }));
   }, []);
 
-  // Handler para atualizar entidade
-  const handleEntityChange = useCallback((value: string) => {
-    setFormValues((prev) => ({ ...prev, entity: value }));
+  const handlePermissionSelect = useCallback((key: PermissionKey) => {
+    setPermission(key);
   }, []);
+
+  // Handler para atualizar entidade
+  const handleEntityChange = useCallback(
+    (value: string) => {
+      setSelectedEntityName(value);
+      const match = entities.find((item) => item.name === value);
+      setEntityId(match?.id ?? "");
+    },
+    [entities]
+  );
 
   // Handler para abrir input de arquivo
   const handleUploadClick = useCallback(() => {
@@ -191,10 +294,60 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
   }, [onOpenChange]);
 
   // Handler para submit do formulário
-  const handleSubmit = useCallback((event: React.FormEvent) => {
+  const handleSubmit = useCallback(async (event: React.FormEvent) => {
     event.preventDefault();
-    onOpenChange(false);
-  }, [onOpenChange]);
+    if (isSaving) return;
+
+    const name = formValues.firstName.trim();
+    const lastName = formValues.lastName.trim();
+    const email = formValues.email.trim();
+    const roleId = ROLE_ID_BY_PERMISSION[permission];
+
+    setIsSaving(true);
+    try {
+      const { data, message } = await api.patchWithMeta<UpdatedUser>(
+        `/users/${user.id}`,
+        {
+          name,
+          last_name: lastName,
+          email,
+          entity_id: entityId,
+          department_id: departmentId,
+          role_id: roleId,
+        }
+      );
+
+      toast.success(message || "Usuario atualizado com sucesso");
+      onOpenChange(false);
+      if (data) {
+        onUpdated?.({
+          name: data.name,
+          last_name: data.last_name,
+          email: data.email,
+          entity_id: data.entity_id,
+          department_id: data.department_id,
+          role_id: data.role_id,
+        });
+      }
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro ao atualizar usuario";
+      toast.error(errorMessage);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [
+    departmentId,
+    entityId,
+    formValues.email,
+    formValues.firstName,
+    formValues.lastName,
+    isSaving,
+    onOpenChange,
+    onUpdated,
+    user.id,
+    permission,
+  ]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -211,10 +364,10 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
         </DialogHeader>
 
         <form
-          className="mt-3 flex flex-col flex-1 min-h-0 gap-4 overflow-y-auto sm:overflow-visible"
+          className="mt-3 flex flex-col flex-1 min-h-0 gap-4 overflow-y-auto"
           onSubmit={handleSubmit}
         >
-          <div className="space-y-4 pr-1 pl-1 flex-1 min-h-0">
+          <div className="pr-1 pl-1 pb-[calc(4rem+var(--safe-bottom,env(safe-area-inset-bottom)))] flex-1 min-h-0">
             {/* Seção de avatar e informações do usuário */}
             <div className="flex flex-col gap-4 border-b border-border px-1 pb-4 sm:flex-row sm:items-center sm:justify-between sm:px-0">
               <div className="flex items-center gap-3">
@@ -309,18 +462,94 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
                 description="Organização vinculada ao seu perfil."
               >
                 <EntitySelect
-                  options={ENTITY_OPTIONS}
-                  value={formValues.entity}
+                  options={entities.map((item) => item.name)}
+                  value={selectedEntityName}
                   onChange={handleEntityChange}
                 />
+              </ProfileField>
+
+              {/* Campo de departamento */}
+              <ProfileField
+                title="Departamento"
+                description="Departamento responsável pelo perfil."
+              >
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-between h-9"
+                      disabled={isLoadingDepartments || departments.length === 0}
+                    >
+                      <span>
+                        {departments.find((item) => item.id === departmentId)
+                          ?.name ||
+                          (isLoadingDepartments
+                            ? "Carregando..."
+                            : "Selecione um departamento")}
+                      </span>
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    {departments.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">
+                        {isLoadingDepartments
+                          ? "Carregando departamentos..."
+                          : "Nenhum departamento encontrado"}
+                      </div>
+                    ) : (
+                      <DropdownMenuRadioGroup
+                        value={departmentId}
+                        onValueChange={setDepartmentId}
+                      >
+                        {departments.map((option) => (
+                          <DropdownMenuRadioItem
+                            key={option.id}
+                            value={option.id}
+                          >
+                            {option.name}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </ProfileField>
+
+              {/* Campo de permissão */}
+              <ProfileField
+                title="Permissão"
+                description="Define o nível de acesso do usuário."
+              >
+                <div className="grid grid-cols-3 gap-2">
+                  {PERMISSION_OPTIONS.map((option) => {
+                    const Icon = option.icon;
+                    const isSelected = permission === option.key;
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        onClick={() => handlePermissionSelect(option.key)}
+                        className={cn(
+                          "flex flex-col items-center justify-center gap-1 rounded-md border px-2 py-2 text-xs font-medium transition-all",
+                          isSelected
+                            ? "bg-muted text-foreground border-border"
+                            : "bg-transparent text-muted-foreground border-border hover:bg-accent"
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </ProfileField>
             </div>
 
             <Separator />
 
-            <div className="text-sm text-muted-foreground">
-              Revise antes de salvar para manter o perfil atualizado.
-            </div>
+            
           </div>
 
           {/* Footer com botões de ação */}
@@ -338,10 +567,17 @@ export function EditUserDialog({ user, open, onOpenChange }: Props) {
               type="submit"
               size="sm"
               className="flex-1 sm:flex-none bg-primary text-primary-foreground hover:bg-primary/90"
-              disabled={!isDirty}
+              disabled={
+                !isDirty ||
+                isSaving ||
+                isLoadingDepartments ||
+                isLoadingEntities ||
+                !departmentId ||
+                !entityId
+              }
             >
               <Check className="h-4 w-4" />
-              Salvar alterações
+              {isSaving ? "Salvando..." : "Salvar alterações"}
             </Button>
           </DialogFooter>
         </form>

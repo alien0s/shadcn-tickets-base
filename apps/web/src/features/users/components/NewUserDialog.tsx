@@ -18,23 +18,27 @@ import {
 import { ChevronDown, ShieldCheck, Headset, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { api } from "@/lib/api";
+import { useDepartments } from "@/hooks/useDepartments";
+import { useEntities } from "@/hooks/useEntities";
+
+type CreatedUser = {
+  id: string;
+  name: string;
+  last_name: string;
+  email: string;
+  avatar_url?: string;
+  department_id: string;
+  role_id: string;
+  entity_id: string;
+  created_at: string;
+};
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCreated?: (user: CreatedUser) => void;
 };
-
-// Opções de função/cargo (constante fora do componente)
-const ROLE_OPTIONS = [
-  "Atendimento",
-  "Financeiro",
-  "Operações",
-  "Comercial",
-  "Suporte",
-];
-
-// Opções de entidade (constante fora do componente)
-const ENTITY_OPTIONS = ["ANRA", "ACeAm", "Asur", "MLA", "UNoB"];
 
 // Opções de permissão com ícones (constante fora do componente)
 const PERMISSION_OPTIONS = [
@@ -45,11 +49,22 @@ const PERMISSION_OPTIONS = [
 
 type PermissionKey = (typeof PERMISSION_OPTIONS)[number]["key"];
 
-export function NewUserDialog({ open, onOpenChange }: Props) {
+const ROLE_ID_BY_PERMISSION: Record<PermissionKey, string> = {
+  admin: "650e8400-e29b-41d4-a716-446655440000",
+  agent: "650e8400-e29b-41d4-a716-446655440001",
+  user: "650e8400-e29b-41d4-a716-446655440002",
+};
+
+export function NewUserDialog({ open, onOpenChange, onCreated }: Props) {
   // Estados do formulário
-  const [role, setRole] = useState(ROLE_OPTIONS[0]);
-  const [entity, setEntity] = useState(ENTITY_OPTIONS[0]);
+  const [departmentId, setDepartmentId] = useState<string>("");
+  const [entityId, setEntityId] = useState<string>("");
   const [permission, setPermission] = useState<PermissionKey>("admin");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Dados da API
+  const { departments, isLoading: isLoadingDepartments } = useDepartments();
+  const { entities, isLoading: isLoadingEntities } = useEntities();
   
   // Controla auto-focus do dialog (desabilitado em mobile)
   const [shouldAutoFocus, setShouldAutoFocus] = useState(false);
@@ -72,6 +87,18 @@ export function NewUserDialog({ open, onOpenChange }: Props) {
     };
   }, []);
 
+  useEffect(() => {
+    if (departments.length > 0) {
+      setDepartmentId((current) => current || departments[0].id);
+    }
+  }, [departments]);
+
+  useEffect(() => {
+    if (entities.length > 0) {
+      setEntityId((current) => current || entities[0].id);
+    }
+  }, [entities]);
+
   // Handler para fechar o dialog
   const handleClose = useCallback(() => {
     onOpenChange(false);
@@ -79,29 +106,57 @@ export function NewUserDialog({ open, onOpenChange }: Props) {
 
   // Handler para submit do formulário
   const handleSubmit = useCallback(
-    (event: React.FormEvent<HTMLFormElement>) => {
+    async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      
-      // Log dos dados do novo usuário (substituir por API call)
-      console.log("Criando usuario:", {
-        role,
-        entity,
-        permission,
-      });
-      
-      // Exibe notificação de sucesso
-      toast.success("Usuario criado com sucesso");
-      
-      // Fecha o dialog
-      onOpenChange(false);
+
+      if (isSubmitting) return;
+
+      const form = event.currentTarget;
+      const formData = new FormData(form);
+      const name = String(formData.get("firstName") || "").trim();
+      const lastName = String(formData.get("lastName") || "").trim();
+      const email = String(formData.get("email") || "").trim();
+      const roleId = ROLE_ID_BY_PERMISSION[permission];
+
+      setIsSubmitting(true);
+
+      try {
+        const { data, message } = await api.postWithMeta<CreatedUser>("/users", {
+          name,
+          last_name: lastName,
+          email,
+          department_id: departmentId,
+          role_id: roleId,
+          entity_id: entityId,
+        });
+
+        toast.success(message || "Usuario criado com sucesso");
+        form.reset();
+        onOpenChange(false);
+        if (data) onCreated?.(data);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Erro ao criar usuario";
+        toast.error(errorMessage);
+      } finally {
+        setIsSubmitting(false);
+      }
     },
-    [role, entity, permission, onOpenChange]
+    [departmentId, entityId, isSubmitting, onOpenChange, permission]
   );
 
   // Handler para selecionar permissão
   const handlePermissionSelect = useCallback((key: PermissionKey) => {
     setPermission(key);
   }, []);
+
+  const selectedDepartmentName =
+    departments.find((item) => item.id === departmentId)?.name ||
+    (isLoadingDepartments ? "Carregando..." : "Selecione um departamento");
+
+  const selectedEntityName =
+    entities.find((item) => item.id === entityId)?.name ||
+    (isLoadingEntities ? "Carregando..." : "Selecione uma entidade");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -114,7 +169,7 @@ export function NewUserDialog({ open, onOpenChange }: Props) {
         }}
       >
         <DialogHeader>
-          <DialogTitle>Novo usuario</DialogTitle>
+          <DialogTitle>Novo usuário</DialogTitle>
         </DialogHeader>
 
         <form
@@ -123,15 +178,41 @@ export function NewUserDialog({ open, onOpenChange }: Props) {
         >
           <div className="space-y-4 pr-1 pl-1 flex-1 min-h-0">
             {/* Campo de nome */}
-            <div className="space-y-1">
-              <label className="text-sm font-medium">Nome de usuario</label>
-              <Input placeholder="Digite o nome completo" required />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <label htmlFor="firstName" className="text-sm font-medium">
+                  Nome
+                </label>
+                <Input
+                  id="firstName"
+                  name="firstName"
+                  placeholder="Digite o nome"
+                  autoComplete="given-name"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="lastName" className="text-sm font-medium">
+                  Sobrenome
+                </label>
+                <Input
+                  id="lastName"
+                  name="lastName"
+                  placeholder="Digite o sobrenome"
+                  autoComplete="family-name"
+                  required
+                />
+              </div>
             </div>
 
             {/* Campo de email */}
             <div className="space-y-1">
-              <label className="text-sm font-medium">Email</label>
+              <label htmlFor="email" className="text-sm font-medium">
+                Email
+              </label>
               <Input
+                id="email"
+                name="email"
                 type="email"
                 placeholder="nome@empresa.com"
                 required
@@ -141,36 +222,45 @@ export function NewUserDialog({ open, onOpenChange }: Props) {
 
             {/* Seleção de função/cargo */}
             <div className="space-y-1">
-              <label className="text-sm font-medium">Funcao</label>
+              <label className="text-sm font-medium">Departamento</label>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     type="button"
                     variant="outline"
                     className="w-full justify-between h-9"
+                    disabled={isLoadingDepartments || departments.length === 0}
                   >
-                    <span>{role}</span>
+                    <span>{selectedDepartmentName}</span>
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-56">
-                  <DropdownMenuRadioGroup
-                    value={role}
-                    onValueChange={setRole}
-                  >
-                    {ROLE_OPTIONS.map((option) => (
-                      <DropdownMenuRadioItem key={option} value={option}>
-                        {option}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
+                  {departments.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">
+                      {isLoadingDepartments
+                        ? "Carregando departamentos..."
+                        : "Nenhum departamento encontrado"}
+                    </div>
+                  ) : (
+                    <DropdownMenuRadioGroup
+                      value={departmentId}
+                      onValueChange={setDepartmentId}
+                    >
+                      {departments.map((option) => (
+                        <DropdownMenuRadioItem key={option.id} value={option.id}>
+                          {option.name}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
 
             {/* Seleção de permissões (botões visuais) */}
             <div className="space-y-1">
-              <label className="text-sm font-medium">Permissoes</label>
+              <label className="text-sm font-medium">Permissão</label>
               <div className="grid grid-cols-3 gap-2">
                 {PERMISSION_OPTIONS.map((option) => {
                   const Icon = option.icon;
@@ -204,22 +294,31 @@ export function NewUserDialog({ open, onOpenChange }: Props) {
                     type="button"
                     variant="outline"
                     className="w-full justify-between h-9"
+                    disabled={isLoadingEntities || entities.length === 0}
                   >
-                    <span>{entity}</span>
+                    <span>{selectedEntityName}</span>
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-56">
-                  <DropdownMenuRadioGroup
-                    value={entity}
-                    onValueChange={setEntity}
-                  >
-                    {ENTITY_OPTIONS.map((option) => (
-                      <DropdownMenuRadioItem key={option} value={option}>
-                        {option}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
+                  {entities.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">
+                      {isLoadingEntities
+                        ? "Carregando entidades..."
+                        : "Nenhuma entidade encontrada"}
+                    </div>
+                  ) : (
+                    <DropdownMenuRadioGroup
+                      value={entityId}
+                      onValueChange={setEntityId}
+                    >
+                      {entities.map((option) => (
+                        <DropdownMenuRadioItem key={option.id} value={option.id}>
+                          {option.name}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -240,8 +339,11 @@ export function NewUserDialog({ open, onOpenChange }: Props) {
               type="submit"
               size="sm"
               className="flex-1 sm:flex-none bg-primary text-primary-foreground hover:bg-primary/90"
+              disabled={
+                isSubmitting || isLoadingDepartments || isLoadingEntities
+              }
             >
-              Criar usuario
+              {isSubmitting ? "Criando..." : "Criar usuário"}
             </Button>
           </DialogFooter>
         </form>

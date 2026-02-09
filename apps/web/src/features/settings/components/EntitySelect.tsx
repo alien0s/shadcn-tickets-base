@@ -1,7 +1,7 @@
 import { useCallback, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Check } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { EntitySelectProps } from "../types";
 
@@ -37,6 +37,7 @@ export function EntitySelect({ options, value, onChange }: EntitySelectProps) {
           aria-controls={listboxId} // ✅ a11y
         >
           <span className="truncate">{displayValue}</span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         </Button>
       </PopoverTrigger>
 

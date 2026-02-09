@@ -6,6 +6,7 @@ import { HelpCenterPage } from "@/pages/HelpCenterPage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { UsersPage } from "@/pages/users/UsersPage"
 import { LoginPage } from "@/pages/LoginPage"
+import { SignupPage } from "@/pages/SignupPage"
 import { ForgotPasswordPage } from "@/features/auth"
 import { useAuth } from "@/features/auth"
 import { useAppViewport } from "@/hooks/useAppViewport"
@@ -57,6 +58,15 @@ export default function App() {
           element={
             <PublicRoute>
               <LoginPage />
+            </PublicRoute>
+          } 
+        />
+
+        <Route 
+          path="/signup" 
+          element={
+            <PublicRoute>
+              <SignupPage />
             </PublicRoute>
           } 
         />

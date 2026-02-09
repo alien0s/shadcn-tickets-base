@@ -1,15 +1,108 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { mockEntities, mockTickets } from "../data/mockTickets";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Ticket } from "../types/ticketTypes";
 import type { TicketTypeKey } from "@/config/ticket-constants";
 import { TICKET_STATUS_STYLES } from "@/config/ticket-constants";
 import { normalizeStatus, type CanonicalStatus } from "../utils/status";
+import { api } from "@/lib/api";
+import { useEntities } from "@/hooks/useEntities";
 
 type StatusFilter = "todos" | "nao-lido";
+
+type ApiTicket = {
+  id: string;
+  title: string;
+  subject: string;
+  created_at: string;
+  updated_at: string;
+  unread_count?: number | null;
+  status: {
+    id: number;
+    key: string;
+    label: string;
+    order: number;
+  } | null;
+  priority: {
+    id: number;
+    key: string;
+    label: string;
+    order: number;
+  } | null;
+  type: {
+    id: number;
+    key: string;
+    label: string;
+  } | null;
+  requester: {
+    id: string;
+    name: string;
+    avatar_url?: string | null;
+  } | null;
+  assigned_to?: {
+    id: string;
+    name: string;
+    avatar_url?: string | null;
+  } | null;
+  entity_id?: string | null;
+};
+
+const STATUS_KEY_MAP: Record<string, Ticket["status"]> = {
+  open: "open",
+  pending: "pending",
+  closed: "closed",
+};
+
+const PRIORITY_KEY_MAP: Record<string, Ticket["priority"]> = {
+  low: "low",
+  normal: "medium",
+  high: "high",
+};
+
+const TYPE_KEY_MAP: Record<string, TicketTypeKey> = {
+  error: "erro",
+  suggestion: "sugestao",
+  question: "duvida",
+};
+
+let ticketsCache: Ticket[] | null = null;
+
+function formatDateLabel(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+
+  if (diffMs < 60 * 1000) return "agora";
+
+  const timeLabel = new Intl.DateTimeFormat("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.floor(
+    (startOfDay(now).getTime() - startOfDay(date).getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
+
+  if (diffDays === 0) return timeLabel;
+  if (diffDays === 1) return "Ontem";
+  if (diffDays < 7) {
+    const weekday = new Intl.DateTimeFormat("pt-BR", { weekday: "long" }).format(date);
+    return weekday.charAt(0).toUpperCase() + weekday.slice(1);
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  }).format(date);
+}
 
 export function useTicketsList() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const isMountedRef = useRef(true);
 
   const [search, setSearch] = useState("");
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
@@ -21,15 +114,72 @@ export function useTicketsList() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todos");
   const [selectedStatuses, setSelectedStatuses] = useState<CanonicalStatus[]>([]);
 
-  useEffect(() => {
-    // ✅ Mock loading: em API real vai existir carregamento — mas depois você pode evoluir pra cache.
-    const timer = window.setTimeout(() => {
-      setTickets(mockTickets); // ✅ mantém referência estável do mock (sem deep clone desnecessário)
-      setIsLoading(false);
-    }, 400);
+  const {
+    entities: entitiesData,
+    isLoading: isLoadingEntities,
+  } = useEntities();
 
-    return () => window.clearTimeout(timer);
-  }, []);
+  const fetchTickets = useCallback(
+    async (useCache = true) => {
+      if (useCache && ticketsCache) {
+        setTickets(ticketsCache);
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        const { data } = await api.getWithMeta<ApiTicket[]>(
+          "/tickets?sortBy=updated_at&order=desc&limit=100"
+        );
+
+        if (!isMountedRef.current) return;
+
+        const mapped = (data ?? []).map<Ticket>((item) => {
+          const statusKey = item.status?.key?.toLowerCase();
+          const priorityKey = item.priority?.key?.toLowerCase();
+          const typeKey = item.type?.key?.toLowerCase();
+
+          return {
+            id: item.id,
+            title: item.title ?? "",
+            subject: item.subject ?? item.title ?? "",
+            status: (statusKey && STATUS_KEY_MAP[statusKey]) || "open",
+            priority: (priorityKey && PRIORITY_KEY_MAP[priorityKey]) || "low",
+            type: (typeKey && TYPE_KEY_MAP[typeKey]) || undefined,
+            requester: item.requester?.name ?? "",
+            avatarUrl: item.requester?.avatar_url ?? undefined,
+            dateLabel: formatDateLabel(item.updated_at ?? item.created_at),
+            entity: item.entity_id ?? undefined,
+            unreadCount: item.unread_count ?? undefined,
+          };
+        });
+
+        ticketsCache = mapped;
+        setTickets(mapped);
+      } catch (error) {
+        console.error("Erro ao carregar tickets:", error);
+        if (isMountedRef.current) setTickets([]);
+      } finally {
+        if (isMountedRef.current) setIsLoading(false);
+      }
+    },
+    []
+  );
+
+  const refreshTickets = useCallback(async () => {
+    ticketsCache = null;
+    await fetchTickets(false);
+  }, [fetchTickets]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    fetchTickets(true);
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [fetchTickets]);
 
   // ✅ Normaliza search 1x por render (evita toLowerCase por ticket)
   const searchNormalized = useMemo(() => search.trim().toLowerCase(), [search]);
@@ -63,7 +213,8 @@ export function useTicketsList() {
 
       const matchesEntity =
         selectedEntities.length === 0 ||
-        (ticket.entity ? selectedEntities.includes(ticket.entity) : false);
+        !ticket.entity ||
+        selectedEntities.includes(ticket.entity);
 
       const matchesType = !ticketTypeFilter || ticket.type === ticketTypeFilter;
 
@@ -113,13 +264,13 @@ export function useTicketsList() {
 
   // ✅ Se mockEntities estiver `as const`, normalizamos para array mutável “normal” (evita atrito).
   const entities = useMemo(
-    () => mockEntities.map((e) => ({ id: e.id, name: e.name })),
-    []
+    () => entitiesData.map((entity) => ({ id: entity.id, name: entity.name })),
+    [entitiesData]
   );
 
   return {
     filteredTickets,
-    isLoading,
+    isLoading: isLoading || isLoadingEntities,
 
     search,
     setSearch,
@@ -140,5 +291,6 @@ export function useTicketsList() {
     toggleStatus,
 
     entities,
+    refreshTickets,
   };
 }

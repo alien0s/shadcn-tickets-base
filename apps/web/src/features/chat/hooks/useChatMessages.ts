@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { mockChatMessages, mockTypingIndicator } from "../data/mockChatMessages";
 import type {
   ChatMessage,
   SendMessagePayload,
@@ -13,9 +12,13 @@ function createMessageId(seed: string, index: number) {
 }
 
 export function useChatMessages() {
-  const [messages, setMessages] = useState<ChatMessage[]>(mockChatMessages);
-  const [typingIndicator, setTypingIndicator] =
-    useState<TypingIndicator>(mockTypingIndicator);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [typingIndicator, setTypingIndicator] = useState<TypingIndicator>({
+    isTyping: false,
+    avatarUrl: "",
+    fallback: "",
+    name: "",
+  });
 
   // Memo: lista só de imagens para o viewer (AttachmentViewer)
   const imageMessages = useMemo(
@@ -38,29 +41,26 @@ export function useChatMessages() {
    */
   const sendMessage = useCallback((payload: SendMessagePayload) => {
     // ✅ Compat: suporta payload antigo (files) e novo (attachments) sem quebrar TS
-    // (sem mudar a lógica do componente; apenas garantindo que "files" exista aqui)
-    const text = (payload as { text?: string }).text ?? ""; // mantém intenção original
+    const text = (payload as { text?: string }).text ?? "";
     const files =
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ("files" in (payload as any) ? (payload as any).files : undefined) ??
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ((payload as any).attachments ?? []);
 
-    if (!text && files.length === 0) return; // nada para enviar
+    if (!text && files.length === 0) return;
 
     const timestamp = new Date().toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
     });
 
-    // Seed único por envio (garante ids estáveis e ordenados)
     const seed = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
     setMessages((prev) => {
       const next: ChatMessage[] = [...prev];
-      let cursor = 0; // contador para ids
+      let cursor = 0;
 
-      // 1) Texto (se existir)
       if (text) {
         next.push({
           id: createMessageId(seed, cursor++),
@@ -71,7 +71,6 @@ export function useChatMessages() {
         });
       }
 
-      // 2) Arquivos/imagens
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       for (const file of files as any[]) {
         if (file.kind === "image") {
@@ -80,8 +79,8 @@ export function useChatMessages() {
             type: "image",
             isOwn: true,
             image: {
-              url: file.url, // ✅ novo shape
-              alt: file.name, // ✅ novo shape (alt opcional, mas ok)
+              url: file.url,
+              alt: file.name,
             },
             timestamp,
           });
@@ -91,9 +90,9 @@ export function useChatMessages() {
             type: "file",
             isOwn: true,
             file: {
-              name: file.name, // ✅ novo shape
-              size: file.size ?? 0, // ✅ bytes (fallback seguro)
-              url: file.url, // ✅ novo shape
+              name: file.name,
+              size: file.size ?? 0,
+              url: file.url,
             },
             timestamp,
           });
@@ -104,34 +103,34 @@ export function useChatMessages() {
     });
   }, []);
 
-  /**
-   * Auto-hide typing indicator para não ficar animando eternamente.
+  /*
+   * Auto-hide typing indicator (habilitar quando implementarmos "digitando").
    * - se isTyping liga, agenda desligar em 2.5s
    * - se ligar de novo antes disso, reseta o timer
    */
-  useEffect(() => {
-    if (!typingIndicator.isTyping) return;
-
-    // SSR safety (defensivo): evita usar window no servidor
-    if (typeof window === "undefined") return;
-
-    if (typingTimerRef.current) {
-      window.clearTimeout(typingTimerRef.current);
-      typingTimerRef.current = null;
-    }
-
-    typingTimerRef.current = window.setTimeout(() => {
-      setTypingIndicator((prev) => ({ ...prev, isTyping: false }));
-      typingTimerRef.current = null;
-    }, 2500);
-
-    return () => {
-      if (typingTimerRef.current) {
-        window.clearTimeout(typingTimerRef.current);
-        typingTimerRef.current = null;
-      }
-    };
-  }, [typingIndicator.isTyping]);
+  // useEffect(() => {
+  //   if (!typingIndicator.isTyping) return;
+  //
+  //   // SSR safety (defensivo): evita usar window no servidor
+  //   if (typeof window === "undefined") return;
+  //
+  //   if (typingTimerRef.current) {
+  //     window.clearTimeout(typingTimerRef.current);
+  //     typingTimerRef.current = null;
+  //   }
+  //
+  //   typingTimerRef.current = window.setTimeout(() => {
+  //     setTypingIndicator((prev) => ({ ...prev, isTyping: false }));
+  //     typingTimerRef.current = null;
+  //   }, 2500);
+  //
+  //   return () => {
+  //     if (typingTimerRef.current) {
+  //       window.clearTimeout(typingTimerRef.current);
+  //       typingTimerRef.current = null;
+  //     }
+  //   };
+  // }, [typingIndicator.isTyping]);
 
   return {
     imageMessages,

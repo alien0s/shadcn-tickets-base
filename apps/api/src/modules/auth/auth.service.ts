@@ -54,6 +54,7 @@ export class AuthService {
         // Criar usuário no banco
         const user = await this.repository.createUser({
             name: registerData.name,
+            last_name: registerData.last_name,
             email: registerData.email,
             password_hash: passwordHash,
             entity_id: registerData.entity_id,
@@ -268,6 +269,7 @@ export class AuthService {
         return {
             id: user.id,
             name: user.name,
+            last_name: user.last_name,
             email: user.email,
             avatar_url: user.avatar_url,
             entity_id: user.entity_id,

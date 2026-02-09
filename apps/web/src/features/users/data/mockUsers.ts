@@ -7,6 +7,8 @@ export type UserRecord = {
   entity: string;
   role: string;
   avatar?: string;
+  role_id?: string;
+  is_active?: boolean;
 };
 
 // Dados mockados de usuários para desenvolvimento
@@ -32,6 +34,7 @@ export const mockUsers: UserRecord[] = [
     role: "Atendimento",
     avatar:
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSU6TAn8zOX5VYek6Hq0ToTCdAbi0cyjHVQ8g&s",
+    is_active: true,
   },
   {
     id: "2",
@@ -41,6 +44,7 @@ export const mockUsers: UserRecord[] = [
     role: "Financeiro",
     avatar:
       "https://i.pinimg.com/736x/27/57/78/2757784d2e6f5d047987321cf8d5bb89.jpg",
+    is_active: true,
   },
   {
     id: "3",
@@ -50,6 +54,7 @@ export const mockUsers: UserRecord[] = [
     role: "Operacoes",
     avatar:
       "https://64.media.tumblr.com/2958d96eff5c2fc0b4086c21982d23f5/8c516146086d2073-e9/s400x600/d426c64fe22bedc432adcc434512f4f2e83cf11a.png",
+    is_active: true,
   },
   {
     id: "4",
@@ -59,6 +64,7 @@ export const mockUsers: UserRecord[] = [
     role: "Comercial",
     avatar:
       "https://64.media.tumblr.com/85fbc70fa1a3feee7c8d101b016951a8/tumblr_plorzglJM01t8o0f1_640.jpg",
+    is_active: false,
   },
   {
     id: "5",
@@ -68,6 +74,7 @@ export const mockUsers: UserRecord[] = [
     role: "Suporte",
     avatar:
       "https://64.media.tumblr.com/f96a783d595a44f728cf16d9c8cd92de/91943817594ce704-63/s1280x1920/fc8ac934dc7e234c80468204792ed713de3668ff.jpg",
+    is_active: true,
   },
   {
     id: "6",

@@ -9,14 +9,18 @@ export type UserRole = "admin" | "agent" | "client"
 export type AuthUser = {
   id: string
   name: string
+  last_name?: string
   email: string
   role: UserRole
   avatar_url?: string
+  department_id?: string
   entity_id: string
   role_id: string
   two_factor_enabled: boolean
   last_login_at?: string
   is_active: boolean
+  os_id?: number
+  browser?: string
 }
 
 /**
@@ -25,6 +29,19 @@ export type AuthUser = {
 export type LoginPayload = {
   email: string
   password: string
+}
+
+/**
+ * Payload de cadastro
+ */
+export type RegisterPayload = {
+  name: string
+  last_name: string
+  email: string
+  password: string
+  entity_id: string
+  role_id: string
+  avatar_url?: string
 }
 
 /**

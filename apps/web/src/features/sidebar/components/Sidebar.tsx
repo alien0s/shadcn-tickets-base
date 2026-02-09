@@ -17,6 +17,7 @@ import { SidebarItem } from "./SidebarItem";
 import { UserNav } from "./UserNav";
 import { useSidebarOutsideClose } from "../hooks/useSidebarOutsideClose";
 import { useUserNav } from "../hooks/useUserNav";
+import { useAuth } from "@/features/auth";
 
 type NavItem = {
   to: string;
@@ -28,26 +29,30 @@ export function Sidebar() {
   const { isCollapsed, toggleSidebar, closeSidebar } = useSidebar();
   const sidebarRef = useSidebarOutsideClose({ isCollapsed, closeSidebar });
   const userNav = useUserNav();
+  const { user } = useAuth();
+  const isClient = user?.role === "client";
 
   // ✅ evita duplicação e mantém render previsível (sem mudar UI)
   const mainItems = useMemo<readonly NavItem[]>(
     () => [
-      { to: "/dashboardtickets", label: "Dashboard", icon: House },
+      ...(isClient
+        ? []
+        : [{ to: "/dashboardtickets", label: "Dashboard", icon: House }]),
       { to: "/tickets", label: "Tickets", icon: MessageCircle },
       { to: "/help-center", label: "Base de ajuda", icon: LifeBuoy },
     ],
-    []
+    [isClient]
   );
 
   // ⚠️ Mantive seus paths exatamente como estão (mesmo repetidos em "/users")
   // porque você não pediu pra corrigir rotas.
   const bottomItems = useMemo<readonly NavItem[]>(
     () => [
-      { to: "/users", label: "Usuarios", icon: Users },
+      ...(isClient ? [] : [{ to: "/users", label: "Usuários", icon: Users }]),
       { to: "/users", label: "Suporte", icon: LifeBuoy },
       { to: "/users", label: "Documentação", icon: FileText },
     ],
-    []
+    [isClient]
   );
 
   const collapseLabel = isCollapsed ? "Expandir menu" : "Recolher menu";

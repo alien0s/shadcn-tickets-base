@@ -17,7 +17,10 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
    * Registra novo usuário no sistema
    */
   fastify.post('/register', {
-    schema: authSchemas.register
+    schema: {
+      ...authSchemas.register,
+      tags: ['Auth']
+    }
   }, async (request, reply) => {
     const user = await authService.register(request.body as RegisterRequest)
     return reply.status(201).send(
@@ -31,7 +34,10 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
    * Retorna token OU indica que precisa de 2FA
    */
   fastify.post('/login', {
-    schema: authSchemas.login
+    schema: {
+      ...authSchemas.login,
+      tags: ['Auth']
+    }
   }, async (request, reply) => {
     const result = await authService.login(request.body as LoginRequest)
     
@@ -50,7 +56,10 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
    * Verifica código 2FA enviado por email
    */
   fastify.post('/verify-2fa', {
-    schema: authSchemas.verify2FA
+    schema: {
+      ...authSchemas.verify2FA,
+      tags: ['Auth']
+    }
   }, async (request, reply) => {
     const { email, code } = request.body as { email: string, code: string }
     const result = await authService.verify2FACode(email, code)
@@ -62,7 +71,10 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
    * Solicita recuperação de senha
    */
   fastify.post('/forgot-password', {
-    schema: authSchemas.forgotPassword
+    schema: {
+      ...authSchemas.forgotPassword,
+      tags: ['Auth']
+    }
   }, async (request, reply) => {
     const { email } = request.body as { email: string }
     await authService.forgotPassword(email)
@@ -77,7 +89,10 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
    * Redefine senha usando token enviado por email
    */
   fastify.post('/reset-password', {
-    schema: authSchemas.resetPassword
+    schema: {
+      ...authSchemas.resetPassword,
+      tags: ['Auth']
+    }
   }, async (request, reply) => {
     const { token, new_password } = request.body as { token: string, new_password: string }
     await authService.resetPassword(token, new_password)
@@ -89,7 +104,10 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
    * Habilita autenticação de dois fatores (protegida)
    */
   fastify.post('/enable-2fa', {
-    schema: authSchemas.enable2FA,
+    schema: {
+      ...authSchemas.enable2FA,
+      tags: ['Auth']
+    },
     preHandler: [authMiddleware]
   }, async (request, reply) => {
     await authService.enable2FA(request.user.id)
@@ -101,7 +119,10 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
    * Desabilita autenticação de dois fatores (protegida)
    */
   fastify.post('/disable-2fa', {
-    schema: authSchemas.disable2FA,
+    schema: {
+      ...authSchemas.disable2FA,
+      tags: ['Auth']
+    },
     preHandler: [authMiddleware]
   }, async (request, reply) => {
     await authService.disable2FA(request.user.id)
@@ -113,6 +134,9 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
    * Retorna dados do usuário autenticado
    */
   fastify.get('/me', {
+    schema: {
+      tags: ['Auth']
+    },
     preHandler: [authMiddleware]
   }, async (request, reply) => {
     const user = await authService.getUserById(request.user.id)
@@ -129,7 +153,11 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
    * Inicia fluxo OAuth2 com Microsoft AD
    * Redireciona para página de login da Microsoft
    */
-  fastify.get('/microsoft', async (request, reply) => {
+  fastify.get('/microsoft', {
+    schema: {
+      tags: ['Auth']
+    }
+  }, async (request, reply) => {
     // TODO: Implementar quando tiver credenciais Microsoft AD
     // Por enquanto, retorna erro informativo
     return reply.status(501).send({
@@ -146,7 +174,11 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
    * Callback do OAuth2 Microsoft AD
    * Recebe o código de autorização e cria/loga o usuário
    */
-  fastify.get('/microsoft/callback', async (request, reply) => {
+  fastify.get('/microsoft/callback', {
+    schema: {
+      tags: ['Auth']
+    }
+  }, async (request, reply) => {
     // TODO: Implementar quando tiver credenciais Microsoft AD
     return reply.status(501).send({
       error: {

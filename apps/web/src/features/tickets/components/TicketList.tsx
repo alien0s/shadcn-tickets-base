@@ -48,6 +48,7 @@ export function TicketList({
     toggleEntity,
     toggleStatus,
     entities,
+    refreshTickets,
   } = useTicketsList();
 
   const { toggleSidebar } = useSidebar();
@@ -289,8 +290,8 @@ export function TicketList({
       </div>
 
       {/* Lista scrollavel */}
-      <ScrollArea className="flex-1">
-        <div className="py-2">
+      <ScrollArea className="flex-1 min-w-0">
+        <div className="py-2 w-full min-w-0">
           {isLoading ? (
             <TicketListSkeleton />
           ) : (
@@ -317,6 +318,7 @@ export function TicketList({
       <NewTicketDialog
         open={isNewTicketOpen}
         onOpenChange={onNewTicketOpenChange}
+        onCreated={refreshTickets}
       />
     </div>
   );

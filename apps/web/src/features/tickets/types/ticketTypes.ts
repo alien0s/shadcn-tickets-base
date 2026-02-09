@@ -18,6 +18,7 @@ export type TicketPriority =
 
 export type Ticket = {
   id: string;
+  title?: string;
   subject: string;
   status: TicketStatus;
   priority: TicketPriority;
@@ -26,4 +27,5 @@ export type Ticket = {
   requester?: string;
   dateLabel: string;
   entity?: string;
+  unreadCount?: number;
 };

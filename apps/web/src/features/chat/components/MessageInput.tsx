@@ -1,8 +1,6 @@
-// MessageInput.tsx (caixa de enviar mensagem)
 import React, {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   forwardRef,
@@ -16,12 +14,11 @@ import type { SendMessagePayload } from "../types/chatTypes";
 import { useFileAttachments } from "@/features/UploadFileMessage/hooks/useFileAttachments";
 import { AttachmentPreviews } from "@/features/UploadFileMessage/components/AttachmentPreviews";
 import { AttachmentPicker } from "@/features/UploadFileMessage/components/AttachmentPicker";
-import { formatFileSize } from "@/features/UploadFileMessage/utils/formatFileSize";
 
 type AttachmentsController = {
   selectedFiles: File[];
   filePreviews: Array<string | null>;
-  fileInputRef: React.RefObject<HTMLInputElement | null>; // ✅ ref pode ser null no primeiro render
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
   removeFile: (index: number) => void;
   clearFiles: () => void;
   handleFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
@@ -31,7 +28,10 @@ type AttachmentsController = {
 
 type Props = {
   onSend?: (payload: SendMessagePayload) => void;
-  attachments?: AttachmentsController; // permite controller externo (ChatWindow) ou interno (hook)
+  onTyping?: () => void; // ✅ NOVO
+  attachments?: AttachmentsController;
+  disabled?: boolean;
+  showPreviews?: boolean;
 };
 
 export type MessageInputHandle = {
@@ -39,12 +39,16 @@ export type MessageInputHandle = {
 };
 
 export const MessageInput = forwardRef<MessageInputHandle, Props>(
-  function MessageInput({ onSend, attachments }, ref) {
-    const [message, setMessage] = useState(""); // texto digitado
-    const [shouldAutoFocus, setShouldAutoFocus] = useState(false); // autofocus só no desktop
+  function MessageInput(
+    { onSend, onTyping, attachments, disabled = false, showPreviews = true },
+    ref
+  ) {
+    const [message, setMessage] = useState("");
+    const [shouldAutoFocus, setShouldAutoFocus] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const typingTimeoutRef = useRef<number | null>(null); // ✅ NOVO
 
-    // Controller interno (caso ChatWindow não injete attachments externos)
+    // Controller interno
     const internalAttachments = useFileAttachments({
       maxFiles: 10,
       onDuplicateFiles: (duplicates) => {
@@ -54,7 +58,6 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(
       },
     });
 
-    // Usa controller externo (ChatWindow) se existir; senão usa o interno
     const controller = attachments ?? internalAttachments;
 
     const {
@@ -69,9 +72,9 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(
     } = controller;
 
     const focusInput = useCallback(() => {
-      // preventScroll reduz o "pulo" do teclado no iOS
+      if (disabled) return;
       textareaRef.current?.focus({ preventScroll: true });
-    }, []);
+    }, [disabled]);
 
     useImperativeHandle(
       ref,
@@ -81,40 +84,48 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(
       [focusInput]
     );
 
-    // Monta o payload de arquivos (memo evita recriar array em render sem necessidade)
-    const filesToSend = useMemo(() => {
-      return selectedFiles.map((file, index) => {
-        const kind: "image" | "file" = file.type.startsWith("image/")
-          ? "image"
-          : "file";
+    // ✅ NOVO: Detectar digitação com debounce
+    const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const value = e.target.value;
+      setMessage(value);
 
-        const preview = filePreviews[index]; // pode ser string ou null
-        return {
-          name: file.name,
-          sizeLabel: formatFileSize(file.size),
-          url: typeof preview === "string" ? preview : "", // fallback seguro
-          kind,
-        };
-      });
-    }, [selectedFiles, filePreviews]);
+      // Enviar evento de typing (com debounce)
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      if (value.trim() && onTyping) {
+        onTyping(); // Enviar evento imediatamente
+        
+        // Enviar novamente após 2s se continuar digitando
+        typingTimeoutRef.current = setTimeout(() => {
+          onTyping();
+        }, 2000);
+      }
+    };
 
     const submitMessage = useCallback(() => {
+      if (disabled) return;
       const trimmed = message.trim();
-      if (!trimmed && selectedFiles.length === 0) return; // nada para enviar
+      if (!trimmed && selectedFiles.length === 0) return;
 
-      onSend?.({ text: trimmed, files: filesToSend });
+      onSend?.({ text: trimmed, files: selectedFiles });
 
-      setMessage(""); // limpa campo
-      clearFiles(); // limpa anexos + revoga previews no hook
-      focusInput(); // devolve foco
-    }, [message, selectedFiles.length, onSend, filesToSend, clearFiles, focusInput]);
+      setMessage("");
+      clearFiles();
+      focusInput();
+      
+      // ✅ NOVO: Limpar timeout ao enviar
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    }, [disabled, message, selectedFiles, onSend, clearFiles, focusInput]);
 
-    // Decide autofocus: desktop sim, mobile não
     useEffect(() => {
       if (typeof window === "undefined") return;
 
-      const mediaQuery = window.matchMedia("(max-width: 767px)"); // < md
-      const updateAutoFocus = () => setShouldAutoFocus(!mediaQuery.matches); // desktop true
+      const mediaQuery = window.matchMedia("(max-width: 767px)");
+      const updateAutoFocus = () => setShouldAutoFocus(!mediaQuery.matches);
 
       updateAutoFocus();
 
@@ -135,13 +146,13 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(
 
     useEffect(() => {
       if (!shouldAutoFocus) return;
-      focusInput(); // foca quando entra em desktop
+      focusInput();
     }, [shouldAutoFocus, focusInput]);
 
     return (
       <div
         className="px-3 pb-4 bg-background max-[767px]:pb-[calc(0.75rem+var(--safe-bottom, env(safe-area-inset-bottom)))]"
-        onClick={focusInput} // clique na área foca o input
+        onClick={focusInput}
       >
         <div className="relative flex flex-col border rounded-md shadow-sm bg-background transition-all">
           <form
@@ -151,31 +162,31 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(
               submitMessage();
             }}
           >
-            {/* Previews dos anexos */}
-            <AttachmentPreviews
-              files={selectedFiles}
-              previews={filePreviews} // (string|null)[]
-              onRemove={removeFile}
-            />
+            {showPreviews ? (
+              <AttachmentPreviews
+                files={selectedFiles}
+                previews={filePreviews}
+                onRemove={removeFile}
+              />
+            ) : null}
 
             <Textarea
               rows={1}
               ref={textareaRef}
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onPaste={handlePaste} // cola imagem/arquivo do clipboard (Ctrl+V)
+              onChange={handleInputChange} // ✅ MODIFICADO
+              onPaste={handlePaste}
               placeholder="Digite uma mensagem"
+              disabled={disabled}
               className="resize-none border-0 shadow-none focus-visible:ring-0 px-4 py-3 min-h-[50px] max-h-[200px] text-base"
               style={{ height: "auto" }}
               onKeyDown={(e) => {
-                // Enter envia / Shift+Enter quebra linha
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
                   submitMessage();
                 }
               }}
               onInput={(e) => {
-                // Auto-resize baseado no conteúdo
                 const target = e.target as HTMLTextAreaElement;
                 target.style.height = "auto";
                 target.style.height = `${target.scrollHeight}px`;
@@ -185,10 +196,11 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(
             <div className="flex items-center justify-between px-3 pb-3">
               <div className="flex items-center gap-4">
                 <AttachmentPicker
-                  fileInputRef={fileInputRef} // ✅ agora tipado com null também
+                  fileInputRef={fileInputRef}
                   onFileChange={handleFileChange}
                   onTrigger={triggerFileInput}
                   accept="image/*,.pdf,.doc,.docx"
+                  disabled={disabled}
                 />
               </div>
 
@@ -198,6 +210,7 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(
                 variant="ghost"
                 className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full ml-auto"
                 aria-label="Enviar mensagem"
+                disabled={disabled}
               >
                 <Send className="h-5 w-5" />
               </Button>

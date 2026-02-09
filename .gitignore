@@ -29,3 +29,5 @@ packages/*/dist
 *.njsproj
 *.sln
 *.sw?
+
+sql

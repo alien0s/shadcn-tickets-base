@@ -3,19 +3,35 @@ import { User } from '@ticket-system/types'
 import { NotFoundError } from '../../shared/errors/AppError.js'
 
 export class UsersRepository {
-  async findAll(page: number = 1, limit: number = 10) {
-    const offset = (page - 1) * limit
+  /**
+ * Busca todos os usuários com paginação e ordenação
+ * @param page - Número da página
+ * @param limit - Quantidade de registros por página
+ * @param sortBy - Campo para ordenar (ex: 'name', 'email', 'created_at')
+ * @param order - Direção: 'asc' (crescente) ou 'desc' (decrescente)
+ */
+async findAll(
+  page: number = 1, 
+  limit: number = 10,
+  sortBy: string = 'created_at',  // ← ADICIONAR
+  order: 'asc' | 'desc' = 'desc'   // ← ADICIONAR
+) {
+  const offset = (page - 1) * limit
 
-    const { data, error, count } = await supabase
-      .from('users')
-      .select('*', { count: 'exact' })
-      .range(offset, offset + limit - 1)
-      .order('created_at', { ascending: false })
+  // Validar campos permitidos para ordenação (segurança)
+  const allowedSortFields = ['name', 'email', 'created_at', 'last_name']
+  const validSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'created_at'
 
-    if (error) throw error
+  const { data, error, count } = await supabase
+    .from('users')
+    .select('*', { count: 'exact' })
+    .range(offset, offset + limit - 1)
+    .order(validSortBy, { ascending: order === 'asc' }) // ← USAR PARÂMETROS DINÂMICOS
 
-    return { users: data as User[], total: count || 0 }
-  }
+  if (error) throw error
+
+  return { users: data as User[], total: count || 0 }
+}
 
   async findById(id: string) {
     const { data, error } = await supabase

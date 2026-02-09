@@ -5,15 +5,19 @@ import { UsersToolbar } from "@/features/users/components/UsersToolbar";
 import { UsersTable } from "@/features/users/components/UsersTable";
 import { NewUserDialog } from "@/features/users/components/NewUserDialog";
 import { useUsers } from "@/features/users/hooks/useUsers";
+import { useAuth } from "@/features/auth";
+
+// ID fixo do role Admin (baseado nos dados que você enviou)
+const ADMIN_ROLE_ID = '650e8400-e29b-41d4-a716-446655440000';
 
 export function UsersPage() {
   const {
     search,
     setSearch,
     filteredUsers,
-    paginatedUsers,
     page,
-    totalPages,
+    total,
+    pageSize,
     setPage,
     entities,
     roles,
@@ -21,8 +25,18 @@ export function UsersPage() {
     selectedRoles,
     toggleEntity,
     toggleRole,
+    isLoading,
+    error,
+    removeUser,
+    updateUser,
+    addUser,
   } = useUsers();
+
+  const { user: currentUser } = useAuth();
   const [isNewUserOpen, setIsNewUserOpen] = useState(false);
+
+  // ✅ ADICIONAR: Verificar se usuário logado é Admin
+  const isAdmin = currentUser?.role_id === ADMIN_ROLE_ID;
 
   return (
     <AppLayout>
@@ -32,7 +46,7 @@ export function UsersPage() {
             <div className="space-y-4 flex flex-col h-full">
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between gap-2">
-                  <UsersHeader count={filteredUsers.length} />
+                  <UsersHeader count={total} />
                   <UsersToolbar
                     search={search}
                     onSearchChange={setSearch}
@@ -58,16 +72,27 @@ export function UsersPage() {
                 />
               </div>
               <UsersTable
-                users={paginatedUsers}
+                users={filteredUsers}
                 page={page}
-                totalPages={totalPages}
+                total={total}
+                pageSize={pageSize}
                 onPageChange={setPage}
+                isLoading={isLoading}
+                error={error}
+                onUserDeleted={removeUser}
+                onUserUpdated={updateUser}
+                currentUserId={currentUser?.id}
+                isAdmin={isAdmin}
               />
             </div>
           </div>
         </div>
       </div>
-      <NewUserDialog open={isNewUserOpen} onOpenChange={setIsNewUserOpen} />
+      <NewUserDialog
+        open={isNewUserOpen}
+        onOpenChange={setIsNewUserOpen}
+        onCreated={addUser}
+      />
     </AppLayout>
   );
 }

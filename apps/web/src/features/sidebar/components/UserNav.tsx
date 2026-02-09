@@ -161,9 +161,9 @@ export function UserNav({
             Configurações
           </DropdownMenuItem>
 
-          <DropdownMenuItem>
+          <DropdownMenuItem onSelect={handleNavigateSettings}>
             <BadgeCheck className="mr-2 h-4 w-4" aria-hidden="true" />
-            Account
+            Perfil
           </DropdownMenuItem>
 
           <DropdownMenuItem>

@@ -18,6 +18,8 @@ interface BaseChatMessage {
   id: string;
   isOwn: boolean;
   timestamp: ISODateString;
+  avatarUrl?: string;
+  avatarFallback?: string;
 }
 
 /**
@@ -97,10 +99,10 @@ export type PendingAttachment = {
  */
 export type SendMessagePayload = {
   text?: string;
+  files?: File[];
   attachments?: Array<{
     name: string;
     size: number;
     kind: "image" | "file";
-    // Em API real, aqui seria File | Blob | uploadId
   }>;
 };

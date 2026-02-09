@@ -22,13 +22,16 @@ export const usersSchemas = {
   create: {
     body: {
       type: 'object',
-      required: ['name', 'email', 'entity_id', 'role_id'],
+      required: ['name', 'last_name', 'email', 'department_id', 'role_id', 'entity_id'],
       properties: {
         name: { type: 'string', minLength: 3, maxLength: 255 },
+        last_name: { type: 'string', minLength: 3, maxLength: 50 },
         email: { type: 'string', format: 'email' },
+        department_id: { type: 'string', format: 'uuid' },
         entity_id: { type: 'string', format: 'uuid' },
         role_id: { type: 'string', format: 'uuid' },
-        avatar_url: { type: 'string', format: 'uri' }
+        avatar_url: { type: 'string', format: 'uri' },
+        is_active: { type: 'boolean' }
       }
     }
   },
@@ -45,7 +48,13 @@ export const usersSchemas = {
       type: 'object',
       properties: {
         name: { type: 'string', minLength: 3, maxLength: 255 },
-        avatar_url: { type: 'string', format: 'uri' }
+        last_name: { type: 'string', minLength: 2, maxLength: 50 },
+        email: { type: 'string', format: 'email' },
+        department_id: { type: 'string', format: 'uuid' },
+        entity_id: { type: 'string', format: 'uuid' },
+        role_id: { type: 'string', format: 'uuid' },
+        avatar_url: { type: 'string', format: 'uri' },
+        is_active: { type: 'boolean' }
       }
     }
   }

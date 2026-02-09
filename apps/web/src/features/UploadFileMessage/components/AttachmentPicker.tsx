@@ -10,6 +10,7 @@ type AttachmentPickerProps = {
   accept?: string;
   onTrigger: () => void;
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  disabled?: boolean;
 };
 
 export function AttachmentPicker({
@@ -17,6 +18,7 @@ export function AttachmentPicker({
   accept,
   onTrigger,
   onFileChange,
+  disabled = false,
 }: AttachmentPickerProps) {
   return (
     <>
@@ -28,6 +30,7 @@ export function AttachmentPicker({
         ref={fileInputRef}
         onChange={onFileChange}
         accept={accept}
+        disabled={disabled}
       />
 
       {/* Melhor prática shadcn: manter TooltipProvider no layout global.
@@ -36,10 +39,11 @@ export function AttachmentPicker({
         <TooltipTrigger asChild>
           <button
             type="button"
-            onClick={onTrigger}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            onClick={disabled ? undefined : onTrigger}
+            className="text-muted-foreground hover:text-foreground transition-colors disabled:opacity-60"
             aria-label="Anexar arquivo"
             title="Anexar arquivo"
+            disabled={disabled}
           >
             <Paperclip className="h-5 w-5" />
           </button>

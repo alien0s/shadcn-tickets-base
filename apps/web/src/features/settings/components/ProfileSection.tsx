@@ -18,11 +18,29 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { Check, Trash2, Upload } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Check, ChevronDown, Trash2, Upload } from "lucide-react";
 import { cropImage, ImageCropper, useImageCropper } from "@/features/ImageCropper";
+import { useAuth } from "@/features/auth";
+import { useDepartments } from "@/hooks/useDepartments";
 import { EntitySelect } from "./EntitySelect";
 import { ProfileField } from "./ProfileField";
 import type { ProfileSectionProps } from "../types";
+
+function getInitials(firstName: string, lastName: string): string {
+  const safeFirst = firstName.trim();
+  const safeLast = lastName.trim();
+
+  if (!safeFirst && !safeLast) return "";
+  if (!safeLast) return safeFirst.substring(0, 2).toUpperCase();
+  return (safeFirst[0] + safeLast[0]).toUpperCase();
+}
 
 function LabeledInput({
   children,
@@ -40,9 +58,14 @@ export function ProfileSection({
   selectedEntity,
   onChangeEntity,
 }: ProfileSectionProps) {
-  const [avatarSrc, setAvatarSrc] = useState(
-    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSU6TAn8zOX5VYek6Hq0ToTCdAbi0cyjHVQ8g&s"
-  );
+  const { user } = useAuth();
+  const authAvatarUrl = user?.avatar_url || "";
+  const authFirstName = user?.name || "";
+  const authLastName = user?.last_name || "";
+  const authEmail = user?.email || "";
+  const authDepartmentId = user?.department_id || "";
+
+  const [avatarSrc, setAvatarSrc] = useState(() => authAvatarUrl);
 
   const previousAvatarUrl = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null); // ✅ ref tipada corretamente (pode ser null)
@@ -60,19 +83,21 @@ export function ProfileSection({
     loadFile,
   } = useImageCropper({ initialImage: avatarSrc });
 
-  const [initialValues, setInitialValues] = useState(() => ({
-    firstName: "Alex",
-    lastName: "Jackson",
-    email: "finalui@yandex.com",
-    entity: selectedEntity,
-  }));
+  const authDefaults = useMemo(
+    () => ({
+      firstName: authFirstName,
+      lastName: authLastName,
+      email: authEmail,
+      entity: selectedEntity,
+    }),
+    [authEmail, authFirstName, authLastName, selectedEntity]
+  );
 
-  const [formValues, setFormValues] = useState(() => ({
-    firstName: "Alex",
-    lastName: "Jackson",
-    email: "finalui@yandex.com",
-    entity: selectedEntity,
-  }));
+  const [initialValues, setInitialValues] = useState(() => authDefaults);
+  const [formValues, setFormValues] = useState(() => authDefaults);
+  const [departmentId, setDepartmentId] = useState(authDepartmentId);
+  const [initialDepartmentId, setInitialDepartmentId] = useState(authDepartmentId);
+  const { departments, isLoading: isLoadingDepartments } = useDepartments();
 
   // ✅ Revoga objectURL anterior quando trocar o avatar (evita leak)
   // + ✅ cleanup no unmount
@@ -105,11 +130,27 @@ export function ProfileSection({
       formValues.firstName === initialValues.firstName &&
       formValues.lastName === initialValues.lastName &&
       formValues.email === initialValues.email &&
-      formValues.entity === initialValues.entity
+      formValues.entity === initialValues.entity &&
+      departmentId === initialDepartmentId
     );
-  }, [formValues, initialValues]);
+  }, [departmentId, formValues, initialDepartmentId, initialValues]);
 
   // ✅ Só sincroniza entidade quando o form não tem alterações (pristine)
+  useEffect(() => {
+    if (!isPristine) return;
+
+    setInitialValues(authDefaults);
+    setFormValues(authDefaults);
+  }, [authDefaults, isPristine]);
+
+  useEffect(() => {
+    if (!isPristine) return;
+    if (!authDepartmentId) return;
+
+    setInitialDepartmentId(authDepartmentId);
+    setDepartmentId(authDepartmentId);
+  }, [authDepartmentId, isPristine]);
+
   useEffect(() => {
     if (!isPristine) return;
     if (selectedEntity === initialValues.entity) return;
@@ -126,6 +167,19 @@ export function ProfileSection({
   const isDirty = useMemo(() => !isPristine, [isPristine]);
 
   // ✅ Handlers estáveis (evita inline em inputs / listas e melhora previsibilidade)
+  const displayName = useMemo(() => {
+    return [formValues.firstName, formValues.lastName].filter(Boolean).join(" ").trim();
+  }, [formValues.firstName, formValues.lastName]);
+  const avatarInitials = useMemo(
+    () => getInitials(formValues.firstName, formValues.lastName),
+    [formValues.firstName, formValues.lastName]
+  );
+
+  useEffect(() => {
+    if (!authAvatarUrl) return;
+    setAvatarSrc(authAvatarUrl);
+  }, [authAvatarUrl]);
+
   const handleFirstNameChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     setFormValues((prev) => ({ ...prev, firstName: value }));
@@ -210,15 +264,15 @@ export function ProfileSection({
             aria-label="Editar foto do perfil"
           >
             <Avatar className="h-16 w-16 rounded-xl">
-              <AvatarImage src={avatarSrc} alt="Avatar" />
+              <AvatarImage src={avatarSrc} alt={displayName || authEmail} />
               <AvatarFallback className="rounded-xl text-lg font-semibold bg-muted/70">
-                AJ
+                {avatarInitials}
               </AvatarFallback>
             </Avatar>
           </button>
 
           <div className="space-y-1">
-            <p className="text-base font-semibold">Alex Jackson</p>
+            <p className="text-base font-semibold">{displayName}</p>
             <p className="text-sm text-muted-foreground">
               Atualize a foto e os dados usados no perfil.
             </p>
@@ -290,6 +344,44 @@ export function ProfileSection({
         <ProfileField title="Entidade" description="Organização vinculada ao seu perfil.">
           <LabeledInput inputId="entity">
             <EntitySelect options={entities} value={formValues.entity} onChange={handleEntityChange} />
+          </LabeledInput>
+        </ProfileField>
+
+        <ProfileField title="Departamento" description="Departamento responsÃ¡vel pelo perfil.">
+          <LabeledInput inputId="department">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-between h-9"
+                  disabled={isLoadingDepartments || departments.length === 0}
+                >
+                  <span>
+                    {departments.find((item) => item.id === departmentId)?.name ||
+                      (isLoadingDepartments ? "Carregando..." : "Selecione um departamento")}
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56">
+                {departments.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">
+                    {isLoadingDepartments
+                      ? "Carregando departamentos..."
+                      : "Nenhum departamento encontrado"}
+                  </div>
+                ) : (
+                  <DropdownMenuRadioGroup value={departmentId} onValueChange={setDepartmentId}>
+                    {departments.map((option) => (
+                      <DropdownMenuRadioItem key={option.id} value={option.id}>
+                        {option.name}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </LabeledInput>
         </ProfileField>
       </div>

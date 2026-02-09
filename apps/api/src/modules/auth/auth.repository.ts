@@ -44,6 +44,7 @@ export class AuthRepository {
    */
   async createUser(userData: {
     name: string
+    last_name: string
     email: string
     password_hash: string
     entity_id: string

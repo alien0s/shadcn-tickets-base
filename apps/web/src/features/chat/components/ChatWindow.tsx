@@ -1,4 +1,3 @@
-// ChatWindow.tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -6,22 +5,24 @@ import { MessageInput } from "./MessageInput";
 import type { MessageInputHandle } from "./MessageInput";
 import { MessageBubble } from "./MessageBubble";
 import { AttachmentViewer } from "@/features/attachments/components/AttachmentViewer";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { Ticket } from "@/features/tickets/types/ticketTypes";
-import { ArrowLeft } from "lucide-react";
-import { useChatMessages } from "../hooks/useChatMessages";
+import { ArrowLeft, LoaderCircleIcon } from "lucide-react";
+import { useTicketMessages } from "../hooks/useTicketMessages";
 import { useIsDesktopDetailsVisible } from "../hooks/useIsDesktopDetailsVisible";
 import { useIsMobile } from "../hooks/useIsMobile";
 import { useFileAttachments } from "@/features/UploadFileMessage/hooks/useFileAttachments";
 import { useChatDropzone } from "../hooks/useChatDropzone";
-import { toast } from "sonner";
 import { formatFileSize } from "../utils/formatFileSize";
-
+import { toast } from "sonner";
+import { TICKET_PRIORITY_STYLES, TICKET_STATUS_STYLES } from "@/config/ticket-constants";
+import { normalizeStatus } from "@/features/tickets/utils/status";
+import { api } from "@/lib/api";
 
 type Props = {
   ticket: Ticket;
@@ -30,24 +31,50 @@ type Props = {
 };
 
 export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
-  const isMobile = useIsMobile(); // usado para escolher container de scroll
+  const isMobile = useIsMobile();
   const isDetailsVisibleOnDesktop = useIsDesktopDetailsVisible();
   const headerIsClickable = !isDetailsVisibleOnDesktop;
+  const [isClosingTicket, setIsClosingTicket] = useState(false);
 
-  // Viewer (galeria)
+  const statusLabel = useMemo(() => {
+    const normalized = normalizeStatus(ticket.status);
+    if (normalized) return TICKET_STATUS_STYLES[normalized].label;
+    return String(ticket.status);
+  }, [ticket.status]);
+
+  const priorityLabel = useMemo(() => {
+    const key = String(ticket.priority).toLowerCase();
+    if (key === "low" || key === "baixa") return TICKET_PRIORITY_STYLES.baixa.label;
+    if (key === "medium" || key === "media" || key === "normal") return TICKET_PRIORITY_STYLES.media.label;
+    if (key === "high" || key === "alta") return TICKET_PRIORITY_STYLES.alta.label;
+    return String(ticket.priority);
+  }, [ticket.priority]);
+
+  const handleCloseTicket = useCallback(async () => {
+    if (isClosingTicket) return;
+    setIsClosingTicket(true);
+    try {
+      await api.patch(`/tickets/${ticket.id}/close`);
+      toast.success("Ticket fechado com sucesso");
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erro ao fechar ticket";
+      toast.error(message);
+    } finally {
+      setIsClosingTicket(false);
+    }
+  }, [isClosingTicket, ticket.id]);
+
   const [isAttachmentViewerOpen, setIsAttachmentViewerOpen] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
-  // Refs de scroll
-  const scrollAreaRef = useRef<HTMLDivElement>(null); // ScrollArea (desktop)
-  const mobileScrollRef = useRef<HTMLDivElement>(null); // div scrollável (mobile)
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const mobileScrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<MessageInputHandle>(null);
 
-  // Controle de "msg nova" (efeito visual)
   const previousMessageCountRef = useRef(0);
   const [newMessageId, setNewMessageId] = useState<string | null>(null);
 
-  // Attachments do input (inclui dedupe + paste, etc)
   const attachments = useFileAttachments({
     maxFiles: 10,
     onDuplicateFiles: (duplicates) => {
@@ -57,21 +84,21 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
     },
   });
 
-  // Mensagens do chat
-  const { imageMessages, messages, sendMessage, typingIndicator } =
-    useChatMessages();
+  // ✅ Usar typingUsers e sendTypingEvent do hook
+  const {
+    imageMessages,
+    messages,
+    sendMessage,
+   
+    isLoading,
+    ticketImageAttachments,
+  } = useTicketMessages(ticket.id);
 
-  // Dropzone invisível no chat todo (drag & drop)
   const { isDraggingFiles, bind } = useChatDropzone({
     onDropFiles: attachments.addFiles,
     existingFiles: attachments.selectedFiles,
   });
 
-  /**
-   * Retorna o elemento "viewport" que realmente scrolla.
-   * - Mobile: a própria div com overflow
-   * - Desktop: o viewport interno do Radix ScrollArea
-   */
   const getScrollViewport = useCallback((): HTMLDivElement | null => {
     if (isMobile) return mobileScrollRef.current;
 
@@ -81,10 +108,6 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
     ) as HTMLDivElement | null;
   }, [isMobile]);
 
-  /**
-   * Scroll para o final de forma segura.
-   * requestAnimationFrame ajuda quando a DOM ainda está "assentando".
-   */
   const scrollToBottom = useCallback(() => {
     const viewport = getScrollViewport();
     if (!viewport) return;
@@ -97,18 +120,44 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
     });
   }, [getScrollViewport]);
 
+  const viewerItems = useMemo(() => {
+    const fromMessages = imageMessages.map((message) => ({
+      id: message.id,
+      type: "image" as const,
+      url: message.image.url,
+      name: message.image.alt ?? "Imagem",
+    }));
+
+    const fromAttachments = ticketImageAttachments.map((file) => ({
+      id: `attachment-${file.id}`,
+      type: "image" as const,
+      url: file.url,
+      name: file.name,
+    }));
+
+    const seen = new Set<string>();
+    const merged = [];
+
+    for (const item of [...fromMessages, ...fromAttachments]) {
+      if (seen.has(item.url)) continue;
+      seen.add(item.url);
+      merged.push(item);
+    }
+
+    return merged;
+  }, [imageMessages, ticketImageAttachments]);
+
   const handleImageClick = useCallback(
     (messageId: string) => {
-      const index = imageMessages.findIndex((m) => m.id === messageId);
+      const index = viewerItems.findIndex((item) => item.id === messageId);
       if (index === -1) return;
 
       setSelectedImageIndex(index);
       setIsAttachmentViewerOpen(true);
     },
-    [imageMessages]
+    [viewerItems]
   );
 
-  // Render único das mensagens (evita duplicar mobile/desktop)
   const renderedMessages = useMemo(() => {
     return messages.map((message) => {
       if (message.type === "text") {
@@ -119,6 +168,8 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
             isOwn={message.isOwn}
             content={message.content}
             timestamp={message.timestamp}
+            avatarUrl={message.avatarUrl}
+            avatarFallback={message.avatarFallback}
             isNew={newMessageId === message.id}
           />
         );
@@ -130,13 +181,14 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
             key={message.id}
             type="file"
             isOwn={message.isOwn}
-            fileName={message.file.name} // ✅ novo shape
-            fileSize={formatFileSize(message.file.size)} // ✅ bytes → string (UI)
-            fileUrl={message.file.url} // ✅ novo shape
+            fileName={message.file.name}
+            fileSize={formatFileSize(message.file.size)}
+            fileUrl={message.file.url}
             timestamp={message.timestamp}
+            avatarUrl={message.avatarUrl}
+            avatarFallback={message.avatarFallback}
             isNew={newMessageId === message.id}
           />
-
         );
       }
 
@@ -148,27 +200,25 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
           imageUrl={message.image.url}
           alt={message.image.alt}
           timestamp={message.timestamp}
-          imageMessageId={message.id} // ✅ passa só o id
-          onImageClick={handleImageClick} // ✅ função estável
+          imageMessageId={message.id}
+          onImageClick={handleImageClick}
+          avatarUrl={message.avatarUrl}
+          avatarFallback={message.avatarFallback}
           isNew={newMessageId === message.id}
         />
       );
     });
   }, [messages, newMessageId, handleImageClick]);
 
-  // Render do indicador de digitação (reutilizável)
+  // ✅ MODIFICADO: Usar typingUsers array
   const renderedTypingIndicator = useMemo(() => {
-    if (!typingIndicator.isTyping) return null;
+    
 
     return (
       <div className="flex items-start gap-2">
         <Avatar className="h-10 w-10 rounded-lg flex-shrink-0">
-          <AvatarImage
-            src={typingIndicator.avatarUrl}
-            alt={typingIndicator.name || "Outro participante"}
-          />
           <AvatarFallback className="rounded-lg text-xs">
-            {typingIndicator.fallback}
+            
           </AvatarFallback>
         </Avatar>
 
@@ -181,34 +231,22 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
         </div>
       </div>
     );
-  }, [typingIndicator]);
+  }, []);
 
-  /**
-   * Quando troca de ticket:
-   * - scroll pro fim
-   * - foco no input (somente desktop)
-   */
   useEffect(() => {
     scrollToBottom();
 
     if (typeof window === "undefined") return;
     const isMobileNow = window.matchMedia("(max-width: 767px)").matches;
     if (!isMobileNow) {
-      // foco só no desktop, evita "pular tela" no iOS
       inputRef.current?.focus();
     }
   }, [ticket.id, scrollToBottom]);
 
-  /**
-   * Quando novas mensagens chegam, scrolla pro fim.
-   */
   useEffect(() => {
     scrollToBottom();
   }, [messages.length, scrollToBottom]);
 
-  /**
-   * Marca a mensagem mais recente como "nova" para animação curta.
-   */
   useEffect(() => {
     const previousCount = previousMessageCountRef.current;
 
@@ -228,7 +266,6 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
 
   return (
     <div className="relative h-full flex flex-col overflow-hidden" {...bind}>
-      {/* Overlay do drag-and-drop (invisível até arrastar arquivos) */}
       {isDraggingFiles && (
         <div className="absolute inset-0 z-50 pointer-events-none flex items-center justify-center">
           <div className="rounded-lg border border-dashed border-primary bg-primary/5 px-6 py-4 text-sm">
@@ -237,10 +274,8 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
         </div>
       )}
 
-      {/* Header do chat */}
       <div className="flex items-center justify-between h-14 px-3 border-b border-border transition-colors">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          {/* Botão de voltar (somente mobile) */}
           {onBack && (
             <Button
               variant="ghost"
@@ -266,10 +301,10 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
                   tabIndex={0}
                 >
                   <span className="text-sm font-semibold truncate">
-                    {ticket.subject}
+                    {ticket.title}
                   </span>
                   <span className="text-[11px] text-muted-foreground">
-                    Cliente - {ticket.status} - {ticket.priority}
+                    Cliente - {statusLabel} - {priorityLabel}
                   </span>
                 </div>
               </TooltipTrigger>
@@ -280,52 +315,80 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
           ) : (
             <div className="flex flex-col min-w-0">
               <span className="text-sm font-semibold truncate">
-                {ticket.subject}
+                {ticket.title}
               </span>
               <span className="text-[11px] text-muted-foreground">
-                Cliente - {ticket.status} - {ticket.priority}
+                Cliente - {statusLabel} - {priorityLabel}
               </span>
             </div>
           )}
         </div>
 
-        {/* Botão "Fechar ticket" */}
         <Button
           size="sm"
-          className="bg-emerald-500 text-white hover:bg-emerald-600"
-          onClick={() => {
-            // TODO(API): integração com backend para fechamento
-          }}
+          className="bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-60"
+          disabled={ticket.status === "closed" || ticket.status === "fechado"}
+          onClick={handleCloseTicket}
         >
-          Fechar ticket
+          {ticket.status === "closed" || ticket.status === "fechado"
+            ? "Ticket fechado"
+            : "Fechar ticket"}
         </Button>
       </div>
 
-      {/* Mensagens (mesma UI, só muda o container/scroll) */}
       {isMobile ? (
         <div ref={mobileScrollRef} className="flex-1 min-h-0 overflow-y-auto">
           <div className="p-4 space-y-3">
             {renderedMessages}
             {renderedTypingIndicator}
           </div>
+          {isLoading ? (
+            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground pointer-events-none">
+              <LoaderCircleIcon className="h-6 w-6 animate-spin" />
+            </div>
+          ) : (
+            messages.length === 0 &&
+            (
+              <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground pointer-events-none text-center leading-relaxed">
+                Você pode enviar imagens ou arquivos 😉
+              </div>
+            )
+          )}
         </div>
       ) : (
-        <ScrollArea className="flex-1 min-h-0" ref={scrollAreaRef}>
+        <ScrollArea className="flex-1 min-h-0 relative" ref={scrollAreaRef}>
           <div className="p-4 space-y-3">
             {renderedMessages}
             {renderedTypingIndicator}
           </div>
+          {isLoading ? (
+            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground pointer-events-none">
+              <LoaderCircleIcon className="h-6 w-6 animate-spin" />
+            </div>
+          ) : (
+            messages.length === 0 &&
+             (
+              <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground pointer-events-none text-center leading-relaxed">
+                Você pode enviar imagens ou arquivos 😉
+              </div>
+            )
+          )}
         </ScrollArea>
       )}
 
-      {/* Input de mensagem (com attachments externos do ChatWindow) */}
-      <MessageInput ref={inputRef} onSend={sendMessage} attachments={attachments} />
+      {ticket.status !== "closed" && ticket.status !== "fechado" && (
+        <MessageInput
+          ref={inputRef}
+          onSend={sendMessage} // ✅ NOVO
+          attachments={attachments}
+        />
+      )}
 
-      {/* Viewer de anexos (imagens do chat) */}
       <AttachmentViewer
         open={isAttachmentViewerOpen}
         onOpenChange={setIsAttachmentViewerOpen}
         initialIndex={selectedImageIndex}
+        attachments={viewerItems}
       />
     </div>
   );

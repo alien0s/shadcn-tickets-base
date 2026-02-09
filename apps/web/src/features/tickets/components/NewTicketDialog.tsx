@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -18,42 +19,47 @@ import { FileDropZone } from "@/components/common/FileDropZone";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PriorityPill } from "./PriorityPill";
+import { useAuth } from "@/features/auth";
+import { api } from "@/lib";
+import { useFileAttachments } from "@/features/UploadFileMessage/hooks/useFileAttachments";
+import { getStoredToken } from "@/features/auth/utils/auth-storage";
+import { LoaderCircleIcon } from "lucide-react";
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onCreated?: () => void | Promise<void>;
 };
 
-// ✅ dedupe por chave estável (name+size+lastModified) como você pediu
-function getFileKey(file: File) {
-  return `${file.name}::${file.size}::${file.lastModified}`;
-}
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
-function mergeFilesDedupe(prev: File[], incoming: File[]) {
-  if (incoming.length === 0) return { next: prev, duplicates: [] as File[] };
+type TicketDraftCache = {
+  title: string;
+  subject: string;
+  priority: TicketPriorityKey;
+  ticketType: TicketTypeKey;
+  files: File[];
+};
 
-  const seen = new Set(prev.map(getFileKey));
-  const next = [...prev];
-  const duplicates: File[] = [];
+let ticketDraftCache: TicketDraftCache | null = null;
 
-  for (const file of incoming) {
-    const key = getFileKey(file);
-    if (seen.has(key)) {
-      duplicates.push(file);
-      continue;
-    }
-    seen.add(key);
-    next.push(file);
-  }
-
-  return { next, duplicates };
-}
-
-export function NewTicketDialog({ open, onOpenChange }: Props) {
+export function NewTicketDialog({ open, onOpenChange, onCreated }: Props) {
+  const { user } = useAuth();
   const [priority, setPriority] = useState<TicketPriorityKey>("baixa");
   const [ticketType, setTicketType] = useState<TicketTypeKey>("duvida");
-  const [files, setFiles] = useState<File[]>([]);
   const [shouldAutoFocus, setShouldAutoFocus] = useState(false);
+  const [title, setTitle] = useState("");
+  const [subject, setSubject] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const attachments = useFileAttachments({
+    maxFiles: 4,
+    onDuplicateFiles: (duplicates) => {
+      if (duplicates.length === 0) return;
+      const names = duplicates.map((file) => file.name).join(", ");
+      toast.warning(`Arquivo ja adicionado: ${names}`);
+    },
+  });
+  const hasRestoredRef = useRef(false);
 
   // ✅ refs para evitar recriar/fechar sobre estado em listeners
   const openRef = useRef(open);
@@ -88,7 +94,6 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
     if (typeof window === "undefined") return;
 
     const handlePaste = (e: ClipboardEvent) => {
-      // ✅ garante que só processa quando o dialog está aberto
       if (!openRef.current) return;
 
       const pasted = e.clipboardData?.files;
@@ -96,22 +101,52 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
 
       const pastedFiles = Array.from(pasted);
       e.preventDefault();
-
-      setFiles((prev) => {
-        const { next, duplicates } = mergeFilesDedupe(prev, pastedFiles);
-
-        if (duplicates.length > 0) {
-          const names = duplicates.map((f) => f.name).join(", ");
-          toast.warning(`Arquivo ja adicionado: ${names}`);
-        }
-
-        return next;
-      });
+      attachments.addFiles(pastedFiles);
     };
 
     window.addEventListener("paste", handlePaste);
     return () => window.removeEventListener("paste", handlePaste);
-  }, [open]);
+  }, [open, attachments.addFiles]);
+
+  useEffect(() => {
+    if (open) {
+      if (
+        ticketDraftCache &&
+        !hasRestoredRef.current &&
+        attachments.selectedFiles.length === 0
+      ) {
+        setTitle(ticketDraftCache.title);
+        setSubject(ticketDraftCache.subject);
+        setPriority(ticketDraftCache.priority);
+        setTicketType(ticketDraftCache.ticketType);
+
+        if (ticketDraftCache.files.length > 0) {
+          attachments.addFiles(ticketDraftCache.files);
+        }
+
+        hasRestoredRef.current = true;
+      }
+
+      return;
+    }
+
+    ticketDraftCache = {
+      title,
+      subject,
+      priority,
+      ticketType,
+      files: attachments.selectedFiles
+    };
+    hasRestoredRef.current = false;
+  }, [
+    open,
+    title,
+    subject,
+    priority,
+    ticketType,
+    attachments.selectedFiles,
+    attachments.addFiles
+  ]);
 
   // Decide se deve auto focar (desktop) — com SSR safety
   useEffect(() => {
@@ -137,19 +172,106 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
     };
   }, []);
 
+  const uploadAttachments = useCallback(
+    async (ticketId: string) => {
+      if (attachments.selectedFiles.length === 0) return;
+
+      const formData = new FormData();
+      attachments.selectedFiles.forEach((file) => {
+        formData.append("files", file);
+      });
+
+      const token = getStoredToken();
+      const response = await fetch(
+        `${API_URL}/tickets/${ticketId}/attachments`,
+        {
+          method: "POST",
+          body: formData,
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result?.success) {
+        throw new Error(
+          result?.error?.message ||
+            result?.message ||
+            "Erro ao enviar anexos"
+        );
+      }
+    },
+    [attachments.selectedFiles]
+  );
+
   const handleSubmit = useCallback(
-    (e: React.FormEvent<HTMLFormElement>) => {
+    async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
 
-      // TODO: integração com API
-      console.log("Criando ticket com prioridade:", priority);
-      console.log("Tipo:", ticketType);
-      console.log("Arquivos:", files);
+      if (isSubmitting) return;
 
-      toast.success("Ticket criado com sucesso");
-      onOpenChange(false);
+      const priorityMap: Record<TicketPriorityKey, "low" | "normal" | "high"> = {
+        baixa: "low",
+        media: "normal",
+        alta: "high",
+      };
+
+      const typeMap: Record<TicketTypeKey, "error" | "suggestion" | "question"> = {
+        erro: "error",
+        sugestao: "suggestion",
+        duvida: "question",
+      };
+
+      setIsSubmitting(true);
+
+      try {
+        const { message, data } = await api.postWithMeta<{ id: string }>(
+          "/tickets",
+          {
+          title: title.trim(),
+          subject: subject.trim(),
+          priority: priorityMap[priority],
+          type: typeMap[ticketType],
+          ...(user?.os_id ? { os_id: user.os_id } : {}),
+          ...(user?.browser ? { browser: user.browser } : {}),
+          }
+        );
+
+        if (data?.id) {
+          await uploadAttachments(data.id);
+        }
+
+        toast.success(message || "Ticket criado com sucesso");
+        attachments.clearFiles();
+        ticketDraftCache = null;
+        setTitle("");
+        setSubject("");
+        setPriority("baixa");
+        setTicketType("duvida");
+        await onCreated?.();
+        onOpenChange(false);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Erro ao criar ticket";
+        toast.error(message);
+      } finally {
+        setIsSubmitting(false);
+      }
     },
-    [files, onOpenChange, priority, ticketType]
+    [
+      isSubmitting,
+      onOpenChange,
+      priority,
+      subject,
+      ticketType,
+      title,
+      uploadAttachments,
+      user,
+      attachments,
+      onCreated,
+    ]
   );
 
   return (
@@ -163,6 +285,9 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
       >
         <DialogHeader>
           <DialogTitle>Novo ticket</DialogTitle>
+          <DialogDescription>
+            Preencha os detalhes do problema para abrir um novo ticket.
+          </DialogDescription>
         </DialogHeader>
 
         <form
@@ -172,7 +297,13 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
           <div className="space-y-4 pr-1 pl-1 flex-1 min-h-0">
             <div className="space-y-1">
               <label className="text-sm font-medium">Assunto</label>
-              <Input placeholder="Descreva rapidamente o problema" required />
+              <Input
+                placeholder="Descreva rapidamente o problema"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                required
+                disabled={isSubmitting}
+              />
             </div>
 
             <div className="space-y-1">
@@ -234,22 +365,16 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
                 placeholder="Detalhe o que está acontecendo..."
                 required
                 className="resize-none"
+                value={subject}
+                onChange={(event) => setSubject(event.target.value)}
+                disabled={isSubmitting}
               />
             </div>
 
             <div className="space-y-1">
               <label className="text-sm font-medium">Anexos</label>
               <FileDropZone
-                files={files}
-                onFilesChange={(next) => {
-                  setFiles(mergeFilesDedupe([], next).next);
-                }}
-
-                onDuplicateFiles={(duplicates) => {
-                  if (duplicates.length === 0) return;
-                  const names = duplicates.map((file) => file.name).join(", ");
-                  toast.warning(`Arquivo ja adicionado: ${names}`);
-                }}
+                controller={attachments}
               />
             </div>
           </div>
@@ -261,17 +386,26 @@ export function NewTicketDialog({ open, onOpenChange }: Props) {
               size="sm"
               className="flex-1 sm:flex-none"
               onClick={handleClose}
+              disabled={isSubmitting}
             >
               Cancelar
             </Button>
 
-            <Button
-              type="submit"
-              size="sm"
-              className="flex-1 sm:flex-none bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              Criar ticket
-            </Button>
+          <Button
+            type="submit"
+            size="sm"
+            className="flex-1 sm:flex-none bg-primary text-primary-foreground hover:bg-primary/90"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <span className="inline-flex items-center gap-2">
+                <LoaderCircleIcon className="h-4 w-4 animate-spin" />
+                Criando
+              </span>
+            ) : (
+              "Criar ticket"
+            )}
+          </Button>
           </DialogFooter>
         </form>
       </DialogContent>

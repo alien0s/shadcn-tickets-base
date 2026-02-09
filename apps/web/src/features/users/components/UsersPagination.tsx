@@ -3,15 +3,19 @@ import { Button } from "@/components/ui/button";
 
 type UsersPaginationProps = {
   page: number;
-  totalPages: number;
+  total: number;
+  pageSize: number;
   onPageChange: (nextPage: number) => void;
 };
 
 function UsersPaginationComponent({
   page,
-  totalPages,
+  total,
+  pageSize,
   onPageChange,
 }: UsersPaginationProps) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
   // Calcula se botões de navegação devem estar desabilitados
   const isPrevDisabled = page <= 1;
   const isNextDisabled = page >= totalPages;

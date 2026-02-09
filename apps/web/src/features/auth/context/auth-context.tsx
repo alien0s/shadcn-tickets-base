@@ -1,8 +1,10 @@
 import { createContext, useCallback, useMemo, useRef, useState, useEffect } from "react"
-import type { UserRole, AuthUser, LoginPayload, LoginResponse } from "../types"
+import type { UserRole, AuthUser, LoginPayload, LoginResponse, RegisterPayload } from "../types"
 import { clearAuth, getStoredUser, setStoredUser, setStoredToken, getStoredToken } from "../utils/auth-storage"
+import { getClientDeviceInfo } from "../utils/device-info"
 import { api } from '@/lib'
 import { toast } from "sonner"
+
 
 type AuthContextValue = {
   user: AuthUser | null
@@ -11,6 +13,7 @@ type AuthContextValue = {
   requires2FA: boolean
   pendingEmail: string | null
   login: (payload: LoginPayload) => Promise<void>
+  register: (payload: RegisterPayload) => Promise<boolean>
   verify2FA: (code: string) => Promise<void>
   logout: () => void
   enable2FA: () => Promise<void>
@@ -32,7 +35,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const isLoggingInRef = useRef(false)
 
   /**
-   * Valida token ao carregar
+   * ✅ MODIFICAÇÃO 1: Setar token ao carregar
    */
   useEffect(() => {
     const validateToken = async () => {
@@ -41,7 +44,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (token && storedUser) {
         try {
-          // /auth/me não retorna role_name, apenas usa user do storage
+          // ✅ NOVO: Setar token no Supabase Realtime
+         
+          
           setUser(storedUser)
         } catch {
           clearAuth()
@@ -54,7 +59,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   /**
-   * Login
+   * ✅ MODIFICAÇÃO 2: Setar token após login
    */
   const login = useCallback(
     async ({ email, password }: LoginPayload) => {
@@ -67,6 +72,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setIsLoading(true)
 
       try {
+        const deviceInfo = await getClientDeviceInfo()
         const data = await api.post<LoginResponse>('/auth/login', {
           email: normalizedEmail,
           password
@@ -84,18 +90,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const mappedUser: AuthUser = {
             id: data.user.id,
             name: data.user.name,
+            last_name: data.user.last_name,
             email: data.user.email,
             avatar_url: data.user.avatar_url,
+            department_id: data.user.department_id,
             entity_id: data.user.entity_id,
             role_id: data.user.role_id,
             two_factor_enabled: data.user.two_factor_enabled,
             last_login_at: data.user.last_login_at,
             is_active: data.user.is_active,
-            role: (data.user.role_name?.toLowerCase() || 'client') as UserRole  // ← Mapeia explicitamente
+            role: (data.user.role_name?.toLowerCase() || 'client') as UserRole,
+            os_id: deviceInfo.os_id,
+            browser: deviceInfo.browser
           }
           setUser(mappedUser)
           setStoredUser(mappedUser)
           setStoredToken(data.token)
+          
+          
         }
       } catch (error) {
         const message =
@@ -110,7 +122,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
   )
 
   /**
-   * Verificar 2FA
+   * Cadastro (sem modificação)
+   */
+  const register = useCallback(async (payload: RegisterPayload) => {
+    if (isLoading) return false
+
+    setIsLoading(true)
+
+    try {
+      const { message } = await api.postWithMeta("/auth/register", payload)
+      toast.success(message || "Usuário cadastrado com sucesso")
+      return true
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Erro ao criar conta"
+      toast.error(message)
+      return false
+    } finally {
+      setIsLoading(false)
+    }
+  }, [isLoading])
+
+  /**
+   * ✅ MODIFICAÇÃO 3: Setar token após verificar 2FA
    */
   const verify2FA = useCallback(async (code: string) => {
     if (!pendingEmail) throw new Error('Email não encontrado')
@@ -118,6 +152,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsLoading(true)
 
     try {
+      const deviceInfo = await getClientDeviceInfo()
       const data = await api.post<LoginResponse>('/auth/verify-2fa', {
         email: pendingEmail,
         code
@@ -127,18 +162,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const mappedUser: AuthUser = {
           id: data.user.id,
           name: data.user.name,
+          last_name: data.user.last_name,
           email: data.user.email,
           avatar_url: data.user.avatar_url,
+          department_id: data.user.department_id,
           entity_id: data.user.entity_id,
           role_id: data.user.role_id,
           two_factor_enabled: data.user.two_factor_enabled,
           last_login_at: data.user.last_login_at,
           is_active: data.user.is_active,
-          role: (data.user.role_name?.toLowerCase() || 'client') as UserRole
+          role: (data.user.role_name?.toLowerCase() || 'client') as UserRole,
+          os_id: deviceInfo.os_id,
+          browser: deviceInfo.browser
         }
         setUser(mappedUser)
         setStoredUser(mappedUser)
         setStoredToken(data.token)
+        
+        
+        
         setRequires2FA(false)
         setPendingEmail(null)
       }
@@ -148,7 +190,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [pendingEmail])
 
   /**
-   * Logout
+   * Logout (sem modificação)
    */
   const logout = useCallback(() => {
     setUser(null)
@@ -160,7 +202,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   /**
-   * Habilitar 2FA
+   * Habilitar 2FA (sem modificação)
    */
   const enable2FA = useCallback(async () => {
     await api.post('/auth/enable-2fa')
@@ -173,7 +215,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [user])
 
   /**
-   * Desabilitar 2FA
+   * Desabilitar 2FA (sem modificação)
    */
   const disable2FA = useCallback(async () => {
     await api.post('/auth/disable-2fa')
@@ -193,12 +235,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       requires2FA,
       pendingEmail,
       login,
+      register,
       verify2FA,
       logout,
       enable2FA,
       disable2FA
     }),
-    [user, isLoading, requires2FA, pendingEmail, login, verify2FA, logout, enable2FA, disable2FA]
+    [user, isLoading, requires2FA, pendingEmail, login, register, verify2FA, logout, enable2FA, disable2FA]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

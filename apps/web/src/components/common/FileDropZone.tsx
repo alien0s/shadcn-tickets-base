@@ -9,12 +9,20 @@ import { Upload, X, File as FileIcon, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface FileDropZoneProps {
-  files: File[];
-  onFilesChange: (files: File[]) => void;
+  files?: File[];
+  onFilesChange?: (files: File[]) => void;
   className?: string;
   dropZoneClassName?: string;
   maxFiles?: number;
   accept?: string;
+  controller?: {
+    selectedFiles: File[];
+    filePreviews?: Array<string | null>;
+    addFiles: (files: File[]) => void;
+    removeFile: (index: number) => void;
+    fileInputRef?: React.RefObject<HTMLInputElement | null>;
+    triggerFileInput?: () => void;
+  };
 
   /**
    * Se o usuário tentar adicionar arquivo que já existe,
@@ -32,16 +40,19 @@ function getFileKey(file: File) {
 }
 
 export function FileDropZone({
-  files,
+  files: filesProp = [],
   onFilesChange,
   className,
   dropZoneClassName,
   maxFiles = 4,
   accept,
   onDuplicateFiles,
+  controller,
 }: FileDropZoneProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const internalFileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const files = controller?.selectedFiles ?? filesProp;
+  const fileInputRef = controller?.fileInputRef ?? internalFileInputRef;
 
   // Set com as chaves dos arquivos atuais, pra checar duplicado rápido (O(1)).
   const existingKeys = useMemo(() => {
@@ -109,9 +120,13 @@ export function FileDropZone({
       const filesToAdd = uniqueToAdd.slice(0, availableSlots);
       if (filesToAdd.length === 0) return;
 
-      onFilesChange([...files, ...filesToAdd]);
+      if (controller) {
+        controller.addFiles(filesToAdd);
+      } else {
+        onFilesChange?.([...files, ...filesToAdd]);
+      }
     },
-    [existingKeys, files, maxFiles, onFilesChange, onDuplicateFiles]
+    [controller, existingKeys, files, maxFiles, onFilesChange, onDuplicateFiles]
   );
 
   const handleFileSelect = useCallback(
@@ -148,14 +163,22 @@ export function FileDropZone({
 
   const removeFile = useCallback(
     (index: number) => {
-      onFilesChange(files.filter((_, i) => i !== index));
+      if (controller) {
+        controller.removeFile(index);
+      } else {
+        onFilesChange?.(files.filter((_, i) => i !== index));
+      }
     },
-    [files, onFilesChange]
+    [controller, files, onFilesChange]
   );
 
   const triggerFileInput = useCallback(() => {
+    if (controller?.triggerFileInput) {
+      controller.triggerFileInput();
+      return;
+    }
     fileInputRef.current?.click();
-  }, []);
+  }, [controller, fileInputRef]);
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -206,7 +229,8 @@ export function FileDropZone({
         <div className="grid grid-cols-4 gap-2">
           {files.map((file, index) => {
             const key = getFileKey(file);
-            const previewUrl = previewUrlByKey.get(key);
+            const previewUrl =
+              controller?.filePreviews?.[index] ?? previewUrlByKey.get(key);
 
             return (
               <div

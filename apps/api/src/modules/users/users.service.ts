@@ -9,8 +9,20 @@ export class UsersService {
     this.repository = new UsersRepository()
   }
 
-  async listUsers(page: number = 1, limit: number = 10) {
-    return this.repository.findAll(page, limit)
+  /**
+ * Lista usuários com paginação e ordenação
+ * @param page - Número da página (padrão: 1)
+ * @param limit - Itens por página (padrão: 10)
+ * @param sortBy - Campo para ordenar (padrão: 'created_at')
+ * @param order - Direção da ordenação: 'asc' ou 'desc' (padrão: 'desc')
+ */
+  async listUsers(
+    page: number = 1,
+    limit: number = 10,
+    sortBy: string = 'created_at',  // ← ADICIONAR
+    order: 'asc' | 'desc' = 'desc'   // ← ADICIONAR
+  ) {
+    return this.repository.findAll(page, limit, sortBy, order)
   }
 
   async getUserById(id: string) {
@@ -27,9 +39,24 @@ export class UsersService {
     return this.repository.create(userData)
   }
 
-  async updateUser(id: string, userData: Partial<User>) {
-    // Não permitir alterar email, entity_id, role_id por aqui
-    const allowedFields = { name: userData.name, avatar_url: userData.avatar_url }
+  async updateUser(
+    id: string,
+    userData: Partial<User> & {
+      last_name?: string
+      email?: string
+      entity_id?: string
+      department_id?: string
+    }
+  ) {
+    const allowedFields = {
+      name: userData.name,
+      last_name: userData.last_name,
+      email: userData.email,
+      entity_id: userData.entity_id,
+      department_id: userData.department_id,
+      avatar_url: userData.avatar_url,
+      is_active: userData.is_active
+    }
     return this.repository.update(id, allowedFields)
   }
 

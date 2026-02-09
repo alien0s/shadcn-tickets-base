@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, LoaderCircleIcon } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { BRAND_NAME } from "@/config/brand";
 
@@ -59,10 +59,8 @@ export function LoginCard() {
   }, []);
 
   const handleSignup = useCallback(() => {
-    // TODO: ajustar rota real de cadastro (se existir)
-    // navigate("/signup");
-    console.warn("Signup not implemented yet");
-  }, []);
+    navigate("/signup");
+  }, [navigate]);
 
   return (
     <Card className="w-full max-w-sm shadow-sm">
@@ -137,7 +135,14 @@ export function LoginCard() {
           </div>
 
           <Button type="submit" disabled={isLoading}>
-            {isLoading ? "Entrando..." : "Login"}
+            {isLoading ? (
+              <span className="inline-flex items-center gap-2">
+                <LoaderCircleIcon className="h-4 w-4 animate-spin" />
+                Loading
+              </span>
+            ) : (
+              "Login"
+            )}
           </Button>
 
           <Button

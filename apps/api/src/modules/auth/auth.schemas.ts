@@ -6,9 +6,10 @@ export const authSchemas = {
   register: {
     body: {
       type: 'object',
-      required: ['name', 'email', 'password', 'entity_id', 'role_id'],
+      required: ['name', 'last_name', 'email', 'password', 'entity_id', 'role_id'],
       properties: {
         name: { type: 'string', minLength: 3, maxLength: 255 },
+        last_name: { type: 'string', minLength: 1, maxLength: 100 },
         email: { type: 'string', format: 'email' },
         password: { type: 'string', minLength: 8, maxLength: 100 },
         entity_id: { type: 'string', format: 'uuid' },
