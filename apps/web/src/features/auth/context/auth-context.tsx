@@ -1,8 +1,9 @@
 import { createContext, useCallback, useMemo, useRef, useState, useEffect } from "react"
 import type { UserRole, AuthUser, LoginPayload, LoginResponse, RegisterPayload } from "../types"
-import { clearAuth, getStoredUser, setStoredUser, setStoredToken, getStoredToken } from "../utils/auth-storage"
+import { clearAuth, getStoredUser, setStoredUser, setStoredToken, getStoredToken, setStoredSupabaseToken, getStoredSupabaseToken } from "../utils/auth-storage"
 import { getClientDeviceInfo } from "../utils/device-info"
 import { api } from '@/lib'
+import { setSupabaseAuth } from "@/lib/supabase"
 import { toast } from "sonner"
 
 
@@ -40,12 +41,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const validateToken = async () => {
       const token = getStoredToken()
+      const supabaseToken = getStoredSupabaseToken()
       const storedUser = getStoredUser()
 
       if (token && storedUser) {
         try {
           // ✅ NOVO: Setar token no Supabase Realtime
-         
+          if (supabaseToken) {
+            setSupabaseAuth(supabaseToken)
+          }
           
           setUser(storedUser)
         } catch {
@@ -106,6 +110,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setUser(mappedUser)
           setStoredUser(mappedUser)
           setStoredToken(data.token)
+          if (data.supabase_token) {
+            setStoredSupabaseToken(data.supabase_token)
+            setSupabaseAuth(data.supabase_token)
+          }
           
           
         }
@@ -178,6 +186,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(mappedUser)
         setStoredUser(mappedUser)
         setStoredToken(data.token)
+        if (data.supabase_token) {
+          setStoredSupabaseToken(data.supabase_token)
+          setSupabaseAuth(data.supabase_token)
+        }
         
         
         

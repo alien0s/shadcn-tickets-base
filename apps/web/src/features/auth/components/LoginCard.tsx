@@ -114,6 +114,12 @@ export function LoginCard() {
                 required
                 className="pr-10"
                 autoComplete="current-password" // melhora UX e password managers
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-bwignore="true"
                 disabled={isLoading}
               />
 
@@ -138,7 +144,7 @@ export function LoginCard() {
             {isLoading ? (
               <span className="inline-flex items-center gap-2">
                 <LoaderCircleIcon className="h-4 w-4 animate-spin" />
-                Loading
+                Logando
               </span>
             ) : (
               "Login"

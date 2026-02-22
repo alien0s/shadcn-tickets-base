@@ -46,6 +46,7 @@ export class UsersService {
       email?: string
       entity_id?: string
       department_id?: string
+      role_id?: string
     }
   ) {
     const allowedFields = {
@@ -54,6 +55,7 @@ export class UsersService {
       email: userData.email,
       entity_id: userData.entity_id,
       department_id: userData.department_id,
+      role_id: userData.role_id,
       avatar_url: userData.avatar_url,
       is_active: userData.is_active
     }

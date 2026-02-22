@@ -35,6 +35,9 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
   const isDetailsVisibleOnDesktop = useIsDesktopDetailsVisible();
   const headerIsClickable = !isDetailsVisibleOnDesktop;
   const [isClosingTicket, setIsClosingTicket] = useState(false);
+  const [isTicketClosed, setIsTicketClosed] = useState(
+    ticket.status === "closed" || ticket.status === "fechado"
+  );
 
   const statusLabel = useMemo(() => {
     const normalized = normalizeStatus(ticket.status);
@@ -54,7 +57,13 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
     if (isClosingTicket) return;
     setIsClosingTicket(true);
     try {
-      await api.patch(`/tickets/${ticket.id}/close`);
+      await api.patch(`/tickets/${ticket.id}/close`, {});
+      setIsTicketClosed(true);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("ticket-closed", { detail: { ticketId: ticket.id } })
+        );
+      }
       toast.success("Ticket fechado com sucesso");
     } catch (error) {
       const message =
@@ -65,6 +74,10 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
     }
   }, [isClosingTicket, ticket.id]);
 
+  useEffect(() => {
+    setIsTicketClosed(ticket.status === "closed" || ticket.status === "fechado");
+  }, [ticket.id, ticket.status]);
+
   const [isAttachmentViewerOpen, setIsAttachmentViewerOpen] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
@@ -72,7 +85,9 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
   const mobileScrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<MessageInputHandle>(null);
 
-  const previousMessageCountRef = useRef(0);
+  const scrollMessageCountRef = useRef(0);
+  const animationMessageCountRef = useRef(0);
+  const initialScrollAppliedRef = useRef(false);
   const [newMessageId, setNewMessageId] = useState<string | null>(null);
 
   const attachments = useFileAttachments({
@@ -108,14 +123,14 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
     ) as HTMLDivElement | null;
   }, [isMobile]);
 
-  const scrollToBottom = useCallback(() => {
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     const viewport = getScrollViewport();
     if (!viewport) return;
 
     requestAnimationFrame(() => {
       viewport.scrollTo({
         top: viewport.scrollHeight,
-        behavior: "smooth",
+        behavior,
       });
     });
   }, [getScrollViewport]);
@@ -234,33 +249,52 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
   }, []);
 
   useEffect(() => {
-    scrollToBottom();
+    initialScrollAppliedRef.current = false;
+    scrollMessageCountRef.current = 0;
+    animationMessageCountRef.current = 0;
 
     if (typeof window === "undefined") return;
     const isMobileNow = window.matchMedia("(max-width: 767px)").matches;
     if (!isMobileNow) {
       inputRef.current?.focus();
     }
-  }, [ticket.id, scrollToBottom]);
+  }, [ticket.id]);
 
   useEffect(() => {
-    scrollToBottom();
+    if (messages.length === 0) return;
+
+    const previousCount = scrollMessageCountRef.current;
+    const isInitialLoadForTicket =
+      !initialScrollAppliedRef.current && previousCount === 0;
+
+    if (isInitialLoadForTicket) {
+      scrollToBottom("auto");
+      initialScrollAppliedRef.current = true;
+      scrollMessageCountRef.current = messages.length;
+      return;
+    }
+
+    if (messages.length > previousCount) {
+      scrollToBottom("smooth");
+    }
+
+    scrollMessageCountRef.current = messages.length;
   }, [messages.length, scrollToBottom]);
 
   useEffect(() => {
-    const previousCount = previousMessageCountRef.current;
+    const previousCount = animationMessageCountRef.current;
 
     if (messages.length > previousCount && previousCount > 0) {
       const latestMessage = messages[messages.length - 1];
       setNewMessageId(latestMessage.id);
 
       const timeoutId = window.setTimeout(() => setNewMessageId(null), 240);
-      previousMessageCountRef.current = messages.length;
+      animationMessageCountRef.current = messages.length;
 
       return () => window.clearTimeout(timeoutId);
     }
 
-    previousMessageCountRef.current = messages.length;
+    animationMessageCountRef.current = messages.length;
     return;
   }, [messages]);
 
@@ -327,12 +361,19 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
         <Button
           size="sm"
           className="bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-60"
-          disabled={ticket.status === "closed" || ticket.status === "fechado"}
+          disabled={isTicketClosed || isClosingTicket}
           onClick={handleCloseTicket}
         >
-          {ticket.status === "closed" || ticket.status === "fechado"
-            ? "Ticket fechado"
-            : "Fechar ticket"}
+          {isClosingTicket ? (
+            <span className="inline-flex items-center gap-2">
+              <LoaderCircleIcon className="h-4 w-4 animate-spin" />
+              Fechando
+            </span>
+          ) : isTicketClosed ? (
+            "Ticket fechado"
+          ) : (
+            "Fechar ticket"
+          )}
         </Button>
       </div>
 
@@ -376,7 +417,7 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
         </ScrollArea>
       )}
 
-      {ticket.status !== "closed" && ticket.status !== "fechado" && (
+      {!isTicketClosed && (
         <MessageInput
           ref={inputRef}
           onSend={sendMessage} // ✅ NOVO

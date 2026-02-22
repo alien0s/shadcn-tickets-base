@@ -5,6 +5,8 @@ import { TICKET_STATUS_STYLES } from "@/config/ticket-constants";
 import { normalizeStatus, type CanonicalStatus } from "../utils/status";
 import { api } from "@/lib/api";
 import { useEntities } from "@/hooks/useEntities";
+import { useAuth } from "@/features/auth";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 type StatusFilter = "todos" | "nao-lido";
 
@@ -45,6 +47,16 @@ type ApiTicket = {
   entity_id?: string | null;
 };
 
+type TicketMessageCreatedDetail = {
+  ticketId: string;
+  senderUserId?: string | null;
+  createdAt?: string | null;
+};
+
+type TicketClosedDetail = {
+  ticketId: string;
+};
+
 const STATUS_KEY_MAP: Record<string, Ticket["status"]> = {
   open: "open",
   pending: "pending",
@@ -64,6 +76,8 @@ const TYPE_KEY_MAP: Record<string, TicketTypeKey> = {
 };
 
 let ticketsCache: Ticket[] | null = null;
+let ticketTypeFilterCache: TicketTypeKey | null = null;
+let ticketsCacheOwnerUserId: string | null = null;
 
 function formatDateLabel(value: string) {
   const date = new Date(value);
@@ -100,16 +114,26 @@ function formatDateLabel(value: string) {
 }
 
 export function useTicketsList() {
+  const { user } = useAuth();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const isMountedRef = useRef(true);
+  const refreshTimeoutRef = useRef<number | null>(null);
+  const highlightTimeoutsRef = useRef<Map<string, number>>(new Map());
+  const fadeTimeoutsRef = useRef<Map<string, number>>(new Map());
+  const [highlightedTicketIds, setHighlightedTicketIds] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [fadingTicketIds, setFadingTicketIds] = useState<Set<string>>(
+    () => new Set()
+  );
 
   const [search, setSearch] = useState("");
-  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [selectedTicketId, setSelectedTicketIdState] = useState<string | null>(null);
 
   const [selectedEntities, setSelectedEntities] = useState<string[]>([]);
-  const [ticketTypeFilter, setTicketTypeFilter] = useState<TicketTypeKey | null>(
-    null
+  const [ticketTypeFilter, setTicketTypeFilterState] = useState<TicketTypeKey | null>(
+    () => ticketTypeFilterCache
   );
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("todos");
   const [selectedStatuses, setSelectedStatuses] = useState<CanonicalStatus[]>([]);
@@ -120,14 +144,16 @@ export function useTicketsList() {
   } = useEntities();
 
   const fetchTickets = useCallback(
-    async (useCache = true) => {
-      if (useCache && ticketsCache) {
+    async (useCache = true, showLoading = true) => {
+      if (useCache && ticketsCache && ticketsCacheOwnerUserId === (user?.id ?? null)) {
         setTickets(ticketsCache);
         setIsLoading(false);
         return;
       }
 
-      setIsLoading(true);
+      if (showLoading) {
+        setIsLoading(true);
+      }
       try {
         const { data } = await api.getWithMeta<ApiTicket[]>(
           "/tickets?sortBy=updated_at&order=desc&limit=100"
@@ -156,21 +182,138 @@ export function useTicketsList() {
         });
 
         ticketsCache = mapped;
+        ticketsCacheOwnerUserId = user?.id ?? null;
         setTickets(mapped);
       } catch (error) {
         console.error("Erro ao carregar tickets:", error);
-        if (isMountedRef.current) setTickets([]);
+        if (isMountedRef.current && showLoading) setTickets([]);
       } finally {
-        if (isMountedRef.current) setIsLoading(false);
+        if (isMountedRef.current && showLoading) setIsLoading(false);
       }
     },
-    []
+    [user?.id]
   );
 
   const refreshTickets = useCallback(async () => {
     ticketsCache = null;
+    ticketsCacheOwnerUserId = null;
     await fetchTickets(false);
   }, [fetchTickets]);
+
+  const moveTicketToTopOnMessage = useCallback(
+    (detail: TicketMessageCreatedDetail) => {
+      if (!detail.ticketId) return;
+      let moved = false;
+
+      setTickets((prev) => {
+        const index = prev.findIndex((ticket) => ticket.id === detail.ticketId);
+        if (index === -1) return prev;
+        moved = true;
+
+        const updated = [...prev];
+        const current = updated[index];
+        const isOwnMessage =
+          Boolean(detail.senderUserId) && detail.senderUserId === user?.id;
+
+        const nextTicket: Ticket = {
+          ...current,
+          dateLabel: formatDateLabel(detail.createdAt ?? new Date().toISOString()),
+          unreadCount: isOwnMessage
+            ? current.unreadCount
+            : (current.unreadCount ?? 0) + 1,
+        };
+
+        updated.splice(index, 1);
+        updated.unshift(nextTicket);
+        ticketsCache = updated;
+        return updated;
+      });
+
+      return moved;
+    },
+    [user?.id]
+  );
+
+  const addTicketHighlight = useCallback(
+    (ticketId: string) => {
+      if (!ticketId || selectedTicketId === ticketId) return;
+
+      const existingTimeout = highlightTimeoutsRef.current.get(ticketId);
+      if (existingTimeout) {
+        window.clearTimeout(existingTimeout);
+      }
+
+      setHighlightedTicketIds((prev) => {
+        const updated = new Set(prev);
+        updated.add(ticketId);
+        return updated;
+      });
+      setFadingTicketIds((prev) => {
+        if (!prev.has(ticketId)) return prev;
+        const updated = new Set(prev);
+        updated.delete(ticketId);
+        return updated;
+      });
+
+      const timeoutId = window.setTimeout(() => {
+        highlightTimeoutsRef.current.delete(ticketId);
+        setFadingTicketIds((prev) => {
+          const updated = new Set(prev);
+          updated.add(ticketId);
+          return updated;
+        });
+
+        const fadeTimeoutId = window.setTimeout(() => {
+          fadeTimeoutsRef.current.delete(ticketId);
+          setHighlightedTicketIds((prev) => {
+            const updated = new Set(prev);
+            updated.delete(ticketId);
+            return updated;
+          });
+          setFadingTicketIds((prev) => {
+            const updated = new Set(prev);
+            updated.delete(ticketId);
+            return updated;
+          });
+        }, 500);
+
+        fadeTimeoutsRef.current.set(ticketId, fadeTimeoutId);
+      }, 5000);
+
+      highlightTimeoutsRef.current.set(ticketId, timeoutId);
+    },
+    [selectedTicketId]
+  );
+
+  const setSelectedTicketId = useCallback((ticketId: string | null) => {
+    setSelectedTicketIdState(ticketId);
+
+    if (!ticketId) return;
+
+    const existingTimeout = highlightTimeoutsRef.current.get(ticketId);
+    if (existingTimeout) {
+      window.clearTimeout(existingTimeout);
+      highlightTimeoutsRef.current.delete(ticketId);
+    }
+    const existingFadeTimeout = fadeTimeoutsRef.current.get(ticketId);
+    if (existingFadeTimeout) {
+      window.clearTimeout(existingFadeTimeout);
+      fadeTimeoutsRef.current.delete(ticketId);
+    }
+
+    setHighlightedTicketIds((prev) => {
+      if (!prev.has(ticketId)) return prev;
+      const updated = new Set(prev);
+      updated.delete(ticketId);
+      return updated;
+    });
+    setFadingTicketIds((prev) => {
+      if (!prev.has(ticketId)) return prev;
+      const updated = new Set(prev);
+      updated.delete(ticketId);
+      return updated;
+    });
+  }, []);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -180,6 +323,204 @@ export function useTicketsList() {
       isMountedRef.current = false;
     };
   }, [fetchTickets]);
+
+  // ✅ Limpa cache e recarrega quando trocar de usuário
+  useEffect(() => {
+    if (!user?.id) {
+      ticketsCache = null;
+      ticketsCacheOwnerUserId = null;
+      setTickets([]);
+      return;
+    }
+
+    if (ticketsCache && ticketsCacheOwnerUserId === user.id) {
+      setTickets(ticketsCache);
+      setIsLoading(false);
+      return;
+    }
+
+    ticketsCache = null;
+    ticketsCacheOwnerUserId = null;
+    fetchTickets(false).catch(() => null);
+  }, [user?.id, fetchTickets]);
+
+  useEffect(() => {
+    if (!user?.id || !isSupabaseConfigured || !supabase) return;
+    const client = supabase;
+
+    const scheduleRefresh = (delayMs = 500) => {
+      if (refreshTimeoutRef.current) {
+        window.clearTimeout(refreshTimeoutRef.current);
+      }
+
+      refreshTimeoutRef.current = window.setTimeout(() => {
+        ticketsCache = null;
+        ticketsCacheOwnerUserId = null;
+        fetchTickets(false, false).catch(() => null);
+        refreshTimeoutRef.current = null;
+      }, delayMs);
+    };
+
+    const channel = client
+      .channel("tickets-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "tickets" },
+        (payload) => {
+          const row = payload.new as {
+            id: string;
+            requester_user_id?: string | null;
+          };
+
+          if (!row?.id) return;
+
+          if (user.role === "client" && row.requester_user_id !== user.id) {
+            return;
+          }
+
+          addTicketHighlight(row.id);
+          scheduleRefresh();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "tickets" },
+        (payload) => {
+          const row = payload.new as {
+            id?: string;
+            requester_user_id?: string | null;
+            assigned_to_user_id?: string | null;
+          };
+
+          if (!row?.id) return;
+
+          if (
+            user.role === "client" &&
+            row.requester_user_id !== user.id &&
+            row.assigned_to_user_id !== user.id
+          ) {
+            return;
+          }
+
+          scheduleRefresh();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "ticket_messages" },
+        (payload) => {
+          const row = payload.new as {
+            ticket_id?: string | null;
+            sender_user_id?: string | null;
+            type?: string | null;
+            created_at?: string | null;
+          };
+
+          if (!row?.ticket_id) return;
+          if (row.type === "system") return;
+
+          const moved = moveTicketToTopOnMessage({
+            ticketId: row.ticket_id,
+            senderUserId: row.sender_user_id,
+            createdAt: row.created_at,
+          });
+          if (!moved) {
+            scheduleRefresh();
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "ticket_user_reads", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const row = payload.new as { ticket_id?: string | null };
+          if (!row?.ticket_id) return;
+
+          setTickets((prev) =>
+            prev.map((ticket) =>
+              ticket.id === row.ticket_id ? { ...ticket, unreadCount: 0 } : ticket
+            )
+          );
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "ticket_user_reads", filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          const row = payload.new as { ticket_id?: string | null };
+          if (!row?.ticket_id) return;
+
+          setTickets((prev) =>
+            prev.map((ticket) =>
+              ticket.id === row.ticket_id ? { ...ticket, unreadCount: 0 } : ticket
+            )
+          );
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === "SUBSCRIBED") {
+          console.log("✅ [REALTIME] Conectado: tickets");
+        } else if (status === "CHANNEL_ERROR") {
+          console.error("❌ [REALTIME] Erro no channel:", err);
+        } else if (status === "TIMED_OUT") {
+          console.warn("⚠️ [REALTIME] Timeout: tickets");
+        }
+      });
+
+    return () => {
+      if (refreshTimeoutRef.current) {
+        window.clearTimeout(refreshTimeoutRef.current);
+        refreshTimeoutRef.current = null;
+      }
+      client.removeChannel(channel);
+    };
+  }, [user?.id, user?.role, refreshTickets, fetchTickets, addTicketHighlight, moveTicketToTopOnMessage]);
+
+  useEffect(() => {
+    const handleTicketMessageCreated = (event: Event) => {
+      const { detail } = event as CustomEvent<TicketMessageCreatedDetail>;
+      if (!detail?.ticketId) return;
+      moveTicketToTopOnMessage(detail);
+    };
+
+    window.addEventListener("ticket-message-created", handleTicketMessageCreated);
+    return () => {
+      window.removeEventListener("ticket-message-created", handleTicketMessageCreated);
+    };
+  }, [moveTicketToTopOnMessage]);
+
+  useEffect(() => {
+    const handleTicketClosed = (event: Event) => {
+      const { detail } = event as CustomEvent<TicketClosedDetail>;
+      if (!detail?.ticketId) return;
+
+      setTickets((prev) => {
+        const updated = prev.map((ticket) =>
+          ticket.id === detail.ticketId ? { ...ticket, status: "closed" } : ticket
+        );
+        ticketsCache = updated;
+        return updated;
+      });
+    };
+
+    window.addEventListener("ticket-closed", handleTicketClosed);
+    return () => {
+      window.removeEventListener("ticket-closed", handleTicketClosed);
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      for (const timeoutId of highlightTimeoutsRef.current.values()) {
+        window.clearTimeout(timeoutId);
+      }
+      highlightTimeoutsRef.current.clear();
+      for (const timeoutId of fadeTimeoutsRef.current.values()) {
+        window.clearTimeout(timeoutId);
+      }
+      fadeTimeoutsRef.current.clear();
+    };
+  }, []);
 
   // ✅ Normaliza search 1x por render (evita toLowerCase por ticket)
   const searchNormalized = useMemo(() => search.trim().toLowerCase(), [search]);
@@ -221,7 +562,7 @@ export function useTicketsList() {
       // ✅ “Não lido” mockado como "aberto" (quando tiver API, isso vira um campo real)
       const matchesStatusTab =
         statusFilter === "todos" ||
-        (statusFilter === "nao-lido" && ticket.status === "aberto");
+        (statusFilter === "nao-lido" && (ticket.unreadCount ?? 0) > 0);
 
       const normalizedStatus = normalizeStatus(ticket.status);
       const matchesStatusSelection =
@@ -268,6 +609,11 @@ export function useTicketsList() {
     [entitiesData]
   );
 
+  const setTicketTypeFilter = useCallback((next: TicketTypeKey | null) => {
+    ticketTypeFilterCache = next;
+    setTicketTypeFilterState(next);
+  }, []);
+
   return {
     filteredTickets,
     isLoading: isLoading || isLoadingEntities,
@@ -278,6 +624,8 @@ export function useTicketsList() {
     selectedEntities,
     selectedTicketId,
     setSelectedTicketId,
+    highlightedTicketIds,
+    fadingTicketIds,
 
     statusFilter,
     setStatusFilter,

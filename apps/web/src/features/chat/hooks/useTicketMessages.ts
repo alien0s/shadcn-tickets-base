@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/features/auth";
@@ -74,6 +74,22 @@ export function useTicketMessages(ticketId: string) {
 
   const chat = useChatMessages();
   const cacheKey = `${ticketId}:${currentUser?.id ?? "anon"}`;
+
+  const emitMessageCreated = useCallback(
+    (createdAt?: string) => {
+      if (typeof window === "undefined" || !ticketId) return;
+      window.dispatchEvent(
+        new CustomEvent("ticket-message-created", {
+          detail: {
+            ticketId,
+            senderUserId: currentUser?.id ?? null,
+            createdAt: createdAt ?? new Date().toISOString(),
+          },
+        })
+      );
+    },
+    [ticketId, currentUser?.id]
+  );
   
 
   const getSender = async (userId: string) => {
@@ -219,6 +235,23 @@ export function useTicketMessages(ticketId: string) {
     };
   }, [cacheKey, currentUser?.id, ticketId]);
 
+  // ✅ Sempre marcar como lido ao abrir o ticket (independente de cache)
+  useEffect(() => {
+    if (!currentUser?.id || !ticketId) return;
+    (async () => {
+      try {
+        await api.post(`/tickets/${ticketId}/mark-as-read`, {});
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("ticket-read", { detail: { ticketId } })
+          );
+        }
+      } catch (error) {
+        console.error("Erro ao marcar ticket como lido:", error);
+      }
+    })();
+  }, [ticketId, currentUser?.id]);
+
   useEffect(() => {
     if (!ticketId || !isSupabaseConfigured || !supabase) {
       return;
@@ -244,6 +277,26 @@ export function useTicketMessages(ticketId: string) {
         async (payload: any) => {
           const row = payload.new as ApiTicketMessage;
           if (!row?.id) return;
+
+          // ✅ Se a conversa está aberta, marcar como lida ao receber nova mensagem de outro usuário
+          if (
+            currentUser?.id &&
+            row.sender_user_id !== currentUser.id &&
+            row.type !== "system"
+          ) {
+            (async () => {
+              try {
+                await api.post(`/tickets/${ticketId}/mark-as-read`, {});
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(
+                    new CustomEvent("ticket-read", { detail: { ticketId } })
+                  );
+                }
+              } catch (error) {
+                console.error("Erro ao marcar ticket como lido:", error);
+              }
+            })();
+          }
 
           const existing = messagesCache
             .get(cacheKey)
@@ -445,6 +498,7 @@ export function useTicketMessages(ticketId: string) {
                 .filter((message) => !optimisticIds.includes(message.id))
                 .concat(mapped)
             );
+            emitMessageCreated(created[0]?.created_at);
             objectUrls.forEach((url) => URL.revokeObjectURL(url));
           } catch (error) {
             chat.setMessages((prev) =>
@@ -505,6 +559,7 @@ export function useTicketMessages(ticketId: string) {
               message.id === optimisticId ? mapped : message
             )
           );
+          emitMessageCreated(data?.created_at);
         } catch (error) {
           chat.setMessages((prev) =>
             prev.filter((message) => message.id !== optimisticId)

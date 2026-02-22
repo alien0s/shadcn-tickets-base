@@ -15,7 +15,7 @@ export const ticketsRoutes: FastifyPluginAsync = async (fastify) => {
     preHandler: [authMiddleware]
   }, async (request) => {
     const filters = ticketsSchemas.list.querystring.parse(request.query)
-    const { tickets, total } = await ticketsService.listTickets(filters)
+    const { tickets, total } = await ticketsService.listTickets(request.user, filters)
     return paginatedResponse(tickets, total, filters.page, filters.limit)
   })
 
@@ -24,7 +24,10 @@ export const ticketsRoutes: FastifyPluginAsync = async (fastify) => {
     preHandler: [authMiddleware]
   }, async (request) => {
     const { id } = ticketsSchemas.getById.params.parse(request.params)
-    const ticket = await ticketsService.getTicketById(id)
+    const ticket = await ticketsService.getTicketById(id, request.user)
+    ticketsService
+      .markTicketRead(id, request.user)
+      .catch((error) => console.error('Erro ao marcar ticket como lido:', error))
     return successResponse(ticket)
   })
 
@@ -108,6 +111,7 @@ export const ticketsRoutes: FastifyPluginAsync = async (fastify) => {
           sender_user_id: request.user.id,
           sender_type: 'customer',
           message_type: messageType,
+          requester_role_id: request.user.role_id,
           file: {
             name: saved.originalName,
             url: saved.url,
@@ -151,5 +155,14 @@ export const ticketsRoutes: FastifyPluginAsync = async (fastify) => {
     const { id } = ticketsSchemas.close.params.parse(request.params)
     const ticket = await ticketsService.closeTicket(id)
     return reply.status(200).send(successResponse(ticket, 'Ticket fechado com sucesso'))
+  })
+
+  // POST /api/tickets/:id/mark-as-read
+  fastify.post('/:id/mark-as-read', {
+    preHandler: [authMiddleware]
+  }, async (request, reply) => {
+    const { id } = ticketsSchemas.getById.params.parse(request.params)
+    const result = await ticketsService.markTicketRead(id, request.user)
+    return reply.status(200).send(successResponse(result))
   })
 }

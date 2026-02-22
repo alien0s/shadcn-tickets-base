@@ -14,7 +14,8 @@ export const env = {
   supabase: {
     url: process.env.SUPABASE_URL!,
     anonKey: process.env.SUPABASE_ANON_KEY!,
-    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    jwtSecret: process.env.SUPABASE_JWT_SECRET!
   },
   
   // JWT
@@ -47,6 +48,10 @@ export const env = {
 // Validações obrigatórias
 if (!env.supabase.url || !env.supabase.anonKey) {
   throw new Error('❌ Variáveis de ambiente do Supabase não configuradas')
+}
+
+if (!env.supabase.jwtSecret || env.supabase.jwtSecret.length < 32) {
+  throw new Error('❌ SUPABASE_JWT_SECRET deve ter no mínimo 32 caracteres')
 }
 
 if (!env.jwt.secret || env.jwt.secret.length < 32) {

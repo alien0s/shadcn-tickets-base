@@ -43,6 +43,10 @@ const closeTicketParamsSchema = z.object({
   id: z.string().uuid()
 })
 
+const markAsReadParamsSchema = z.object({
+  id: z.string().uuid()
+})
+
 export const ticketsSchemas = {
   list: {
     querystring: listTicketsQuerySchema
@@ -58,6 +62,9 @@ export const ticketsSchemas = {
   },
   close: {
     params: closeTicketParamsSchema
+  },
+  markAsRead: {
+    params: markAsReadParamsSchema
   }
 }
 
@@ -66,3 +73,4 @@ export type GetTicketByIdParams = z.infer<typeof getTicketByIdParamsSchema>
 export type CreateTicketBody = z.infer<typeof createTicketBodySchema>
 export type CreateTicketMessageBody = z.infer<typeof createTicketMessageBodySchema>
 export type CloseTicketParams = z.infer<typeof closeTicketParamsSchema>
+export type MarkAsReadParams = z.infer<typeof markAsReadParamsSchema>

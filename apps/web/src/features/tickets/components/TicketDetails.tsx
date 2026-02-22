@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Ticket } from "../types/ticketTypes";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { AllAttachmentsDialog } from "@/features/attachments/components/AllAttac
 import type { AttachmentItem } from "@/features/attachments/types/attachmentTypes";
 import type { AttachmentViewerItem } from "@/features/attachments/components/AttachmentViewer";
 import { api } from "@/lib/api";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 const UPLOADS_BASE_URL = API_BASE_URL.replace(/\/api\/?$/, "");
@@ -25,6 +26,7 @@ const loadedTicketIds = new Set<string>();
 const ticketDetailsCache = new Map<
   string,
   {
+    assignedToUserId: string | null;
     agentName: string | null;
     agentAvatarUrl: string | null;
     subject: string | null;
@@ -33,10 +35,22 @@ const ticketDetailsCache = new Map<
     requesterEmail: string | null;
   }
 >();
+const agentProfileCache = new Map<
+  string,
+  { id: string; name: string; avatar_url?: string | null }
+>();
+
+function withAvatarVersion(url?: string | null, version?: string | number) {
+  if (!url) return null;
+  const separator = url.includes("?") ? "&" : "?";
+  const token = String(version ?? Date.now());
+  return `${url}${separator}v=${token}`;
+}
 
 type ApiTicketDetail = {
   id: string;
   subject: string;
+  updated_at?: string;
   assigned_to: {
     id: string;
     name: string;
@@ -66,6 +80,10 @@ type ApiTicketDetail = {
   }>;
 };
 
+type TicketMessageCreatedDetail = {
+  ticketId: string;
+};
+
 type Props = {
   ticket?: Ticket | null;
   isDrawer?: boolean;
@@ -88,6 +106,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
   const [isLoadingAttachments, setIsLoadingAttachments] = useState(false);
   const [agentName, setAgentName] = useState<string | null>(null);
   const [agentAvatarUrl, setAgentAvatarUrl] = useState<string | null>(null);
+  const [agentUserId, setAgentUserId] = useState<string | null>(null);
   const [ticketSubject, setTicketSubject] = useState<string | null>(null);
   const [ticketOs, setTicketOs] = useState<string | null>(null);
   const [ticketBrowser, setTicketBrowser] = useState<string | null>(null);
@@ -99,6 +118,49 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
   // Estado "primeira vez" por ticket (controla shimmer no thumbnail)
   const isFirstLoadForTicket = ticket?.id ? !loadedTicketIds.has(ticket.id) : false;
   const hasAgent = Boolean(agentName);
+  const [isTicketClosed, setIsTicketClosed] = useState(
+    ticket?.status === "closed" || ticket?.status === "fechado"
+  );
+
+  const refreshAssignedAgent = useCallback(async (ticketId: string) => {
+    try {
+      const data = await api.get<ApiTicketDetail>(`/tickets/${ticketId}`);
+      if (activeTicketIdRef.current !== ticketId) return;
+
+      const nextAgentUserId = data.assigned_to?.id ?? null;
+      const nextAgentName = data.assigned_to?.name ?? null;
+      const nextAgentAvatar = withAvatarVersion(
+        data.assigned_to?.avatar_url ?? null,
+        data.updated_at
+      );
+
+      setAgentUserId(nextAgentUserId);
+      setAgentName(nextAgentName);
+      setAgentAvatarUrl(nextAgentAvatar);
+
+      if (nextAgentUserId && nextAgentName) {
+        agentProfileCache.set(nextAgentUserId, {
+          id: nextAgentUserId,
+          name: nextAgentName,
+          avatar_url: nextAgentAvatar,
+        });
+      }
+
+      const cachedDetails = ticketDetailsCache.get(ticketId);
+      if (cachedDetails) {
+        ticketDetailsCache.set(ticketId, {
+          ...cachedDetails,
+          assignedToUserId: nextAgentUserId,
+          agentName: nextAgentName,
+          agentAvatarUrl: nextAgentAvatar,
+        });
+      }
+      return Boolean(nextAgentUserId);
+    } catch (error) {
+      console.error("Erro ao atualizar assignee do ticket:", error);
+      return false;
+    }
+  }, []);
 
   useEffect(() => {
     if (!ticket?.id) return;
@@ -117,6 +179,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
 
       const cachedDetails = ticketDetailsCache.get(ticketId);
       if (cachedDetails) {
+        setAgentUserId(cachedDetails.assignedToUserId);
         setAgentName(cachedDetails.agentName);
         setAgentAvatarUrl(cachedDetails.agentAvatarUrl);
         setTicketSubject(cachedDetails.subject ?? ticket.subject ?? null);
@@ -140,7 +203,11 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
         if (activeTicketIdRef.current !== ticketId) return;
 
         const nextAgentName = data.assigned_to?.name ?? null;
-        const nextAgentAvatarUrl = data.assigned_to?.avatar_url ?? null;
+        const nextAgentAvatarUrl = withAvatarVersion(
+          data.assigned_to?.avatar_url ?? null,
+          data.updated_at
+        );
+        const nextAgentUserId = data.assigned_to?.id ?? null;
         const nextSubject = data.subject ?? ticket.subject ?? null;
         const nextOs = data.os
           ? `${data.os.name}${data.os.version ? ` ${data.os.version}` : ""}`
@@ -148,6 +215,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
         const nextBrowser = data.browser ?? null;
         const nextRequesterEmail = data.requester?.email ?? null;
 
+        setAgentUserId(nextAgentUserId);
         setAgentName(nextAgentName);
         setAgentAvatarUrl(nextAgentAvatarUrl);
         setTicketSubject(nextSubject);
@@ -175,6 +243,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
 
         attachmentsCache.set(ticketId, files);
         ticketDetailsCache.set(ticketId, {
+          assignedToUserId: nextAgentUserId,
           agentName: nextAgentName,
           agentAvatarUrl: nextAgentAvatarUrl,
           subject: nextSubject,
@@ -182,6 +251,13 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
           browser: nextBrowser,
           requesterEmail: nextRequesterEmail,
         });
+        if (nextAgentUserId && nextAgentName) {
+          agentProfileCache.set(nextAgentUserId, {
+            id: nextAgentUserId,
+            name: nextAgentName,
+            avatar_url: nextAgentAvatarUrl,
+          });
+        }
         setImageAttachments(files);
       } catch (error) {
         attachmentsCache.set(ticketId, []);
@@ -199,6 +275,231 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
 
     return () => {
       isMounted = false;
+    };
+  }, [ticket?.id]);
+
+  useEffect(() => {
+    if (!ticket?.id || !isSupabaseConfigured || !supabase) return;
+    const client = supabase;
+    const ticketId = ticket.id;
+
+    const channel = client
+      .channel(`ticket-details:${ticketId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "tickets",
+          filter: `id=eq.${ticketId}`,
+        },
+        async (payload: any) => {
+          const row = payload.new as {
+            id?: string;
+            assigned_to_user_id?: string | null;
+          };
+          if (!row?.id || row.id !== ticketId) return;
+          if (activeTicketIdRef.current !== ticketId) return;
+
+          const nextAssignedToUserId = row.assigned_to_user_id ?? null;
+          if (nextAssignedToUserId === agentUserId) return;
+
+          if (!nextAssignedToUserId) {
+            setAgentUserId(null);
+            setAgentName(null);
+            setAgentAvatarUrl(null);
+            ticketDetailsCache.set(ticketId, {
+              assignedToUserId: null,
+              agentName: null,
+              agentAvatarUrl: null,
+              subject: ticketSubject,
+              os: ticketOs,
+              browser: ticketBrowser,
+              requesterEmail,
+            });
+            return;
+          }
+
+          const cachedAgent = agentProfileCache.get(nextAssignedToUserId);
+          if (cachedAgent) {
+            setAgentUserId(cachedAgent.id);
+            setAgentName(cachedAgent.name);
+            setAgentAvatarUrl(withAvatarVersion(cachedAgent.avatar_url ?? null));
+            ticketDetailsCache.set(ticketId, {
+              assignedToUserId: cachedAgent.id,
+              agentName: cachedAgent.name,
+              agentAvatarUrl: withAvatarVersion(cachedAgent.avatar_url ?? null),
+              subject: ticketSubject,
+              os: ticketOs,
+              browser: ticketBrowser,
+              requesterEmail,
+            });
+            return;
+          }
+
+          try {
+            const data = await api.get<{
+              id: string;
+              name: string;
+              avatar_url?: string | null;
+            }>(`/users/${nextAssignedToUserId}`);
+
+            agentProfileCache.set(nextAssignedToUserId, data);
+            if (activeTicketIdRef.current !== ticketId) return;
+
+            setAgentUserId(data.id);
+            setAgentName(data.name ?? null);
+            setAgentAvatarUrl(withAvatarVersion(data.avatar_url ?? null));
+            ticketDetailsCache.set(ticketId, {
+              assignedToUserId: data.id,
+              agentName: data.name ?? null,
+              agentAvatarUrl: withAvatarVersion(data.avatar_url ?? null),
+              subject: ticketSubject,
+              os: ticketOs,
+              browser: ticketBrowser,
+              requesterEmail,
+            });
+          } catch (error) {
+            console.error("Erro ao atualizar agente do ticket:", error);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [ticket?.id, agentUserId, ticketSubject, ticketOs, ticketBrowser, requesterEmail]);
+
+  useEffect(() => {
+    if (!ticket?.id || !agentUserId || !isSupabaseConfigured || !supabase) return;
+    const client = supabase;
+    const ticketId = ticket.id;
+    const currentAgentId = agentUserId;
+
+    const channel = client
+      .channel(`ticket-agent-profile:${ticketId}:${currentAgentId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "users",
+          filter: `id=eq.${currentAgentId}`,
+        },
+        (payload: any) => {
+          const row = payload.new as {
+            id?: string;
+            name?: string | null;
+            avatar_url?: string | null;
+            updated_at?: string | null;
+          };
+          if (!row?.id || row.id !== currentAgentId) return;
+          if (activeTicketIdRef.current !== ticketId) return;
+
+          const nextName = row.name ?? null;
+          const nextAvatar = withAvatarVersion(row.avatar_url ?? null, row.updated_at);
+
+          setAgentName(nextName);
+          setAgentAvatarUrl(nextAvatar);
+          agentProfileCache.set(currentAgentId, {
+            id: currentAgentId,
+            name: nextName ?? "",
+            avatar_url: nextAvatar,
+          });
+
+          const cachedDetails = ticketDetailsCache.get(ticketId);
+          if (cachedDetails) {
+            ticketDetailsCache.set(ticketId, {
+              ...cachedDetails,
+              assignedToUserId: currentAgentId,
+              agentName: nextName,
+              agentAvatarUrl: nextAvatar,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [ticket?.id, agentUserId]);
+
+  useEffect(() => {
+    if (!ticket?.id || !isSupabaseConfigured || !supabase) return;
+    const client = supabase;
+    const ticketId = ticket.id;
+
+    const channel = client
+      .channel(`ticket-details-messages:${ticketId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "ticket_messages",
+          filter: `ticket_id=eq.${ticketId}`,
+        },
+        () => {
+          // Fallback com retry curto para cobrir atraso entre update do ticket e leitura no frontend.
+          const attemptRefresh = async (attempt = 0) => {
+            const hasAssignee = await refreshAssignedAgent(ticketId);
+            if (hasAssignee || attempt >= 2) return;
+
+            const delays = [180, 550, 1100];
+            window.setTimeout(() => {
+              attemptRefresh(attempt + 1);
+            }, delays[attempt] ?? 550);
+          };
+
+          attemptRefresh(0);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      client.removeChannel(channel);
+    };
+  }, [ticket?.id, refreshAssignedAgent]);
+
+  useEffect(() => {
+    if (!ticket?.id) return;
+    const ticketId = ticket.id;
+
+    const handleTicketMessageCreated = (event: Event) => {
+      const { detail } = event as CustomEvent<TicketMessageCreatedDetail>;
+      if (!detail?.ticketId || detail.ticketId !== ticketId) return;
+      if (agentUserId) return;
+
+      window.setTimeout(() => {
+        refreshAssignedAgent(ticketId);
+      }, 120);
+    };
+
+    window.addEventListener("ticket-message-created", handleTicketMessageCreated);
+    return () => {
+      window.removeEventListener("ticket-message-created", handleTicketMessageCreated);
+    };
+  }, [ticket?.id, agentUserId, refreshAssignedAgent]);
+
+  useEffect(() => {
+    setIsTicketClosed(ticket?.status === "closed" || ticket?.status === "fechado");
+  }, [ticket?.id, ticket?.status]);
+
+  useEffect(() => {
+    if (!ticket?.id) return;
+    const ticketId = ticket.id;
+
+    const handleTicketClosed = (event: Event) => {
+      const { detail } = event as CustomEvent<{ ticketId?: string }>;
+      if (!detail?.ticketId || detail.ticketId !== ticketId) return;
+      setIsTicketClosed(true);
+    };
+
+    window.addEventListener("ticket-closed", handleTicketClosed);
+    return () => {
+      window.removeEventListener("ticket-closed", handleTicketClosed);
     };
   }, [ticket?.id]);
 
@@ -260,8 +561,18 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
                     {agentName}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Trabalhando neste ticket
+                    {isTicketClosed
+                      ? "Fechou este ticket"
+                      : "Trabalhando neste ticket"}
                   </p>
+                </div>
+              </div>
+            ) : isLoadingAttachments ? (
+              <div className="flex items-center gap-3" aria-hidden="true">
+                <Skeleton className="h-10 w-10 rounded-lg shrink-0" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-3 w-36" />
                 </div>
               </div>
             ) : null}

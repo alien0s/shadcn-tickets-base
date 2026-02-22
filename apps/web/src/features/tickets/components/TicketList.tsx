@@ -21,6 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useSidebar } from "@/context/sidebar-context";
 import { StatusPill } from "./StatusPill";
 import { useTicketsList } from "../hooks/useTicketsList";
+import { useTicketBadges } from "../hooks/useTicketBadges";
 
 export function TicketList({
   onSelectTicket,
@@ -39,6 +40,8 @@ export function TicketList({
     selectedEntities,
     selectedTicketId,
     setSelectedTicketId,
+    highlightedTicketIds,
+    fadingTicketIds,
     statusFilter,
     setStatusFilter,
     statusFilterOptions,
@@ -50,6 +53,7 @@ export function TicketList({
     entities,
     refreshTickets,
   } = useTicketsList();
+  const { badges, getUnreadCount } = useTicketBadges();
 
   const { toggleSidebar } = useSidebar();
 
@@ -299,15 +303,24 @@ export function TicketList({
               {filteredTickets.map((ticket) => (
                 <TicketListItem
                   key={ticket.id}
-                  ticket={ticket}
+                  ticket={{
+                    ...ticket,
+                    unreadCount: badges.has(ticket.id)
+                      ? getUnreadCount(ticket.id)
+                      : ticket.unreadCount,
+                  }}
                   isActive={selectedTicketId === ticket.id}
+                  isHighlighting={highlightedTicketIds.has(ticket.id)}
+                  isFadingHighlight={fadingTicketIds.has(ticket.id)}
                   onClick={ticketClickHandlers.get(ticket.id) ?? (() => handleSelectTicket(ticket))} // fallback seguro
                 />
               ))}
 
               {filteredTickets.length === 0 && (
                 <div className="px-3 py-4 text-xs text-muted-foreground">
-                  Nenhum ticket encontrado para "{search}".
+                  {search.trim().length > 0
+                    ? `Nenhum ticket encontrado para "${search}".`
+                    : "Sem tickets"}
                 </div>
               )}
             </>

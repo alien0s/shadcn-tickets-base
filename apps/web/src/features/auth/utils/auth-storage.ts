@@ -5,6 +5,7 @@ import type { AuthUser } from "../types";
  */
 const USER_KEY = "supportdesk:user";
 const TOKEN_KEY = "supportdesk:token";
+const SUPABASE_TOKEN_KEY = "supportdesk:supabase-token";
 
 /**
  * Recupera o usuário salvo no localStorage
@@ -46,12 +47,22 @@ export function setStoredToken(token: string): void {
   window.localStorage.setItem(TOKEN_KEY, token);
 }
 
+export function setStoredSupabaseToken(token: string): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(SUPABASE_TOKEN_KEY, token);
+}
+
 /**
  * Recupera o token JWT do localStorage
  */
 export function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;
   return window.localStorage.getItem(TOKEN_KEY);
+}
+
+export function getStoredSupabaseToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(SUPABASE_TOKEN_KEY);
 }
 
 /**
@@ -62,10 +73,16 @@ export function clearStoredToken(): void {
   window.localStorage.removeItem(TOKEN_KEY);
 }
 
+export function clearStoredSupabaseToken(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(SUPABASE_TOKEN_KEY);
+}
+
 /**
  * Limpa todos os dados de autenticação
  */
 export function clearAuth(): void {
   clearStoredUser();
   clearStoredToken();
+  clearStoredSupabaseToken();
 }

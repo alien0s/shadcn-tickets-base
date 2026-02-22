@@ -70,6 +70,7 @@ export interface LoginRequest {
 export interface LoginResponse {
   user: UserPublic
   token: string
+  supabase_token?: string
   requires_2fa?: boolean
 }
 

@@ -5,6 +5,7 @@ import { User, UserPublic, LoginRequest, RegisterRequest } from '@ticket-system/
 import { UnauthorizedError, ValidationError, NotFoundError } from '../../shared/errors/AppError.js'
 import { emailService } from '../../shared/utils/email.service.js'
 import { generate2FACode, generateResetToken, getExpirationDate } from '../../shared/utils/crypto.utils.js'
+import { env } from '../../config/env.js'
 
 /**
  * Serviço de Autenticação
@@ -118,7 +119,8 @@ export class AuthService {
                 ...this.sanitizeUser(user),
                 role_name: this.getRoleName(user)
             },
-            token: this.generateToken(user)
+            token: this.generateToken(user),
+            supabase_token: this.generateSupabaseToken(user)
         }
     }
 
@@ -161,7 +163,8 @@ export class AuthService {
                 ...this.sanitizeUser(user),
                 role_name: this.getRoleName(user)
             },
-            token: this.generateToken(user)
+            token: this.generateToken(user),
+            supabase_token: this.generateSupabaseToken(user)
         }
     }
 
@@ -246,7 +249,8 @@ export class AuthService {
 
         return {
             user: this.sanitizeUser(user),
-            token: this.generateToken(user)
+            token: this.generateToken(user),
+            supabase_token: this.generateSupabaseToken(user)
         }
     }
 
@@ -260,6 +264,25 @@ export class AuthService {
             entity_id: user.entity_id,
             role_id: user.role_id
         })
+    }
+
+    /**
+     * Gera JWT compatível com Supabase Realtime (usa SUPABASE_JWT_SECRET)
+     */
+    private generateSupabaseToken(user: User): string {
+        return this.fastify.jwt.sign(
+            {
+                sub: user.id,
+                iss: 'supabase',
+                role: 'authenticated',
+                aud: 'authenticated'
+            },
+            {
+                key: env.supabase.jwtSecret,
+                algorithm: 'HS256',
+                expiresIn: env.jwt.expiration
+            }
+        )
     }
 
     /**

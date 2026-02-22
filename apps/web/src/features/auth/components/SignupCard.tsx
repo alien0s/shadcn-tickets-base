@@ -69,6 +69,12 @@ function PasswordInput({
           minLength={minLength}
           className="pr-10"
           autoComplete={autoComplete}
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          data-lpignore="true"
+          data-1p-ignore="true"
+          data-bwignore="true"
           aria-invalid={isInvalid}
           disabled={disabled}
         />

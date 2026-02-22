@@ -6,6 +6,7 @@ type TicketListRow = {
   id: string
   title: string
   subject: string
+  unread_count: number
   status: {
     id: number
     key: string
@@ -39,7 +40,7 @@ type TicketListRow = {
 
 type TicketListRowRaw = Omit<
   TicketListRow,
-  'requester' | 'assigned_to' | 'status' | 'priority' | 'type'
+  'requester' | 'assigned_to' | 'status' | 'priority' | 'type' | 'unread_count'
 > & {
   status:
     | TicketListRow['status']
@@ -141,11 +142,82 @@ export type TicketDetailRow = {
 }
 
 export class TicketsRepository {
+  async getRoleNameById(roleId: string) {
+    const { data, error } = await supabase
+      .from('roles')
+      .select('name')
+      .eq('id', roleId)
+      .single()
+
+    if (error || !data) return null
+
+    return data.name as string
+  }
+
+  async getTicketAccess(id: string) {
+    const { data, error } = await supabase
+      .from('tickets')
+      .select('id, requester_user_id, assigned_to_user_id')
+      .eq('id', id)
+      .single()
+
+    if (error || !data) {
+      throw new NotFoundError('Ticket não encontrado')
+    }
+
+    return data as {
+      id: string
+      requester_user_id: string
+      assigned_to_user_id: string | null
+    }
+  }
+
+  async markAsRead(input: { ticket_id: string; user_id: string }) {
+    const { data: lastMessage, error: lastMessageError } = await supabase
+      .from('ticket_messages')
+      .select('id')
+      .eq('ticket_id', input.ticket_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (lastMessageError) throw lastMessageError
+
+    const { error } = await supabase
+      .from('ticket_user_reads')
+      .upsert(
+        {
+          ticket_id: input.ticket_id,
+          user_id: input.user_id,
+          last_read_at: new Date().toISOString(),
+          last_read_message_id: lastMessage?.id ?? null
+        },
+        { onConflict: 'ticket_id,user_id' }
+      )
+
+    if (error) throw error
+
+    return {
+      ticket_id: input.ticket_id,
+      marked_read_at: new Date().toISOString()
+    }
+  }
+
   async updateStatus(id: string, statusId: number) {
     const { error } = await supabase
       .from('tickets')
       .update({ status_id: statusId })
       .eq('id', id)
+
+    if (error) throw error
+  }
+
+  async assignToAgentIfEmpty(ticketId: string, agentId: string) {
+    const { error } = await supabase
+      .from('tickets')
+      .update({ assigned_to_user_id: agentId })
+      .eq('id', ticketId)
+      .is('assigned_to_user_id', null)
 
     if (error) throw error
   }
@@ -307,7 +379,10 @@ export class TicketsRepository {
     return message
   }
 
-  async findAll(filters: ListTicketsQuery) {
+  async findAll(
+    input: { userId: string; roleName: string },
+    filters: ListTicketsQuery
+  ) {
     const { page, limit, status, priority, type, search, sortBy, order, dateFrom, dateTo } = filters
     const offset = (page - 1) * limit
 
@@ -336,6 +411,13 @@ export class TicketsRepository {
         { count: 'exact' }
       )
 
+    const isAdminOrAgent = input.roleName === 'Admin' || input.roleName === 'Agent'
+    if (!isAdminOrAgent) {
+      query = query.or(
+        `requester_user_id.eq.${input.userId},assigned_to_user_id.eq.${input.userId}`
+      )
+    }
+
     if (status) query = query.eq('ticket_statuses.key', status)
     if (priority) query = query.eq('ticket_priorities.key', priority)
     if (type) query = query.eq('ticket_types.key', type)
@@ -352,8 +434,26 @@ export class TicketsRepository {
 
     if (error) throw error
 
+    const ids = (data ?? []).map((row) => (row as TicketListRowRaw).id)
+    let unreadByTicket = new Map<string, number>()
+
+    if (ids.length > 0) {
+      const { data: unreadRows, error: unreadError } = await supabase
+        .from('ticket_unread_counts')
+        .select('ticket_id, unread_count')
+        .eq('user_id', input.userId)
+        .in('ticket_id', ids)
+
+      if (unreadError) throw unreadError
+
+      unreadByTicket = new Map(
+        (unreadRows ?? []).map((row) => [row.ticket_id as string, row.unread_count as number])
+      )
+    }
+
     const tickets = (data ?? []).map((row) => {
       const raw = row as TicketListRowRaw
+      const unread_count = unreadByTicket.get(raw.id) ?? 0
       const requester = Array.isArray(raw.requester)
         ? raw.requester[0] ?? null
         : raw.requester ?? null
@@ -363,6 +463,7 @@ export class TicketsRepository {
 
       return {
         ...raw,
+        unread_count,
         requester,
         assigned_to: assignedTo
       } as TicketListRow

@@ -148,3 +148,36 @@ body {
   @apply bg-background text-foreground;
   font-family: var(--font-sans);
 }
+
+@keyframes ticket-new-pulse {
+  0% {
+    background-color: hsl(var(--primary) / 0.06);
+  }
+  50% {
+    background-color: hsl(var(--primary) / 0.16);
+  }
+  100% {
+    background-color: hsl(var(--primary) / 0.06);
+  }
+}
+
+.ticket-new-pulse {
+  animation: ticket-new-pulse 2.4s ease-in-out infinite;
+}
+
+.ticket-new-fade {
+  animation: none;
+  background-color: transparent;
+  transition: background-color 0.5s ease;
+}
+
+.dark .ticket-new-pulse {
+  animation: ticket-new-pulse 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticket-new-pulse {
+    animation: none;
+    background-color: hsl(var(--primary) / 0.2);
+  }
+}

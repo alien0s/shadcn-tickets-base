@@ -50,5 +50,6 @@ export type RegisterPayload = {
 export type LoginResponse = {
   user?: AuthUser & { role_name?: string }  // ← API retorna role_name
   token?: string
+  supabase_token?: string
   requires_2fa?: boolean
 }
