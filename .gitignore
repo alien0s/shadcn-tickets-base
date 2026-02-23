@@ -30,4 +30,3 @@ packages/*/dist
 *.sln
 *.sw?
 
-sql

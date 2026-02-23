@@ -11,6 +11,7 @@ type Props = {
   isActive?: boolean;
   isHighlighting?: boolean;
   isFadingHighlight?: boolean;
+  typingPreview?: string;
 };
 
 export function TicketListItem({
@@ -19,6 +20,7 @@ export function TicketListItem({
   isActive = false,
   isHighlighting = false,
   isFadingHighlight = false,
+  typingPreview,
 }: Props) {
   const typeKey = ticket.type as TicketTypeKey | undefined;
   const typeStyle = typeKey ? TICKET_TYPE_STYLES[typeKey] : undefined;
@@ -27,6 +29,10 @@ export function TicketListItem({
 
   const fallbackInitial =
     (ticket.requester || ticket.subject || "").trim().charAt(0).toUpperCase() || "?";
+  const isTyping = Boolean(typingPreview && typingPreview.trim().length > 0);
+  const previewText = typingPreview && typingPreview.trim().length > 0
+    ? typingPreview
+    : (ticket.title ?? ticket.subject);
 
   return (
     <button
@@ -61,8 +67,13 @@ export function TicketListItem({
         </div>
 
         <div className="mb-1 flex items-center justify-between gap-2">
-          <span className="text-xs text-muted-foreground block overflow-hidden whitespace-nowrap text-ellipsis max-w-full min-w-0">
-            {ticket.title ?? ticket.subject}
+          <span
+            className={cn(
+              "text-xs block overflow-hidden whitespace-nowrap text-ellipsis max-w-full min-w-0",
+              isTyping ? "text-primary font-medium" : "text-muted-foreground"
+            )}
+          >
+            {previewText}
           </span>
 
           {unreadCount > 0 && (

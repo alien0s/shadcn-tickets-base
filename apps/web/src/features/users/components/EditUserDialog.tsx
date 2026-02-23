@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useDepartments } from "@/hooks/useDepartments";
 import { useEntities } from "@/hooks/useEntities";
+import { useUserAvatarUpload } from "@/hooks/useUserAvatarUpload";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -42,9 +43,11 @@ export type EditUserDialogProps = {
     name?: string;
     last_name?: string;
     email?: string;
+    phone?: string;
     entity_id?: string;
     department_id?: string;
     role_id?: string;
+    avatar_url?: string;
   }) => void;
 };
 
@@ -69,15 +72,43 @@ const PERMISSION_BY_ROLE_ID: Record<string, PermissionKey> = {
   "650e8400-e29b-41d4-a716-446655440002": "user",
 };
 
+function extractLocalPhoneDigits(value: string): string {
+  const digitsOnly = value.replace(/\D/g, "");
+  if (!digitsOnly) return "";
+
+  // O input sempre exibe +55 no front, entao removemos o prefixo ao normalizar.
+  const localDigits = digitsOnly.startsWith("55")
+    ? digitsOnly.slice(2)
+    : digitsOnly;
+
+  return localDigits.slice(0, 11);
+}
+
+function normalizePhoneForDb(value: string): string | undefined {
+  const localDigits = extractLocalPhoneDigits(value);
+  return localDigits || undefined;
+}
+
+function formatPhoneForDisplay(value?: string): string {
+  if (!value) return "";
+  const digits = extractLocalPhoneDigits(value);
+  if (!digits) return "";
+  if (digits.length <= 2) return `+55 (${digits}`;
+  if (digits.length <= 7) return `+55 (${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  return `+55 (${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+}
+
 export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUserDialogProps) {
   type UpdatedUser = {
     id: string;
     name: string;
     last_name?: string;
     email?: string;
+    phone?: string;
     entity_id?: string;
     department_id?: string;
     role_id?: string;
+    avatar_url?: string;
   };
   // Estado do avatar (URL da imagem exibida)
   const [avatarSrc, setAvatarSrc] = useState(user.avatar ?? "");
@@ -88,6 +119,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUser
   const [isCropOpen, setIsCropOpen] = useState(false);
   const [isSavingCrop, setIsSavingCrop] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const { uploadAvatar } = useUserAvatarUpload();
 
   // Hook customizado para gerenciar crop de imagem
   const {
@@ -105,12 +137,14 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUser
     firstName: "",
     lastName: "",
     email: "",
+    phone: "",
   });
   
   const [formValues, setFormValues] = useState({
     firstName: "",
     lastName: "",
     email: "",
+    phone: "",
   });
 
   const [initialEntityId, setInitialEntityId] = useState("");
@@ -137,6 +171,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUser
       firstName,
       lastName,
       email: user.email,
+      phone: formatPhoneForDisplay(user.phone),
     };
     
     setInitialValues(nextValues);
@@ -147,7 +182,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUser
     setInitialPermission(nextPermission);
     setAvatarSrc(user.avatar ?? "");
     setImageSrc(user.avatar ?? "");
-  }, [setImageSrc, user.avatar, user.email, user.entity, user.name]);
+  }, [setImageSrc, user.avatar, user.email, user.entity, user.name, user.phone]);
 
   useEffect(() => {
     if (entities.length === 0) return;
@@ -207,6 +242,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUser
       formValues.firstName !== initialValues.firstName ||
       formValues.lastName !== initialValues.lastName ||
       formValues.email !== initialValues.email ||
+      formValues.phone !== initialValues.phone ||
       entityId !== initialEntityId ||
       departmentId !== initialDepartmentId ||
       permission !== initialPermission,
@@ -246,13 +282,28 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUser
     setIsSavingCrop(true);
     try {
       const blob = await cropImage(imageSrc, cropArea);
-      const nextUrl = URL.createObjectURL(blob);
-      setAvatarSrc(nextUrl);
+      const localUrl = URL.createObjectURL(blob);
+      setAvatarSrc(localUrl);
+
+      const extension = blob.type?.split("/")[1] || "jpg";
+      const file = new File([blob], `avatar-${user.id}.${extension}`, {
+        type: blob.type || "image/jpeg",
+      });
+      const uploadedAvatarUrl = await uploadAvatar(user.id, file);
+      if (uploadedAvatarUrl) {
+        setAvatarSrc(uploadedAvatarUrl);
+        onUpdated?.({ avatar_url: uploadedAvatarUrl });
+        toast.success("Foto atualizada com sucesso");
+      }
       setIsCropOpen(false);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro ao enviar foto";
+      toast.error(errorMessage);
     } finally {
       setIsSavingCrop(false);
     }
-  }, [imageSrc, cropArea]);
+  }, [cropArea, imageSrc, onUpdated, uploadAvatar, user.id]);
 
   // Handler para atualizar firstName
   const handleFirstNameChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
@@ -267,6 +318,12 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUser
   // Handler para atualizar email
   const handleEmailChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     setFormValues((prev) => ({ ...prev, email: event.target.value }));
+  }, []);
+
+  // Handler para atualizar telefone com mascara +55 (XX) NNNNN-NNNN
+  const handlePhoneChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneForDisplay(event.target.value);
+    setFormValues((prev) => ({ ...prev, phone: formatted }));
   }, []);
 
   const handlePermissionSelect = useCallback((key: PermissionKey) => {
@@ -301,6 +358,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUser
     const name = formValues.firstName.trim();
     const lastName = formValues.lastName.trim();
     const email = formValues.email.trim();
+    const phone = normalizePhoneForDb(formValues.phone);
     const roleId = ROLE_ID_BY_PERMISSION[permission];
 
     setIsSaving(true);
@@ -311,6 +369,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUser
           name,
           last_name: lastName,
           email,
+          phone,
           entity_id: entityId,
           department_id: departmentId,
           role_id: roleId,
@@ -324,9 +383,11 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUser
           name: data.name,
           last_name: data.last_name,
           email: data.email,
+          phone: data.phone,
           entity_id: data.entity_id,
           department_id: data.department_id,
           role_id: data.role_id,
+          avatar_url: data.avatar_url,
         });
       }
     } catch (error) {
@@ -342,6 +403,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUser
     formValues.email,
     formValues.firstName,
     formValues.lastName,
+    formValues.phone,
     isSaving,
     onOpenChange,
     onUpdated,
@@ -364,10 +426,10 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUser
         </DialogHeader>
 
         <form
-          className="mt-3 flex flex-col flex-1 min-h-0 gap-4 overflow-y-auto"
+          className="mt-3 flex flex-col flex-1 min-h-0 gap-4 overflow-hidden"
           onSubmit={handleSubmit}
         >
-          <div className="pr-1 pl-1 pb-[calc(4rem+var(--safe-bottom,env(safe-area-inset-bottom)))] flex-1 min-h-0">
+          <div className="pr-1 pl-1 pb-4 flex-1 min-h-0 overflow-y-auto">
             {/* Seção de avatar e informações do usuário */}
             <div className="flex flex-col gap-4 border-b border-border px-1 pb-4 sm:flex-row sm:items-center sm:justify-between sm:px-0">
               <div className="flex items-center gap-3">
@@ -444,7 +506,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUser
               {/* Campo de email */}
               <ProfileField
                 title="Email"
-                description="Defina como entrar em contato com voçe."
+                description="Defina como entrar em contato com você."
               >
                 <div className="grid gap-4">
                   <Input
@@ -452,6 +514,21 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUser
                     type="email"
                     value={formValues.email}
                     onChange={handleEmailChange}
+                  />
+                </div>
+              </ProfileField>
+              <ProfileField
+                title="Telefone"
+                description="Informe seu melhor número para contato."
+              >
+                <div className="grid gap-4">
+                  <Input
+                    id="phone"
+                    type="tel"
+                    value={formValues.phone}
+                    onChange={handlePhoneChange}
+                    placeholder="+55 (11) 99999-9999"
+                    maxLength={19}
                   />
                 </div>
               </ProfileField>
@@ -553,7 +630,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUser
           </div>
 
           {/* Footer com botões de ação */}
-          <DialogFooter className="sticky bottom-0 left-0 right-0 flex-row w-full gap-2 bg-background pt-4 pb-[calc(0.5rem+var(--safe-bottom, env(safe-area-inset-bottom)))] sm:justify-end sm:space-x-0 sm:pb-0">
+          <DialogFooter className="flex-row w-full gap-2 bg-background pt-4 pb-[calc(0.5rem+var(--safe-bottom, env(safe-area-inset-bottom)))] sm:justify-end sm:space-x-0 sm:pb-0">
             <Button
               type="button"
               variant="outline"
@@ -648,3 +725,5 @@ export function EditUserDialog({ user, open, onOpenChange, onUpdated }: EditUser
     </Dialog>
   );
 }
+
+

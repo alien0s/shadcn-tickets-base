@@ -33,6 +33,7 @@ const ticketDetailsCache = new Map<
     os: string | null;
     browser: string | null;
     requesterEmail: string | null;
+    requesterPhone: string | null;
   }
 >();
 const agentProfileCache = new Map<
@@ -60,6 +61,7 @@ type ApiTicketDetail = {
     id: string;
     name: string;
     email: string;
+    phone?: string | null;
     avatar_url?: string | null;
   } | null;
   os?: {
@@ -83,6 +85,17 @@ type ApiTicketDetail = {
 type TicketMessageCreatedDetail = {
   ticketId: string;
 };
+
+function formatPhone(phone: string): string {
+  return phone.replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3");
+}
+
+function normalizePhone(phone?: string | null): string | null {
+  if (!phone) return null;
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length < 10 || digits.length > 11) return phone;
+  return formatPhone(digits);
+}
 
 type Props = {
   ticket?: Ticket | null;
@@ -111,6 +124,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
   const [ticketOs, setTicketOs] = useState<string | null>(null);
   const [ticketBrowser, setTicketBrowser] = useState<string | null>(null);
   const [requesterEmail, setRequesterEmail] = useState<string | null>(null);
+  const [requesterPhone, setRequesterPhone] = useState<string | null>(null);
 
   // Mantém referência do ticketId atual para evitar race (ticket troca rápido)
   const activeTicketIdRef = useRef<string | null>(null);
@@ -186,6 +200,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
         setTicketOs(cachedDetails.os);
         setTicketBrowser(cachedDetails.browser);
         setRequesterEmail(cachedDetails.requesterEmail);
+        setRequesterPhone(cachedDetails.requesterPhone);
       }
 
       return;
@@ -214,6 +229,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
           : null;
         const nextBrowser = data.browser ?? null;
         const nextRequesterEmail = data.requester?.email ?? null;
+        const nextRequesterPhone = normalizePhone(data.requester?.phone);
 
         setAgentUserId(nextAgentUserId);
         setAgentName(nextAgentName);
@@ -222,6 +238,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
         setTicketOs(nextOs);
         setTicketBrowser(nextBrowser);
         setRequesterEmail(nextRequesterEmail);
+        setRequesterPhone(nextRequesterPhone);
 
         const files = (data.attachments ?? []).map<AttachmentItem>((file) => {
           const lowerType = (file.type ?? "").toLowerCase();
@@ -250,6 +267,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
           os: nextOs,
           browser: nextBrowser,
           requesterEmail: nextRequesterEmail,
+          requesterPhone: nextRequesterPhone,
         });
         if (nextAgentUserId && nextAgentName) {
           agentProfileCache.set(nextAgentUserId, {
@@ -316,6 +334,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
               os: ticketOs,
               browser: ticketBrowser,
               requesterEmail,
+              requesterPhone,
             });
             return;
           }
@@ -333,6 +352,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
               os: ticketOs,
               browser: ticketBrowser,
               requesterEmail,
+              requesterPhone,
             });
             return;
           }
@@ -358,6 +378,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
               os: ticketOs,
               browser: ticketBrowser,
               requesterEmail,
+              requesterPhone,
             });
           } catch (error) {
             console.error("Erro ao atualizar agente do ticket:", error);
@@ -369,7 +390,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
     return () => {
       client.removeChannel(channel);
     };
-  }, [ticket?.id, agentUserId, ticketSubject, ticketOs, ticketBrowser, requesterEmail]);
+  }, [ticket?.id, agentUserId, ticketSubject, ticketOs, ticketBrowser, requesterEmail, requesterPhone]);
 
   useEffect(() => {
     if (!ticket?.id || !agentUserId || !isSupabaseConfigured || !supabase) return;
@@ -442,6 +463,8 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
           filter: `ticket_id=eq.${ticketId}`,
         },
         () => {
+          if (agentUserId) return;
+
           // Fallback com retry curto para cobrir atraso entre update do ticket e leitura no frontend.
           const attemptRefresh = async (attempt = 0) => {
             const hasAssignee = await refreshAssignedAgent(ticketId);
@@ -461,7 +484,7 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
     return () => {
       client.removeChannel(channel);
     };
-  }, [ticket?.id, refreshAssignedAgent]);
+  }, [ticket?.id, agentUserId, refreshAssignedAgent]);
 
   useEffect(() => {
     if (!ticket?.id) return;
@@ -608,8 +631,18 @@ export function TicketDetails({ ticket, isDrawer = false, onClose }: Props) {
                     )}
                   </span>
 
-                  <Phone className="h-4 w-4 text-muted-foreground mt-0.5" />
-                  <span>+1 (555) 012-3456</span>
+                  {(requesterPhone || isLoadingAttachments) ? (
+                    <>
+                      <Phone className="h-4 w-4 text-muted-foreground mt-0.5" />
+                      <span>
+                        {requesterPhone ? (
+                          requesterPhone
+                        ) : (
+                          <Skeleton className="h-4 w-28" />
+                        )}
+                      </span>
+                    </>
+                  ) : null}
                 </div>
               </div>
 

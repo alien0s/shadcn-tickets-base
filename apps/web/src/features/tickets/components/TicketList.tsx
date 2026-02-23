@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,10 @@ export function TicketList({
   isNewTicketOpen: boolean;
   onNewTicketOpenChange: (open: boolean) => void;
 }) {
+  const [typingPreviewByTicket, setTypingPreviewByTicket] = useState<Map<string, string>>(
+    () => new Map()
+  );
+
   const {
     filteredTickets,
     isLoading,
@@ -77,6 +81,62 @@ export function TicketList({
     }
     return map;
   }, [filteredTickets, handleSelectTicket]);
+
+  useEffect(() => {
+    const handleTicketTyping = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ ticketId?: string; userName?: string; isTyping?: boolean }>
+      ).detail;
+      const ticketId = detail?.ticketId;
+      if (!ticketId) return;
+
+      if (detail?.isTyping === false) {
+        setTypingPreviewByTicket((prev) => {
+          if (!prev.has(ticketId)) return prev;
+          const next = new Map(prev);
+          next.delete(ticketId);
+          return next;
+        });
+        return;
+      }
+
+      const userName = detail?.userName?.trim() || "Alguem";
+      const typingPreview = `${userName} esta digitando...`;
+
+      setTypingPreviewByTicket((prev) => {
+        const next = new Map(prev);
+        next.set(ticketId, typingPreview);
+        return next;
+      });
+    };
+
+    const handleTicketMessageCreated = (event: Event) => {
+      const detail = (event as CustomEvent<{ ticketId?: string }>).detail;
+      const ticketId = detail?.ticketId;
+      if (!ticketId) return;
+
+      setTypingPreviewByTicket((prev) => {
+        if (!prev.has(ticketId)) return prev;
+        const next = new Map(prev);
+        next.delete(ticketId);
+        return next;
+      });
+    };
+
+    window.addEventListener("ticket-typing", handleTicketTyping as EventListener);
+    window.addEventListener(
+      "ticket-message-created",
+      handleTicketMessageCreated as EventListener
+    );
+
+    return () => {
+      window.removeEventListener("ticket-typing", handleTicketTyping as EventListener);
+      window.removeEventListener(
+        "ticket-message-created",
+        handleTicketMessageCreated as EventListener
+      );
+    };
+  }, []);
 
   // Componente de filtros reutilizavel
   const FilterContent = () => (
@@ -309,6 +369,7 @@ export function TicketList({
                       ? getUnreadCount(ticket.id)
                       : ticket.unreadCount,
                   }}
+                  typingPreview={typingPreviewByTicket.get(ticket.id)}
                   isActive={selectedTicketId === ticket.id}
                   isHighlighting={highlightedTicketIds.has(ticket.id)}
                   isFadingHighlight={fadingTicketIds.has(ticket.id)}

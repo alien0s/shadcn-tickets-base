@@ -44,6 +44,7 @@ export class UsersService {
     userData: Partial<User> & {
       last_name?: string
       email?: string
+      phone?: string
       entity_id?: string
       department_id?: string
       role_id?: string
@@ -53,6 +54,7 @@ export class UsersService {
       name: userData.name,
       last_name: userData.last_name,
       email: userData.email,
+      phone: userData.phone,
       entity_id: userData.entity_id,
       department_id: userData.department_id,
       role_id: userData.role_id,
@@ -60,6 +62,10 @@ export class UsersService {
       is_active: userData.is_active
     }
     return this.repository.update(id, allowedFields)
+  }
+
+  async updateUserAvatar(id: string, avatarUrl: string) {
+    return this.repository.update(id, { avatar_url: avatarUrl })
   }
 
   async deleteUser(id: string) {

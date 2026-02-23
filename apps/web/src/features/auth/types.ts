@@ -11,6 +11,7 @@ export type AuthUser = {
   name: string
   last_name?: string
   email: string
+  phone?: string
   role: UserRole
   avatar_url?: string
   department_id?: string

@@ -23,7 +23,7 @@ import { api } from "@/lib/api";
 type UserRowProps = {
   user: UserRecord;
   onDeleted?: (userId: string) => void;
-  onUpdated?: (userId: string, data: { name?: string; last_name?: string; email?: string; entity_id?: string; department_id?: string; role_id?: string; is_active?: boolean }) => void;
+  onUpdated?: (userId: string, data: { name?: string; last_name?: string; email?: string; phone?: string; entity_id?: string; department_id?: string; role_id?: string; is_active?: boolean; avatar_url?: string }) => void;
   isCurrentUser?: boolean;
   isAdmin?: boolean;
 };
@@ -86,7 +86,7 @@ function UserRowComponent({ user, onDeleted, onUpdated, isCurrentUser = false, i
    * Handler chamado após edição bem-sucedida
    * Atualiza a lista localmente sem reload completo
    */
-  const handleUserUpdated = useCallback((data: { name?: string; last_name?: string; email?: string; entity_id?: string; department_id?: string; role_id?: string; is_active?: boolean }) => {
+  const handleUserUpdated = useCallback((data: { name?: string; last_name?: string; email?: string; phone?: string; entity_id?: string; department_id?: string; role_id?: string; is_active?: boolean; avatar_url?: string }) => {
     onUpdated?.(user.id, data);
   }, [onUpdated, user.id]);
 

@@ -3,6 +3,8 @@ import { UsersService } from './users.service.js'
 import { usersSchemas } from './users.schemas.js'
 import { authMiddleware } from '../../shared/middlewares/auth.middleware.js'
 import { successResponse, paginatedResponse } from '../../shared/utils/response.js'
+import { ValidationError } from '../../shared/errors/AppError.js'
+import { saveUserAvatarUpload } from '../../uploads/users/users-avatar-upload.js'
 
 const userSchema = {
   type: 'object',
@@ -11,6 +13,7 @@ const userSchema = {
     name: { type: 'string' },
     last_name: { type: 'string' },
     email: { type: 'string', format: 'email' },
+    phone: { type: 'string' },
     department_id: { type: 'string', format: 'uuid' },
     entity_id: { type: 'string', format: 'uuid' },
     role_id: { type: 'string', format: 'uuid' },
@@ -211,6 +214,46 @@ fastify.get('/', {
     const { id } = request.params as any
     const user = await usersService.updateUser(id, request.body as any)
     return successResponse(user, 'Usuário atualizado com sucesso')
+  })
+
+  // POST /api/users/:id/avatar
+  fastify.post('/:id/avatar', {
+    preHandler: [authMiddleware]
+  }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+
+    if (!request.isMultipart || !request.isMultipart()) {
+      throw new ValidationError('Envio de arquivo inválido')
+    }
+
+    let uploadedAvatarUrl: string | null = null
+    const host = request.headers.host ?? 'localhost'
+
+    for await (const part of request.parts()) {
+      if (part.type !== 'file') continue
+
+      const saved = await saveUserAvatarUpload({
+        userId: id,
+        filename: part.filename,
+        mimeType: part.mimetype,
+        fileStream: part.file
+      })
+
+      uploadedAvatarUrl = new URL(
+        saved.url,
+        `${request.protocol}://${host}`
+      ).toString()
+      break
+    }
+
+    if (!uploadedAvatarUrl) {
+      throw new ValidationError('Nenhum arquivo enviado')
+    }
+
+    const updatedUser = await usersService.updateUserAvatar(id, uploadedAvatarUrl)
+    return reply
+      .status(201)
+      .send(successResponse(updatedUser, 'Foto atualizada com sucesso'))
   })
 
   // DELETE /api/users/:id

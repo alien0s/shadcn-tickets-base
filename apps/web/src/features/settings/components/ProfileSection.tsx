@@ -29,6 +29,8 @@ import { Check, ChevronDown, Trash2, Upload } from "lucide-react";
 import { cropImage, ImageCropper, useImageCropper } from "@/features/ImageCropper";
 import { useAuth } from "@/features/auth";
 import { useDepartments } from "@/hooks/useDepartments";
+import { useUserAvatarUpload } from "@/hooks/useUserAvatarUpload";
+import { toast } from "sonner";
 import { EntitySelect } from "./EntitySelect";
 import { ProfileField } from "./ProfileField";
 import type { ProfileSectionProps } from "../types";
@@ -40,6 +42,26 @@ function getInitials(firstName: string, lastName: string): string {
   if (!safeFirst && !safeLast) return "";
   if (!safeLast) return safeFirst.substring(0, 2).toUpperCase();
   return (safeFirst[0] + safeLast[0]).toUpperCase();
+}
+
+function extractLocalPhoneDigits(value: string): string {
+  const digitsOnly = value.replace(/\D/g, "");
+  if (!digitsOnly) return "";
+
+  const localDigits = digitsOnly.startsWith("55")
+    ? digitsOnly.slice(2)
+    : digitsOnly;
+
+  return localDigits.slice(0, 11);
+}
+
+function formatPhoneForDisplay(value?: string): string {
+  if (!value) return "";
+  const digits = extractLocalPhoneDigits(value);
+  if (!digits) return "";
+  if (digits.length <= 2) return `+55 (${digits}`;
+  if (digits.length <= 7) return `+55 (${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  return `+55 (${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
 }
 
 function LabeledInput({
@@ -58,11 +80,12 @@ export function ProfileSection({
   selectedEntity,
   onChangeEntity,
 }: ProfileSectionProps) {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const authAvatarUrl = user?.avatar_url || "";
   const authFirstName = user?.name || "";
   const authLastName = user?.last_name || "";
   const authEmail = user?.email || "";
+  const authPhone = user?.phone || "";
   const authDepartmentId = user?.department_id || "";
 
   const [avatarSrc, setAvatarSrc] = useState(() => authAvatarUrl);
@@ -72,6 +95,7 @@ export function ProfileSection({
 
   const [isCropOpen, setIsCropOpen] = useState(false);
   const [isSavingCrop, setIsSavingCrop] = useState(false);
+  const { uploadAvatar } = useUserAvatarUpload();
 
   const {
     imageSrc,
@@ -88,9 +112,10 @@ export function ProfileSection({
       firstName: authFirstName,
       lastName: authLastName,
       email: authEmail,
+      phone: formatPhoneForDisplay(authPhone),
       entity: selectedEntity,
     }),
-    [authEmail, authFirstName, authLastName, selectedEntity]
+    [authEmail, authFirstName, authLastName, authPhone, selectedEntity]
   );
 
   const [initialValues, setInitialValues] = useState(() => authDefaults);
@@ -130,6 +155,7 @@ export function ProfileSection({
       formValues.firstName === initialValues.firstName &&
       formValues.lastName === initialValues.lastName &&
       formValues.email === initialValues.email &&
+      formValues.phone === initialValues.phone &&
       formValues.entity === initialValues.entity &&
       departmentId === initialDepartmentId
     );
@@ -195,6 +221,11 @@ export function ProfileSection({
     setFormValues((prev) => ({ ...prev, email: value }));
   }, []);
 
+  const handlePhoneChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneForDisplay(event.target.value);
+    setFormValues((prev) => ({ ...prev, phone: formatted }));
+  }, []);
+
   const handleEntityChange = useCallback(
     (value: string) => {
       setFormValues((prev) => ({ ...prev, entity: value }));
@@ -245,13 +276,31 @@ export function ProfileSection({
       // SSR safety
       if (typeof window === "undefined") return;
 
-      const nextUrl = URL.createObjectURL(blob);
-      setAvatarSrc(nextUrl);
+      const nextLocalUrl = URL.createObjectURL(blob);
+      setAvatarSrc(nextLocalUrl);
+
+      if (user?.id) {
+        const extension = blob.type?.split("/")[1] || "jpg";
+        const file = new File([blob], `avatar-${user.id}.${extension}`, {
+          type: blob.type || "image/jpeg",
+        });
+        const uploadedAvatarUrl = await uploadAvatar(user.id, file);
+        if (uploadedAvatarUrl) {
+          setAvatarSrc(uploadedAvatarUrl);
+          updateUser({ avatar_url: uploadedAvatarUrl });
+          toast.success("Foto atualizada com sucesso");
+        }
+      }
+
       setIsCropOpen(false);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Erro ao enviar foto";
+      toast.error(errorMessage);
     } finally {
       setIsSavingCrop(false); // ✅ try/finally: não prende loading
     }
-  }, [cropArea, imageSrc]);
+  }, [cropArea, imageSrc, updateUser, uploadAvatar, user?.id]);
 
   return (
     <>
@@ -336,6 +385,21 @@ export function ProfileSection({
                 type="email"
                 value={formValues.email}
                 onChange={handleEmailChange}
+              />
+            </LabeledInput>
+          </div>
+        </ProfileField>
+
+        <ProfileField title="Telefone" description="Informe seu melhor número para contato.">
+          <div className="grid gap-4">
+            <LabeledInput inputId="phone">
+              <Input
+                id="phone"
+                type="tel"
+                value={formValues.phone}
+                onChange={handlePhoneChange}
+                placeholder="+55 (11) 99999-9999"
+                maxLength={19}
               />
             </LabeledInput>
           </div>

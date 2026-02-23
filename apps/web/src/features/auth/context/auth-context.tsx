@@ -19,6 +19,7 @@ type AuthContextValue = {
   logout: () => void
   enable2FA: () => Promise<void>
   disable2FA: () => Promise<void>
+  updateUser: (updates: Partial<AuthUser>) => void
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -96,6 +97,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             name: data.user.name,
             last_name: data.user.last_name,
             email: data.user.email,
+            phone: data.user.phone,
             avatar_url: data.user.avatar_url,
             department_id: data.user.department_id,
             entity_id: data.user.entity_id,
@@ -172,6 +174,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           name: data.user.name,
           last_name: data.user.last_name,
           email: data.user.email,
+          phone: data.user.phone,
           avatar_url: data.user.avatar_url,
           department_id: data.user.department_id,
           entity_id: data.user.entity_id,
@@ -239,6 +242,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [user])
 
+  const updateUser = useCallback((updates: Partial<AuthUser>) => {
+    setUser((current) => {
+      if (!current) return current
+      const nextUser = { ...current, ...updates }
+      setStoredUser(nextUser)
+      return nextUser
+    })
+  }, [])
+
   const value = useMemo(
     () => ({
       user,
@@ -251,9 +263,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       verify2FA,
       logout,
       enable2FA,
-      disable2FA
+      disable2FA,
+      updateUser
     }),
-    [user, isLoading, requires2FA, pendingEmail, login, register, verify2FA, logout, enable2FA, disable2FA]
+    [user, isLoading, requires2FA, pendingEmail, login, register, verify2FA, logout, enable2FA, disable2FA, updateUser]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

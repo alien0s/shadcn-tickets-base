@@ -5,7 +5,7 @@ import { MessageInput } from "./MessageInput";
 import type { MessageInputHandle } from "./MessageInput";
 import { MessageBubble } from "./MessageBubble";
 import { AttachmentViewer } from "@/features/attachments/components/AttachmentViewer";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Tooltip,
   TooltipContent,
@@ -99,12 +99,12 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
     },
   });
 
-  // ✅ Usar typingUsers e sendTypingEvent do hook
   const {
     imageMessages,
     messages,
     sendMessage,
-   
+    sendTypingEvent,
+    typingUsers,
     isLoading,
     ticketImageAttachments,
   } = useTicketMessages(ticket.id);
@@ -225,15 +225,20 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
     });
   }, [messages, newMessageId, handleImageClick]);
 
-  // ✅ MODIFICADO: Usar typingUsers array
   const renderedTypingIndicator = useMemo(() => {
-    
+    if (typingUsers.length === 0) return null;
+
+    const primaryTypingUser = typingUsers[0];
 
     return (
       <div className="flex items-start gap-2">
         <Avatar className="h-10 w-10 rounded-lg flex-shrink-0">
+          <AvatarImage
+            src={primaryTypingUser.avatarUrl}
+            alt={primaryTypingUser.userName}
+          />
           <AvatarFallback className="rounded-lg text-xs">
-            
+            {primaryTypingUser.avatarFallback}
           </AvatarFallback>
         </Avatar>
 
@@ -246,7 +251,7 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
         </div>
       </div>
     );
-  }, []);
+  }, [typingUsers]);
 
   useEffect(() => {
     initialScrollAppliedRef.current = false;
@@ -420,7 +425,8 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
       {!isTicketClosed && (
         <MessageInput
           ref={inputRef}
-          onSend={sendMessage} // ✅ NOVO
+          onSend={sendMessage}
+          onTyping={sendTypingEvent}
           attachments={attachments}
         />
       )}
@@ -434,3 +440,5 @@ export function ChatWindow({ ticket, onToggleDetails, onBack }: Props) {
     </div>
   );
 }
+
+

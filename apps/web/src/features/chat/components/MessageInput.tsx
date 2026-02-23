@@ -28,7 +28,7 @@ type AttachmentsController = {
 
 type Props = {
   onSend?: (payload: SendMessagePayload) => void;
-  onTyping?: () => void; // ✅ NOVO
+  onTyping?: (isTyping: boolean) => void;
   attachments?: AttachmentsController;
   disabled?: boolean;
   showPreviews?: boolean;
@@ -46,15 +46,14 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(
     const [message, setMessage] = useState("");
     const [shouldAutoFocus, setShouldAutoFocus] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const typingTimeoutRef = useRef<number | null>(null); // ✅ NOVO
+    const typingTimeoutRef = useRef<number | null>(null);
 
-    // Controller interno
     const internalAttachments = useFileAttachments({
       maxFiles: 10,
       onDuplicateFiles: (duplicates) => {
         if (duplicates.length === 0) return;
         const names = duplicates.map((file) => file.name).join(", ");
-        toast.warning(`Arquivo já adicionado: ${names}`);
+        toast.warning(`Arquivo j� adicionado: ${names}`);
       },
     });
 
@@ -84,24 +83,36 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(
       [focusInput]
     );
 
-    // ✅ NOVO: Detectar digitação com debounce
+    const stopTyping = useCallback(() => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+      onTyping?.(false);
+    }, [onTyping]);
+
     const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const value = e.target.value;
       setMessage(value);
 
-      // Enviar evento de typing (com debounce)
+      if (!onTyping) return;
+
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
       }
 
-      if (value.trim() && onTyping) {
-        onTyping(); // Enviar evento imediatamente
-        
-        // Enviar novamente após 2s se continuar digitando
-        typingTimeoutRef.current = setTimeout(() => {
-          onTyping();
-        }, 2000);
+      if (!value.trim()) {
+        onTyping(false);
+        return;
       }
+
+      onTyping(true);
+
+      typingTimeoutRef.current = window.setTimeout(() => {
+        onTyping(false);
+        typingTimeoutRef.current = null;
+      }, 1200);
     };
 
     const submitMessage = useCallback(() => {
@@ -114,12 +125,8 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(
       setMessage("");
       clearFiles();
       focusInput();
-      
-      // ✅ NOVO: Limpar timeout ao enviar
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-    }, [disabled, message, selectedFiles, onSend, clearFiles, focusInput]);
+      stopTyping();
+    }, [disabled, message, selectedFiles, onSend, clearFiles, focusInput, stopTyping]);
 
     useEffect(() => {
       if (typeof window === "undefined") return;
@@ -149,6 +156,16 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(
       focusInput();
     }, [shouldAutoFocus, focusInput]);
 
+    useEffect(() => {
+      return () => {
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+          typingTimeoutRef.current = null;
+        }
+        onTyping?.(false);
+      };
+    }, [onTyping]);
+
     return (
       <div
         className="px-3 pb-4 bg-background max-[767px]:pb-[calc(0.75rem+var(--safe-bottom, env(safe-area-inset-bottom)))]"
@@ -174,7 +191,8 @@ export const MessageInput = forwardRef<MessageInputHandle, Props>(
               rows={1}
               ref={textareaRef}
               value={message}
-              onChange={handleInputChange} // ✅ MODIFICADO
+              onChange={handleInputChange}
+              onBlur={stopTyping}
               onPaste={handlePaste}
               placeholder="Digite uma mensagem"
               disabled={disabled}

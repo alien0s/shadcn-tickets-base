@@ -9,6 +9,7 @@ type ApiUser = {
   name: string;
   last_name: string;
   email: string;
+  phone?: string;
   avatar_url?: string;
   is_active?: boolean;
   department_id: string;
@@ -219,6 +220,7 @@ export function useUsers() {
         id: user.id,
         name: fullName,
         email: user.email,
+        phone: user.phone,
         role: departmentName,
         entity: entityName,
         avatar: user.avatar_url,

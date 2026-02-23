@@ -14,7 +14,7 @@ type UsersTableProps = {
   isLoading?: boolean;
   error?: string | null;
   onUserDeleted: (userId: string) => void;
-  onUserUpdated?: (userId: string, data: { name?: string; last_name?: string; email?: string; entity_id?: string; department_id?: string; role_id?: string; is_active?: boolean }) => void;
+  onUserUpdated?: (userId: string, data: { name?: string; last_name?: string; email?: string; phone?: string; entity_id?: string; department_id?: string; role_id?: string; is_active?: boolean; avatar_url?: string }) => void;
   currentUserId?: string;
    isAdmin?: boolean; 
 };

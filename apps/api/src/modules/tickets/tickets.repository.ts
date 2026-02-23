@@ -130,6 +130,7 @@ export type TicketDetailRow = {
     id: string
     name: string
     email: string
+    phone: string | null
     avatar_url?: string | null
   } | null
   assigned_to: {
@@ -142,6 +143,17 @@ export type TicketDetailRow = {
 }
 
 export class TicketsRepository {
+  private async touchTicketUpdatedAt(ticketId: string) {
+    const { error } = await supabase
+      .from('tickets')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', ticketId)
+
+    if (error) {
+      console.error('Erro ao atualizar updated_at do ticket:', error)
+    }
+  }
+
   async getRoleNameById(roleId: string) {
     const { data, error } = await supabase
       .from('roles')
@@ -317,6 +329,7 @@ export class TicketsRepository {
       .single()
 
     if (error || !data) throw error
+    await this.touchTicketUpdatedAt(input.ticket_id)
     return data as TicketMessageRow
   }
 
@@ -471,7 +484,6 @@ export class TicketsRepository {
 
     return { tickets, total: count ?? 0 }
   }
-
   async findById(id: string) {
     const { data, error } = await supabase
       .from('tickets')
@@ -482,58 +494,90 @@ export class TicketsRepository {
         priority:ticket_priorities(id, key, label, order),
         type:ticket_types(id, key, label),
         os:operating_systems(id, name, version, family),
-        requester:users!requester_user_id(id, name, email, avatar_url),
-        assigned_to:users!assigned_to_user_id(id, name, avatar_url),
-        messages:ticket_messages(
-          id,
-          ticket_id,
-          type,
-          sender_user_id,
-          sender_type,
-          content,
-          created_at,
-          delivered_at,
-          read_at,
-          user:users(id, name, avatar_url)
-        ),
-        attachments:ticket_files_relation(
-          attached_at,
-          file:ticket_files(
-            id,
-            name,
-            url,
-            type,
-            preview_url,
-            file_size,
-            uploaded_at
-          )
-        )
+        requester:users!requester_user_id(id, name, email, phone, avatar_url),
+        assigned_to:users!assigned_to_user_id(id, name, avatar_url)
       `
       )
       .eq('id', id)
-      .order('created_at', { ascending: true, foreignTable: 'ticket_messages' })
       .single()
 
     if (error || !data) {
       throw new NotFoundError('Ticket não encontrado')
     }
 
+    const { data: messagesData, error: messagesError } = await supabase
+      .from('ticket_messages')
+      .select(
+        `
+        id,
+        ticket_id,
+        type,
+        sender_user_id,
+        sender_type,
+        content,
+        created_at,
+        delivered_at,
+        read_at,
+        user:users(id, name, avatar_url)
+      `
+      )
+      .eq('ticket_id', id)
+      .order('created_at', { ascending: true })
+
+    if (messagesError) throw messagesError
+
+    const { data: attachmentsRelationData, error: attachmentsError } = await supabase
+      .from('ticket_files_relation')
+      .select(
+        `
+        attached_at,
+        file:ticket_files(
+          id,
+          name,
+          url,
+          type,
+          preview_url,
+          file_size,
+          uploaded_at
+        )
+      `
+      )
+      .eq('ticket_id', id)
+
+    if (attachmentsError) throw attachmentsError
+
     type TicketAttachmentRelation = {
       file: TicketFileRow | null
     }
 
-    type TicketDetailRowRaw = Omit<TicketDetailRow, 'attachments'> & {
-      attachments?: TicketAttachmentRelation[] | null
+    type TicketMessageRowRaw = Omit<TicketMessageRow, 'user'> & {
+      user: TicketMessageRow['user'] | Array<NonNullable<TicketMessageRow['user']>>
     }
 
-    const raw = data as TicketDetailRowRaw
+    type TicketAttachmentRelationRaw = {
+      file: TicketFileRow | TicketFileRow[] | null
+    }
 
-    const attachments = (raw.attachments ?? [])
+    type TicketDetailRowRaw = Omit<TicketDetailRow, 'attachments' | 'messages'>
+
+    const raw = data as TicketDetailRowRaw
+    const messageRows = ((messagesData ?? []) as TicketMessageRowRaw[]).map((row) => ({
+      ...row,
+      user: Array.isArray(row.user) ? row.user[0] ?? null : row.user ?? null
+    }))
+
+    const attachmentRows = ((attachmentsRelationData ?? []) as TicketAttachmentRelationRaw[])
+      .map((row) => ({
+        file: Array.isArray(row.file) ? row.file[0] ?? null : row.file ?? null
+      })) as TicketAttachmentRelation[]
+
+    const attachments = attachmentRows
       .map((item) => item.file)
       .filter((file): file is TicketFileRow => Boolean(file))
 
     return {
       ...raw,
+      messages: messageRows,
       attachments
     } as TicketDetailRow
   }

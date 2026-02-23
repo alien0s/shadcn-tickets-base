@@ -3,6 +3,7 @@ export interface User {
   name: string
   last_name?: string
   email: string
+  phone?: string
   avatar_url?: string
   entity_id: string
   role_id: string
@@ -23,6 +24,7 @@ export interface UserPublic {
   name: string
   last_name: string
   email: string
+  phone?: string
   avatar_url?: string
   entity_id: string
   role_id: string
@@ -36,6 +38,7 @@ export interface CreateUserRequest {
   name: string
   last_name: string  // ← ADICIONAR
   email: string
+  phone?: string
   password: string
   entity_id: string
   role_id: string
@@ -46,6 +49,7 @@ export interface UpdateUserRequest {
   name?: string
   last_name?: string  // ← ADICIONAR
   email?: string
+  phone?: string
   avatar_url?: string
   role_id?: string
   is_active?: boolean
