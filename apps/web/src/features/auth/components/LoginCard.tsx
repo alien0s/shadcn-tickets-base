@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, LoaderCircleIcon } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { BRAND_NAME } from "@/config/brand";
+import AppLogo from "@/components/logo/AppLogo";
 
 export function LoginCard() {
   const navigate = useNavigate();
@@ -65,11 +66,14 @@ export function LoginCard() {
   return (
     <Card className="w-full max-w-sm shadow-sm">
       <div className="px-6 pt-6 text-center">
-        <div className="text-2xl font-semibold">{BRAND_NAME}</div>
+        <div className="inline-flex items-center gap-2 text-2xl font-semibold">
+          <AppLogo size={28} hideText />
+          <span>{BRAND_NAME}</span>
+        </div>
       </div>
 
       <CardHeader className="space-y-1 text-center">
-        <CardTitle className="text-xl">Login na sua conta</CardTitle>
+        <CardTitle className="text-xl">Login</CardTitle>
         <CardDescription>Informe seu email para acessar sua conta.</CardDescription>
       </CardHeader>
 

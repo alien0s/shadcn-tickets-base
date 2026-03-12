@@ -16,7 +16,7 @@ export class AuthRepository {
   async findByEmail(email: string): Promise<any | null> {
     const { data, error } = await supabase
       .from('users')
-      .select('*, roles(name, scope)')  // ← JOIN com tabela roles
+      .select('*, roles(name, scope), tenants(slug, name)')
       .eq('email', email)
       .eq('is_active', true)
       .single()
@@ -31,7 +31,7 @@ export class AuthRepository {
   async findById(id: string): Promise<any | null> {
     const { data, error } = await supabase
       .from('users')
-      .select('*, roles(name, scope)')  // ← JOIN com tabela roles
+      .select('*, roles(name, scope), tenants(slug, name)')
       .eq('id', id)
       .single()
 
@@ -47,6 +47,7 @@ export class AuthRepository {
     last_name: string
     email: string
     password_hash: string
+    tenant_id?: string
     entity_id: string
     role_id: string
     avatar_url?: string
@@ -170,3 +171,4 @@ export class AuthRepository {
     return data as User
   }
 }
+

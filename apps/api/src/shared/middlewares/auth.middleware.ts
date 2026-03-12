@@ -18,12 +18,14 @@ declare module '@fastify/jwt' {
     payload: {
       id: string
       email: string
+      tenant_id?: string
       entity_id: string
       role_id: string
     }
     user: {
       id: string
       email: string
+      tenant_id?: string
       entity_id: string
       role_id: string
     }

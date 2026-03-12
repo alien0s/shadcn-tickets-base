@@ -1,58 +1,82 @@
 import { useMemo } from "react";
 import { useSidebar } from "@/context/sidebar-context";
 import { Button } from "@/components/ui/button";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
+  BarChart3,
+  CalendarClock,
+  Grid2x2Check,
+  ExternalLink,
   FileText,
-  House,
-  LifeBuoy,
-  MessageCircle,
+  FolderClock,
+  GraduationCap,
   PanelLeft,
+  School,
+  Headset,
   Users,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { SidebarItem } from "./SidebarItem";
 import { UserNav } from "./UserNav";
+import { TenantsDropdown } from "./tenants";
 import { useSidebarOutsideClose } from "../hooks/useSidebarOutsideClose";
 import { useUserNav } from "../hooks/useUserNav";
 import { useAuth } from "@/features/auth";
+import { BRAND_NAME } from "@/config/brand";
+import { AppLogo } from "@/components/logo";
 
 type NavItem = {
   to: string;
   label: string;
   icon: LucideIcon;
+  openInNewTab?: boolean;
 };
+
+const ADMIN_DEPARTMENT_ID = "7240712b-96de-418a-b6b3-344d12d64237";
 
 export function Sidebar() {
   const { isCollapsed, toggleSidebar, closeSidebar } = useSidebar();
+  const location = useLocation();
   const sidebarRef = useSidebarOutsideClose({ isCollapsed, closeSidebar });
   const userNav = useUserNav();
   const { user } = useAuth();
   const isClient = user?.role === "client";
+  const canSeeAdminGroup =
+    user?.role === "root" || user?.department_id === ADMIN_DEPARTMENT_ID;
 
   // ✅ evita duplicação e mantém render previsível (sem mudar UI)
   const mainItems = useMemo<readonly NavItem[]>(
     () => [
       ...(isClient
         ? []
-        : [{ to: "/dashboardtickets", label: "Dashboard", icon: House }]),
-      { to: "/tickets", label: "Tickets", icon: MessageCircle },
-      { to: "/help-center", label: "Base de ajuda", icon: LifeBuoy },
+        : [{ to: "/dashboardtickets", label: "Dashboard", icon: BarChart3 }]),
+      { to: "/grade", label: "Grade", icon: Grid2x2Check },
+      { to: "/matriz", label: "Matriz", icon: FolderClock },
+      { to: "/turmas", label: "Turmas", icon: GraduationCap },
+      { to: "/professores", label: "Professores", icon: Users },
     ],
     [isClient]
   );
 
-  // ⚠️ Mantive seus paths exatamente como estão (mesmo repetidos em "/users")
-  // porque você não pediu pra corrigir rotas.
+  const adminItems = useMemo<readonly NavItem[]>(
+    () =>
+      !canSeeAdminGroup
+        ? []
+        : [
+            { to: "/users", label: "Usuário", icon: Users },
+            { to: "/escola", label: "Organização", icon: School },
+          ],
+    [canSeeAdminGroup]
+  );
+
   const bottomItems = useMemo<readonly NavItem[]>(
     () => [
-      ...(isClient ? [] : [{ to: "/users", label: "Usuários", icon: Users }]),
-      { to: "/users", label: "Suporte", icon: LifeBuoy },
-      { to: "/users", label: "Documentação", icon: FileText },
+      { to: "/tickets", label: "Tickets", icon: Headset, openInNewTab: true },
+      { to: "/docs", label: "Documentação", icon: FileText },
     ],
-    [isClient]
+    []
   );
 
   const collapseLabel = isCollapsed ? "Expandir menu" : "Recolher menu";
@@ -83,10 +107,12 @@ export function Sidebar() {
       >
         <div className="relative flex items-center justify-between h-14 px-3.5 border-b border-border group">
           <div className="flex items-center gap-2 w-full">
-            <div className="h-8 w-8 bg-primary rounded-md shrink-0" />
+            <div className="shrink-0">
+              <AppLogo size={28} hideText />
+            </div>
             {!isCollapsed && (
-              <span className="font-semibold text-sm tracking-tight truncate">
-                Support
+              <span className="font-semibold text-md tracking-normal truncate">
+                {BRAND_NAME}
               </span>
             )}
           </div>
@@ -96,7 +122,7 @@ export function Sidebar() {
             className={cn(
               "flex items-center",
               isCollapsed &&
-                "absolute inset-0 justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              "absolute inset-0 justify-center opacity-0 group-hover:opacity-100 transition-opacity"
             )}
           >
             <Tooltip>
@@ -122,6 +148,8 @@ export function Sidebar() {
           </div>
         </div>
 
+        <TenantsDropdown collapsed={isCollapsed} />
+
         {/* Navegacao principal */}
         <nav
           className="flex-1 min-h-0 grid grid-rows-[1fr_auto] py-3 px-2"
@@ -140,12 +168,17 @@ export function Sidebar() {
                 )}
               </NavLink>
             ))}
-          </div>
 
-          {/* Itens inferiores: Suporte, Documentacao e perfil */}
-          <div className="pt-3 flex flex-col gap-1">
-            {bottomItems.map((item, idx) => (
-              <NavLink key={`${item.to}-${idx}`} to={item.to} className="block">
+            {adminItems.length > 0 && !isCollapsed && (
+              <div className="px-2 pt-2 pb-1">
+                <p className="sidebar-group-label px-2 text-xs font-medium text-muted-foreground">
+                  Admin
+                </p>
+              </div>
+            )}
+
+            {adminItems.map((item) => (
+              <NavLink key={item.to} to={item.to} className="block">
                 {({ isActive }) => (
                   <SidebarItem
                     icon={item.icon}
@@ -155,6 +188,61 @@ export function Sidebar() {
                   />
                 )}
               </NavLink>
+            ))}
+          </div>
+
+          {/* Itens inferiores: Suporte, Documentacao e perfil */}
+          <div className="pt-3 flex flex-col gap-1">
+            {bottomItems.map((item, idx) => (
+              item.openInNewTab ? (
+                (() => {
+                  const isActive =
+                    location.pathname === item.to ||
+                    location.pathname.startsWith(`${item.to}/`);
+
+                  return (
+                <a
+                  key={`${item.to}-${idx}`}
+                  href={item.to}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
+                >
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size={isCollapsed ? "icon" : "default"}
+                    aria-label={isCollapsed ? item.label : undefined}
+                    className={cn(
+                      "sidebar-nav-btn justify-start",
+                      isCollapsed ? "justify-start w-full pl-[0.87rem]" : "gap-2 w-full pl-[0.85rem]"
+                      ,
+                      isActive
+                        ? "sidebar-nav-active hover:bg-primary/10 hover:text-primary dark:hover:bg-gray-800 dark:hover:text-foreground"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    <item.icon className="h-[1.4rem] w-[1.4rem]" aria-hidden="true" />
+                    {!isCollapsed && <span className="text-sm">{item.label}</span>}
+                    {!isCollapsed && (
+                      <ExternalLink className="ml-auto h-4 w-4 opacity-70" aria-hidden="true" />
+                    )}
+                  </Button>
+                </a>
+                  );
+                })()
+              ) : (
+                <NavLink key={`${item.to}-${idx}`} to={item.to} className="block">
+                  {({ isActive }) => (
+                    <SidebarItem
+                      icon={item.icon}
+                      label={item.label}
+                      collapsed={isCollapsed}
+                      active={isActive}
+                    />
+                  )}
+                </NavLink>
+              )
             ))}
 
             <div className="mt-2">
@@ -166,3 +254,4 @@ export function Sidebar() {
     </>
   );
 }
+

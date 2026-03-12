@@ -39,6 +39,7 @@ CREATE TABLE tickets (
   type_id INTEGER NOT NULL REFERENCES ticket_types(id) ON DELETE RESTRICT,
   requester_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
+  tenant_id UUID REFERENCES tenants(id),
   assigned_to_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   os_id INTEGER REFERENCES operating_systems(id) ON DELETE SET NULL,
   browser VARCHAR(255),

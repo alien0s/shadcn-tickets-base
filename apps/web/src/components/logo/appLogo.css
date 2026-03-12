@@ -1,0 +1,33 @@
+.AppLogo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 0;
+  color: hsl(var(--foreground));
+}
+
+.AppLogo svg {
+  height: 64%;
+  display: block;
+}
+
+.AppLogo .logo-planet {
+  height: 80%;
+}
+
+.AppLogo .logo-planet path {
+  fill: hsl(var(--primary));
+}
+
+.AppLogo .logo-wordmark path {
+  fill: currentColor;
+}
+
+
+.sidebar-logo {
+  line-height: 0;
+}
+
+.sidebar-logo a {
+  color: inherit;
+}

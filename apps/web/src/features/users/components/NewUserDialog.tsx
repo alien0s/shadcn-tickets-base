@@ -50,7 +50,7 @@ const PERMISSION_OPTIONS = [
 type PermissionKey = (typeof PERMISSION_OPTIONS)[number]["key"];
 
 const ROLE_ID_BY_PERMISSION: Record<PermissionKey, string> = {
-  admin: "650e8400-e29b-41d4-a716-446655440000",
+  admin: "056b9643-551e-4360-ac1d-411bf28477f0",
   agent: "650e8400-e29b-41d4-a716-446655440001",
   user: "650e8400-e29b-41d4-a716-446655440002",
 };

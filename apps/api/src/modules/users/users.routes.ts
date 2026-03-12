@@ -84,6 +84,10 @@ fastify.get('/', {
         description: 'Successful response',
         ...paginatedUsersResponseSchema
       },
+      401: {
+        description: 'Unauthorized',
+        ...errorResponseSchema
+      },
       400: {
         description: 'Bad request',
         ...errorResponseSchema
@@ -94,7 +98,7 @@ fastify.get('/', {
       }
     }
   },
-  //preHandler: [authMiddleware]
+  preHandler: [authMiddleware]
 }, async (request, reply) => {
   // Extrai query params com valores padrão
   const { 
@@ -107,7 +111,13 @@ fastify.get('/', {
   
   
   // Passa todos os parâmetros para o service
-  const { users, total } = await usersService.listUsers(page, limit, sortBy, order)
+  const { users, total } = await usersService.listUsers(
+    page,
+    limit,
+    sortBy,
+    order,
+    request.user.id
+  )
   return paginatedResponse(users, total, page, limit)
 })
 

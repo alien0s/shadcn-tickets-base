@@ -5,6 +5,10 @@ export interface User {
   email: string
   phone?: string
   avatar_url?: string
+  department_id?: string
+  tenant_id?: string
+  tenant_slug?: string
+  tenant_name?: string
   entity_id: string
   role_id: string
   
@@ -26,6 +30,10 @@ export interface UserPublic {
   email: string
   phone?: string
   avatar_url?: string
+  department_id?: string
+  tenant_id?: string
+  tenant_slug?: string
+  tenant_name?: string
   entity_id: string
   role_id: string
   role_name: string
@@ -40,6 +48,7 @@ export interface CreateUserRequest {
   email: string
   phone?: string
   password: string
+  tenant_id?: string
   entity_id: string
   role_id: string
   avatar_url?: string
@@ -60,7 +69,8 @@ export interface RegisterRequest {
   last_name: string
   email: string
   password: string
-  entity_id: string
+  tenant_id?: string
+  entity_id?: string
   role_id: string
   avatar_url?: string
 }
@@ -115,4 +125,10 @@ export interface LoginUserResponse extends UserPublic {
 export * from './department.types'
 export * from './entity.types'
 export * from './role.types'
+export * from './school.types'
+export * from './teacher.types'
+export * from './subject.types'
+export * from './time-slot.types'
+export * from './schedule.types'
+export * from './class.types'
 export * from './tickets.types'

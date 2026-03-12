@@ -1,7 +1,7 @@
 /**
  * Papéis do usuário (simplificado)
  */
-export type UserRole = "admin" | "agent" | "client"
+export type UserRole = "root" | "admin" | "agent" | "client"
 
 /**
  * Modelo do usuário autenticado
@@ -15,6 +15,9 @@ export type AuthUser = {
   role: UserRole
   avatar_url?: string
   department_id?: string
+  tenant_id: string
+  tenant_slug?: string
+  tenant_name?: string
   entity_id: string
   role_id: string
   two_factor_enabled: boolean
@@ -40,7 +43,8 @@ export type RegisterPayload = {
   last_name: string
   email: string
   password: string
-  entity_id: string
+  tenant_id?: string
+  entity_id?: string
   role_id: string
   avatar_url?: string
 }

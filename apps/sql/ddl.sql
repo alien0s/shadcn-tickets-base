@@ -38,6 +38,8 @@ CREATE TABLE users (
   name VARCHAR(255) NOT NULL,
   last_name VARCHAR(50),
   email VARCHAR(255) NOT NULL UNIQUE,
+  tenant_id UUID REFERENCES tenants(id),
+  school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
   entity_id UUID NOT NULL REFERENCES entities(id) ON DELETE CASCADE,
   role_id UUID NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
   department_id UUID REFERENCES departments(id) ON DELETE SET NULL,

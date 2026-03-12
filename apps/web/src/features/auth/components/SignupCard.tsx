@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
 import { BRAND_NAME } from "@/config/brand";
+import AppLogo from "@/components/logo/AppLogo";
 import { useAuth } from "../hooks/useAuth";
 
 const DEFAULT_ROLE_ID = "650e8400-e29b-41d4-a716-446655440002";
@@ -157,6 +158,7 @@ export function SignupCard() {
         last_name: normalizedLastName,
         email: normalizedEmail,
         password,
+        tenant_id: DEFAULT_ENTITY_ID,
         entity_id: DEFAULT_ENTITY_ID,
         role_id: DEFAULT_ROLE_ID,
       });
@@ -175,7 +177,10 @@ export function SignupCard() {
   return (
     <Card className="w-full max-w-sm shadow-sm">
       <div className="px-6 pt-6 text-center">
-        <div className="text-2xl font-semibold">{BRAND_NAME}</div>
+        <div className="inline-flex items-center gap-2 text-2xl font-semibold">
+          <AppLogo size={28} hideText />
+          <span>{BRAND_NAME}</span>
+        </div>
       </div>
 
       <CardHeader className="space-y-1 text-center">

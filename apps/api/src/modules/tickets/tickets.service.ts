@@ -8,6 +8,8 @@ type AuthUser = {
   role_id: string
 }
 
+type RoleName = 'root' | 'admin' | 'agent' | 'client'
+
 export class TicketsService {
   private repository: TicketsRepository
 
@@ -15,23 +17,29 @@ export class TicketsService {
     this.repository = new TicketsRepository()
   }
 
-  private async resolveRoleName(roleId: string) {
+  private async resolveRoleName(roleId: string): Promise<RoleName> {
     const roleName = await this.repository.getRoleNameById(roleId)
-    return roleName ?? 'Client'
+    const normalized = roleName?.toLowerCase()
+    if (normalized === 'root' || normalized === 'admin' || normalized === 'agent' || normalized === 'client') {
+      return normalized
+    }
+    return 'client'
   }
 
   async listTickets(user: AuthUser, filters: ListTicketsQuery) {
     const roleName = await this.resolveRoleName(user.role_id)
-    return this.repository.findAll({ userId: user.id, roleName }, filters)
+    return this.repository.findAll({ userId: user.id, entityId: user.entity_id, roleName }, filters)
   }
 
   async getTicketById(id: string, user: AuthUser) {
     const ticket = await this.repository.findById(id)
     const roleName = await this.resolveRoleName(user.role_id)
-    const isAdminOrAgent = roleName === 'Admin' || roleName === 'Agent'
+    const isRoot = roleName === 'root'
+    const isAdminOrAgent = roleName === 'admin' || roleName === 'agent'
 
     const canAccess =
-      isAdminOrAgent ||
+      isRoot ||
+      (isAdminOrAgent && ticket.entity_id === user.entity_id) ||
       ticket.requester_user_id === user.id ||
       ticket.assigned_to_user_id === user.id
 
@@ -45,9 +53,11 @@ export class TicketsService {
   async markTicketRead(ticketId: string, user: AuthUser) {
     const ticket = await this.repository.getTicketAccess(ticketId)
     const roleName = await this.resolveRoleName(user.role_id)
-    const isAdminOrAgent = roleName === 'Admin' || roleName === 'Agent'
+    const isRoot = roleName === 'root'
+    const isAdminOrAgent = roleName === 'admin' || roleName === 'agent'
     const canAccess =
-      isAdminOrAgent ||
+      isRoot ||
+      (isAdminOrAgent && ticket.entity_id === user.entity_id) ||
       ticket.requester_user_id === user.id ||
       ticket.assigned_to_user_id === user.id
 
@@ -90,7 +100,7 @@ export class TicketsService {
   ) {
     if (requester.role_id) {
       const roleName = await this.resolveRoleName(requester.role_id)
-      if (roleName === 'Agent') {
+      if (roleName === 'agent') {
         await this.repository.assignToAgentIfEmpty(ticketId, requester.id)
       }
     }
@@ -121,7 +131,7 @@ export class TicketsService {
   }) {
     if (input.requester_role_id) {
       const roleName = await this.resolveRoleName(input.requester_role_id)
-      if (roleName === 'Agent') {
+      if (roleName === 'agent') {
         await this.repository.assignToAgentIfEmpty(input.ticket_id, input.sender_user_id)
       }
     }

@@ -3,35 +3,96 @@ import { User } from '@ticket-system/types'
 import { NotFoundError } from '../../shared/errors/AppError.js'
 
 export class UsersRepository {
-  /**
- * Busca todos os usuários com paginação e ordenação
- * @param page - Número da página
- * @param limit - Quantidade de registros por página
- * @param sortBy - Campo para ordenar (ex: 'name', 'email', 'created_at')
- * @param order - Direção: 'asc' (crescente) ou 'desc' (decrescente)
- */
-async findAll(
-  page: number = 1, 
-  limit: number = 10,
-  sortBy: string = 'created_at',  // ← ADICIONAR
-  order: 'asc' | 'desc' = 'desc'   // ← ADICIONAR
-) {
-  const offset = (page - 1) * limit
+  private readonly allowedSortFields = ['name', 'email', 'created_at', 'last_name']
 
-  // Validar campos permitidos para ordenação (segurança)
-  const allowedSortFields = ['name', 'email', 'created_at', 'last_name']
-  const validSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'created_at'
+  private getValidSortBy(sortBy: string) {
+    return this.allowedSortFields.includes(sortBy) ? sortBy : 'created_at'
+  }
 
-  const { data, error, count } = await supabase
-    .from('users')
-    .select('*', { count: 'exact' })
-    .range(offset, offset + limit - 1)
-    .order(validSortBy, { ascending: order === 'asc' }) // ← USAR PARÂMETROS DINÂMICOS
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+    sortBy: string = 'created_at',
+    order: 'asc' | 'desc' = 'desc'
+  ) {
+    const offset = (page - 1) * limit
+    const validSortBy = this.getValidSortBy(sortBy)
 
-  if (error) throw error
+    const { data, error, count } = await supabase
+      .from('users')
+      .select('*', { count: 'exact' })
+      .range(offset, offset + limit - 1)
+      .order(validSortBy, { ascending: order === 'asc' })
 
-  return { users: data as User[], total: count || 0 }
-}
+    if (error) throw error
+
+    return { users: data as User[], total: count || 0 }
+  }
+
+  async findAllByTenant(
+    tenantId: string,
+    page: number = 1,
+    limit: number = 10,
+    sortBy: string = 'created_at',
+    order: 'asc' | 'desc' = 'desc'
+  ) {
+    const offset = (page - 1) * limit
+    const validSortBy = this.getValidSortBy(sortBy)
+
+    const { data, error, count } = await supabase
+      .from('users')
+      .select('*', { count: 'exact' })
+      .eq('tenant_id', tenantId)
+      .range(offset, offset + limit - 1)
+      .order(validSortBy, { ascending: order === 'asc' })
+
+    if (error) throw error
+
+    return { users: data as User[], total: count || 0 }
+  }
+
+  async findAllByUserId(
+    userId: string,
+    page: number = 1,
+    limit: number = 10,
+    sortBy: string = 'created_at',
+    order: 'asc' | 'desc' = 'desc'
+  ) {
+    const offset = (page - 1) * limit
+    const validSortBy = this.getValidSortBy(sortBy)
+
+    const { data, error, count } = await supabase
+      .from('users')
+      .select('*', { count: 'exact' })
+      .eq('id', userId)
+      .range(offset, offset + limit - 1)
+      .order(validSortBy, { ascending: order === 'asc' })
+
+    if (error) throw error
+
+    return { users: data as User[], total: count || 0 }
+  }
+
+  async findAccessContextById(id: string) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, tenant_id, department_id, roles(name)')
+      .eq('id', id)
+      .single()
+
+    if (error || !data) {
+      throw new NotFoundError('Usuario nao encontrado')
+    }
+
+    const roleRelation = Array.isArray(data.roles) ? data.roles[0] : data.roles
+
+    return {
+      id: String(data.id),
+      tenant_id: data.tenant_id ? String(data.tenant_id) : undefined,
+      department_id: data.department_id ? String(data.department_id) : undefined,
+      role_name: roleRelation?.name ? String(roleRelation.name).toLowerCase() : 'client'
+    }
+  }
 
   async findById(id: string) {
     const { data, error } = await supabase
@@ -41,7 +102,7 @@ async findAll(
       .single()
 
     if (error || !data) {
-      throw new NotFoundError('Usuário não encontrado')
+      throw new NotFoundError('Usuario nao encontrado')
     }
 
     return data as User
@@ -78,7 +139,7 @@ async findAll(
       .single()
 
     if (error) throw error
-    if (!data) throw new NotFoundError('Usuário não encontrado')
+    if (!data) throw new NotFoundError('Usuario nao encontrado')
 
     return data as User
   }

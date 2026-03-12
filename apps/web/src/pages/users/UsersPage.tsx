@@ -7,8 +7,8 @@ import { NewUserDialog } from "@/features/users/components/NewUserDialog";
 import { useUsers } from "@/features/users/hooks/useUsers";
 import { useAuth } from "@/features/auth";
 
-// ID fixo do role Admin (baseado nos dados que você enviou)
-const ADMIN_ROLE_ID = '650e8400-e29b-41d4-a716-446655440000';
+// ID fixo do role root (antigo Admin global)
+const ROOT_ROLE_ID = '650e8400-e29b-41d4-a716-446655440000';
 
 export function UsersPage() {
   const {
@@ -35,8 +35,7 @@ export function UsersPage() {
   const { user: currentUser } = useAuth();
   const [isNewUserOpen, setIsNewUserOpen] = useState(false);
 
-  // ✅ ADICIONAR: Verificar se usuário logado é Admin
-  const isAdmin = currentUser?.role_id === ADMIN_ROLE_ID;
+  const isAdmin = currentUser?.role_id === ROOT_ROLE_ID;
 
   return (
     <AppLayout>

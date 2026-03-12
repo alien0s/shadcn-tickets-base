@@ -1,9 +1,11 @@
 import { createContext, useCallback, useMemo, useRef, useState, useEffect } from "react"
 import type { UserRole, AuthUser, LoginPayload, LoginResponse, RegisterPayload } from "../types"
 import { clearAuth, getStoredUser, setStoredUser, setStoredToken, getStoredToken, setStoredSupabaseToken, getStoredSupabaseToken } from "../utils/auth-storage"
+import { consumeAuthHandoff } from "../utils/auth-handoff"
 import { getClientDeviceInfo } from "../utils/device-info"
 import { api } from '@/lib'
 import { setSupabaseAuth } from "@/lib/supabase"
+import { primeGradeDirectoryCache } from "@/features/grade/hooks/useGradeDirectory"
 import { toast } from "sonner"
 
 
@@ -28,9 +30,18 @@ type AuthProviderProps = {
   children: React.ReactNode
 }
 
+function normalizeUserRole(roleName?: string): UserRole {
+  const normalized = roleName?.toLowerCase()
+  if (normalized === 'root' || normalized === 'admin' || normalized === 'agent' || normalized === 'client') {
+    return normalized
+  }
+  return 'client'
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<AuthUser | null>(() => getStoredUser())
+  const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isHydratingSession, setIsHydratingSession] = useState(true)
   const [requires2FA, setRequires2FA] = useState(false)
   const [pendingEmail, setPendingEmail] = useState<string | null>(null)
 
@@ -41,6 +52,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
    */
   useEffect(() => {
     const validateToken = async () => {
+      const handoff = consumeAuthHandoff()
+      if (handoff?.user && handoff.token) {
+        setStoredUser(handoff.user)
+        setStoredToken(handoff.token)
+        if (handoff.supabaseToken) {
+          setStoredSupabaseToken(handoff.supabaseToken)
+          setSupabaseAuth(handoff.supabaseToken)
+        }
+        setUser(handoff.user)
+        setIsHydratingSession(false)
+        return
+      }
+
       const token = getStoredToken()
       const supabaseToken = getStoredSupabaseToken()
       const storedUser = getStoredUser()
@@ -57,7 +81,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
           clearAuth()
           setUser(null)
         }
+      } else {
+        clearAuth()
+        setUser(null)
       }
+
+      setIsHydratingSession(false)
     }
 
     validateToken()
@@ -92,6 +121,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         // Login bem-sucedido
         if (data.user && data.token) {
+          const tenantId = data.user.tenant_id ?? data.user.entity_id
           const mappedUser: AuthUser = {
             id: data.user.id,
             name: data.user.name,
@@ -100,12 +130,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
             phone: data.user.phone,
             avatar_url: data.user.avatar_url,
             department_id: data.user.department_id,
+            tenant_id: tenantId,
+            tenant_slug: data.user.tenant_slug,
+            tenant_name: data.user.tenant_name,
             entity_id: data.user.entity_id,
             role_id: data.user.role_id,
             two_factor_enabled: data.user.two_factor_enabled,
             last_login_at: data.user.last_login_at,
             is_active: data.user.is_active,
-            role: (data.user.role_name?.toLowerCase() || 'client') as UserRole,
+            role: normalizeUserRole(data.user.role_name),
             os_id: deviceInfo.os_id,
             browser: deviceInfo.browser
           }
@@ -116,6 +149,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             setStoredSupabaseToken(data.supabase_token)
             setSupabaseAuth(data.supabase_token)
           }
+          void primeGradeDirectoryCache()
           
           
         }
@@ -169,6 +203,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       })
 
       if (data.user && data.token) {
+        const tenantId = data.user.tenant_id ?? data.user.entity_id
         const mappedUser: AuthUser = {
           id: data.user.id,
           name: data.user.name,
@@ -177,12 +212,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
           phone: data.user.phone,
           avatar_url: data.user.avatar_url,
           department_id: data.user.department_id,
+          tenant_id: tenantId,
+          tenant_slug: data.user.tenant_slug,
+          tenant_name: data.user.tenant_name,
           entity_id: data.user.entity_id,
           role_id: data.user.role_id,
           two_factor_enabled: data.user.two_factor_enabled,
           last_login_at: data.user.last_login_at,
           is_active: data.user.is_active,
-          role: (data.user.role_name?.toLowerCase() || 'client') as UserRole,
+          role: normalizeUserRole(data.user.role_name),
           os_id: deviceInfo.os_id,
           browser: deviceInfo.browser
         }
@@ -193,6 +231,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setStoredSupabaseToken(data.supabase_token)
           setSupabaseAuth(data.supabase_token)
         }
+        void primeGradeDirectoryCache()
         
         
         
@@ -255,7 +294,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     () => ({
       user,
       isAuthenticated: Boolean(user),
-      isLoading,
+      isLoading: isLoading || isHydratingSession,
       requires2FA,
       pendingEmail,
       login,
@@ -266,8 +305,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       disable2FA,
       updateUser
     }),
-    [user, isLoading, requires2FA, pendingEmail, login, register, verify2FA, logout, enable2FA, disable2FA, updateUser]
+    [user, isLoading, isHydratingSession, requires2FA, pendingEmail, login, register, verify2FA, logout, enable2FA, disable2FA, updateUser]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
+

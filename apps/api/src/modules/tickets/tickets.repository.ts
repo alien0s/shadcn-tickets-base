@@ -169,7 +169,7 @@ export class TicketsRepository {
   async getTicketAccess(id: string) {
     const { data, error } = await supabase
       .from('tickets')
-      .select('id, requester_user_id, assigned_to_user_id')
+      .select('id, requester_user_id, assigned_to_user_id, entity_id')
       .eq('id', id)
       .single()
 
@@ -181,6 +181,7 @@ export class TicketsRepository {
       id: string
       requester_user_id: string
       assigned_to_user_id: string | null
+      entity_id: string
     }
   }
 
@@ -393,7 +394,7 @@ export class TicketsRepository {
   }
 
   async findAll(
-    input: { userId: string; roleName: string },
+    input: { userId: string; entityId: string; roleName: string },
     filters: ListTicketsQuery
   ) {
     const { page, limit, status, priority, type, search, sortBy, order, dateFrom, dateTo } = filters
@@ -424,8 +425,15 @@ export class TicketsRepository {
         { count: 'exact' }
       )
 
-    const isAdminOrAgent = input.roleName === 'Admin' || input.roleName === 'Agent'
-    if (!isAdminOrAgent) {
+    const roleName = input.roleName.toLowerCase()
+    const isRoot = roleName === 'root'
+    const isAdminOrAgent = roleName === 'admin' || roleName === 'agent'
+
+    if (!isRoot && isAdminOrAgent) {
+      query = query.eq('entity_id', input.entityId)
+    }
+
+    if (!isRoot && !isAdminOrAgent) {
       query = query.or(
         `requester_user_id.eq.${input.userId},assigned_to_user_id.eq.${input.userId}`
       )

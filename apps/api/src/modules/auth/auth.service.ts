@@ -20,7 +20,15 @@ export class AuthService {
  * Extrai nome da role do objeto retornado pelo Supabase
  */
     private getRoleName(user: any): string {
-        return user.roles?.name || 'Client'
+        return user.roles?.name || 'client'
+    }
+
+    private getTenantMeta(user: any): { slug?: string, name?: string } {
+        const tenantRelation = Array.isArray(user.tenants) ? user.tenants[0] : user.tenants
+        return {
+            slug: tenantRelation?.slug,
+            name: tenantRelation?.name
+        }
     }
 
     constructor(fastify: FastifyInstance) {
@@ -51,6 +59,11 @@ export class AuthService {
 
         // Hash da senha com bcrypt (salt rounds = 10)
         const passwordHash = await bcrypt.hash(registerData.password, 10)
+        const entityId = registerData.entity_id ?? registerData.tenant_id
+
+        if (!entityId) {
+            throw new ValidationError('tenant_id (empresa) é obrigatório')
+        }
 
         // Criar usuário no banco
         const user = await this.repository.createUser({
@@ -58,7 +71,8 @@ export class AuthService {
             last_name: registerData.last_name,
             email: registerData.email,
             password_hash: passwordHash,
-            entity_id: registerData.entity_id,
+            tenant_id: registerData.tenant_id ?? entityId,
+            entity_id: entityId,
             role_id: registerData.role_id,
             avatar_url: registerData.avatar_url
         })
@@ -73,7 +87,7 @@ export class AuthService {
      * Login do usuário - Etapa 1: Validar credenciais
      * Retorna se precisa de 2FA ou o token direto
      */
-    async login(loginData: LoginRequest): Promise<{ user?: UserPublic, token?: string, requires_2fa?: boolean }> {
+    async login(loginData: LoginRequest): Promise<{ user?: UserPublic, token?: string, supabase_token?: string, requires_2fa?: boolean }> {
         // Buscar usuário por email
         const user = await this.repository.findByEmail(loginData.email)
 
@@ -127,7 +141,7 @@ export class AuthService {
     /**
      * Login - Etapa 2: Verificar código 2FA
      */
-    async verify2FACode(email: string, code: string): Promise<{ user: UserPublic, token: string }> {
+    async verify2FACode(email: string, code: string): Promise<{ user: UserPublic, token: string, supabase_token: string }> {
         const user = await this.repository.findByEmail(email)
 
         if (!user) {
@@ -236,7 +250,7 @@ export class AuthService {
         email: string
         name: string
         avatar?: string
-    }): Promise<{ user: UserPublic, token: string }> {
+    }): Promise<{ user: UserPublic, token: string, supabase_token: string }> {
         // Buscar ou criar usuário baseado no email do Microsoft
         const user = await this.repository.findOrCreateMicrosoftUser({
             email: microsoftProfile.email,
@@ -258,9 +272,11 @@ export class AuthService {
      * Gera JWT token para o usuário
      */
     private generateToken(user: User): string {
+        const tenantId = user.tenant_id ?? user.entity_id
         return this.fastify.jwt.sign({
             id: user.id,
             email: user.email,
+            tenant_id: tenantId,
             entity_id: user.entity_id,
             role_id: user.role_id
         })
@@ -276,7 +292,7 @@ export class AuthService {
                 iss: 'supabase',
                 role: 'authenticated',
                 aud: 'authenticated'
-            },
+            } as any,
             {
                 key: env.supabase.jwtSecret,
                 algorithm: 'HS256',
@@ -289,12 +305,19 @@ export class AuthService {
      * Remove dados sensíveis do usuário antes de retornar ao frontend
      */
     private sanitizeUser(user: any): UserPublic {
+        const tenantId = user.tenant_id ?? user.entity_id
+        const tenantMeta = this.getTenantMeta(user)
         return {
             id: user.id,
             name: user.name,
             last_name: user.last_name,
             email: user.email,
+            phone: user.phone,
             avatar_url: user.avatar_url,
+            department_id: user.department_id,
+            tenant_id: tenantId,
+            tenant_slug: tenantMeta.slug,
+            tenant_name: tenantMeta.name,
             entity_id: user.entity_id,
             role_id: user.role_id,
             role_name: user.role_name,
@@ -312,7 +335,7 @@ export class AuthService {
     private sanitizeUserWithRole(user: any): UserPublic & { role_name: string } {
         return {
             ...this.sanitizeUser(user),
-            role_name: user.roles?.name || 'Client'  // ← Pega nome da role do JOIN
+            role_name: user.roles?.name || 'client'  // ← Pega nome da role do JOIN
         }
     }
 }

@@ -58,7 +58,7 @@ class EmailService {
               <p>Se você não solicitou este código, ignore este email.</p>
             </div>
             <div class="footer">
-              <p>Sistema de Tickets - Autenticação Segura</p>
+              <p>thurnos - Autenticação Segura</p>
             </div>
           </div>
         </body>
@@ -114,7 +114,7 @@ class EmailService {
               <p style="font-size: 12px; color: #6b7280;">Ou copie e cole este link no navegador:<br>${resetUrl}</p>
             </div>
             <div class="footer">
-              <p>Sistema de Tickets - Recuperação Segura</p>
+              <p>thurnos - Recuperação Segura</p>
             </div>
           </div>
         </body>

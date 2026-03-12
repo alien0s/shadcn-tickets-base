@@ -1,10 +1,14 @@
 import { useEffect } from "react"
-import { Routes, Route, Navigate } from "react-router-dom"
+import { Routes, Route, Navigate, useLocation } from "react-router-dom"
 import { TicketsPage } from "@/pages/TicketsPage"
 import { DashboardTicketsPage } from "@/pages/DashboardTicketsPage"
+import { GradePage } from "@/pages/GradePage"
 import { HelpCenterPage } from "@/pages/HelpCenterPage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { UsersPage } from "@/pages/users/UsersPage"
+import { ClassesPage } from "@/pages/classes/ClassesPage"
+import { TeachersPage } from "@/pages/teachers/TeachersPage"
+import { SchoolsPage } from "@/pages/schools/SchoolsPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { SignupPage } from "@/pages/SignupPage"
 import { ForgotPasswordPage } from "@/features/auth"
@@ -13,6 +17,11 @@ import { useAppViewport } from "@/hooks/useAppViewport"
 import { useIsApplePlatform } from "@/hooks/useIsApplePlatform"
 import { Toaster } from "@/components/ui/sonner"
 import { ProtectedRoute, RoleBasedRoute, PublicRoute } from "@/features/auth/components/routes"
+import { useTenantSubdomainGuard } from "@/features/tenant/hooks/useTenantSubdomainGuard"
+import { buildRootUrlForCurrentHost, getCurrentSubdomain } from "@/features/tenant/utils/subdomain"
+import { getStoredToken, getStoredUser } from "@/features/auth/utils/auth-storage"
+import { hasPendingAuthHandoff } from "@/features/auth/utils/auth-handoff"
+import { replaceWithRedirectLock } from "@/features/tenant/utils/redirect-lock"
 
 /**
  * Componente principal da aplicação
@@ -20,10 +29,12 @@ import { ProtectedRoute, RoleBasedRoute, PublicRoute } from "@/features/auth/com
  * Sistema de proteção de rotas:
  * - Rotas públicas: apenas não autenticados (login, forgot-password)
  * - Rotas protegidas: apenas autenticados
- * - Rotas com role: apenas roles específicas (dashboard = admin/agent)
+ * - Rotas com role: apenas roles específicas (dashboard = root/admin/agent)
  */
 export default function App() {
   const { user, isAuthenticated } = useAuth()
+  const location = useLocation()
+  useTenantSubdomainGuard(user, isAuthenticated)
 
   // Inicializa ajuste de altura dinâmica para mobile
   useAppViewport()
@@ -38,10 +49,33 @@ export default function App() {
     }
   }, [isApplePlatform])
 
+  useEffect(() => {
+    const currentSubdomain = getCurrentSubdomain(window.location.hostname)
+    if (!currentSubdomain) return
+    if (hasPendingAuthHandoff()) return
+
+    const publicPaths = new Set(['/login', '/signup', '/forgot-password'])
+    const isPublicPath = publicPaths.has(location.pathname)
+
+    // Páginas públicas sempre no domínio raiz (sem subdomínio)
+    if (isPublicPath) {
+      const targetUrl = buildRootUrlForCurrentHost(window.location, location.pathname, { preserveSearchAndHash: false })
+      replaceWithRedirectLock(targetUrl)
+      return
+    }
+
+    // Evita corrida enquanto sessão persistida é restaurada
+    const hasPersistedSession = Boolean(getStoredToken() && getStoredUser())
+    if (!isAuthenticated && !hasPersistedSession) {
+      const targetUrl = buildRootUrlForCurrentHost(window.location, '/login', { preserveSearchAndHash: false })
+      replaceWithRedirectLock(targetUrl)
+    }
+  }, [isAuthenticated, location.pathname])
+
   // Define rota inicial baseada na role
   const getInitialPath = () => {
     if (!isAuthenticated || !user) return '/login'
-    return user.role === 'client' ? '/tickets' : '/dashboardtickets'
+    return '/grade'
   }
 
   return (
@@ -83,16 +117,56 @@ export default function App() {
         {/* ==================== ROTAS PROTEGIDAS ==================== */}
         {/* Apenas usuários autenticados podem acessar */}
 
-        {/* Dashboard - APENAS admin e agent */}
+        {/* Dashboard - APENAS root, admin e agent */}
         <Route 
           path="/dashboardtickets" 
           element={
             <ProtectedRoute>
-              <RoleBasedRoute allowedRoles={['admin', 'agent']} redirectTo="/tickets">
+              <RoleBasedRoute allowedRoles={['root', 'admin', 'agent']} redirectTo="/tickets">
                 <DashboardTicketsPage />
               </RoleBasedRoute>
             </ProtectedRoute>
           } 
+        />
+
+        <Route
+          path="/grade"
+          element={
+            <ProtectedRoute>
+              <GradePage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="/matriz" element={<Navigate to="/grade" replace />} />
+
+        <Route
+          path="/turmas"
+          element={
+            <ProtectedRoute>
+              <ClassesPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="/classes" element={<Navigate to="/turmas" replace />} />
+
+        <Route
+          path="/professores"
+          element={
+            <ProtectedRoute>
+              <TeachersPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/escola"
+          element={
+            <ProtectedRoute>
+              <SchoolsPage />
+            </ProtectedRoute>
+          }
         />
 
         {/* Lista de tickets - todos usuários autenticados */}
@@ -125,12 +199,12 @@ export default function App() {
           } 
         />
 
-        {/* Gerenciamento de usuários - APENAS admin */}
+        {/* Gerenciamento de usuários - root e client com tenant */}
         <Route 
           path="/users" 
           element={
             <ProtectedRoute>
-              <RoleBasedRoute allowedRoles={['admin']} redirectTo="/tickets">
+              <RoleBasedRoute allowedRoles={['root', 'client']} redirectTo="/tickets">
                 <UsersPage />
               </RoleBasedRoute>
             </ProtectedRoute>
@@ -146,3 +220,4 @@ export default function App() {
     </>
   )
 }
+

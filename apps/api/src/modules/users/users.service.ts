@@ -2,6 +2,8 @@ import { UsersRepository } from './users.repository.js'
 import { ValidationError } from '../../shared/errors/AppError.js'
 import { User } from '@ticket-system/types'
 
+const ADMIN_DEPARTMENT_ID = '7240712b-96de-418a-b6b3-344d12d64237'
+
 export class UsersService {
   private repository: UsersRepository
 
@@ -9,20 +11,33 @@ export class UsersService {
     this.repository = new UsersRepository()
   }
 
-  /**
- * Lista usuários com paginação e ordenação
- * @param page - Número da página (padrão: 1)
- * @param limit - Itens por página (padrão: 10)
- * @param sortBy - Campo para ordenar (padrão: 'created_at')
- * @param order - Direção da ordenação: 'asc' ou 'desc' (padrão: 'desc')
- */
   async listUsers(
     page: number = 1,
     limit: number = 10,
-    sortBy: string = 'created_at',  // ← ADICIONAR
-    order: 'asc' | 'desc' = 'desc'   // ← ADICIONAR
+    sortBy: string = 'created_at',
+    order: 'asc' | 'desc' = 'desc',
+    requesterId?: string
   ) {
-    return this.repository.findAll(page, limit, sortBy, order)
+    if (!requesterId) {
+      return this.repository.findAll(page, limit, sortBy, order)
+    }
+
+    const requester = await this.repository.findAccessContextById(requesterId)
+
+    if (requester.role_name !== 'client') {
+      return this.repository.findAll(page, limit, sortBy, order)
+    }
+
+    if (requester.department_id === ADMIN_DEPARTMENT_ID) {
+      const tenantId = requester.tenant_id
+      if (!tenantId) {
+        throw new ValidationError('Usuario client sem tenant vinculado')
+      }
+
+      return this.repository.findAllByTenant(tenantId, page, limit, sortBy, order)
+    }
+
+    return this.repository.findAllByUserId(requester.id, page, limit, sortBy, order)
   }
 
   async getUserById(id: string) {
@@ -30,10 +45,9 @@ export class UsersService {
   }
 
   async createUser(userData: Omit<User, 'id' | 'created_at'>) {
-    // Validar se email já existe
     const existingUser = await this.repository.findByEmail(userData.email)
     if (existingUser) {
-      throw new ValidationError('Email já cadastrado')
+      throw new ValidationError('Email ja cadastrado')
     }
 
     return this.repository.create(userData)

@@ -10,13 +10,16 @@ type PublicRouteProps = {
  * Redireciona para rota inicial se já estiver logado
  */
 export function PublicRoute({ children }: PublicRouteProps) {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated, isLoading } = useAuth()
+
+  if (isLoading) {
+    return null
+  }
 
   if (isAuthenticated) {
-    // Redireciona para rota inicial baseado na role
-    const initialPath = user?.role === 'client' ? '/tickets' : '/dashboardtickets'
-    return <Navigate to={initialPath} replace />
+    return <Navigate to="/grade" replace />
   }
 
   return <>{children}</>
 }
+

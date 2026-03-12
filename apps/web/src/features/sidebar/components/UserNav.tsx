@@ -93,7 +93,7 @@ export function UserNav({
           type="button"
           variant="ghost"
           className={cn(
-            "w-full justify-start h-auto py-2 px-1.5",
+            "w-full justify-start h-auto py-2 px-1.5 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
             isCollapsed && "hover:bg-transparent"
           )}
           aria-label="Abrir menu do usuário"

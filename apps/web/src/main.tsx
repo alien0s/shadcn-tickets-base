@@ -7,17 +7,24 @@ import { ThemeProvider } from "./context/theme-context";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "@fontsource-variable/inter/wght.css";
 import { AuthProvider } from "@/features/auth";
+import { resolvePreRenderTenantRedirect } from "@/features/tenant/utils/pre-render-tenant-redirect";
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
-          <TooltipProvider>
-            <App />
-          </TooltipProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </BrowserRouter>
-  </React.StrictMode>
-);
+const targetRedirectUrl = resolvePreRenderTenantRedirect(window.location);
+
+if (targetRedirectUrl) {
+  window.location.replace(targetRedirectUrl);
+} else {
+  ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
+    <React.StrictMode>
+      <BrowserRouter>
+        <ThemeProvider>
+          <AuthProvider>
+            <TooltipProvider>
+              <App />
+            </TooltipProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </BrowserRouter>
+    </React.StrictMode>
+  );
+}

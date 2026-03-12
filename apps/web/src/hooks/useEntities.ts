@@ -14,7 +14,7 @@ let entitiesCache: EntityOption[] | null = null;
  * Prevents duplicate API calls across components.
  * @returns entities list, loading state, error state, and refetch function
  */
-export function useEntities() {
+export function useEntities(enabled = true) {
   const [entities, setEntities] = useState<EntityOption[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -44,8 +44,12 @@ export function useEntities() {
   }, [])
 
   useEffect(() => {
+    if (!enabled) {
+      setIsLoading(false)
+      return
+    }
     fetchEntities()
-  }, [fetchEntities])
+  }, [enabled, fetchEntities])
 
   const refetch = useCallback(() => {
     entitiesCache = null

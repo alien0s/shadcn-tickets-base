@@ -1,6 +1,6 @@
-# Ticket System - Monorepo
+# thurnos - Monorepo
 
-Sistema de tickets com frontend React e API Fastify.
+Plataforma thurnos com frontend React e API Fastify.
 
 ## Instalação
 ```bash

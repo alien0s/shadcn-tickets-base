@@ -24,7 +24,7 @@ export function SidebarItem({
           : "text-muted-foreground"
       )}
     >
-      <Icon className="h-6 w-6" aria-hidden="true" />
+      <Icon className="h-[1.4rem] w-[1.4rem]" aria-hidden="true" />
       {!collapsed && <span className="text-sm">{label}</span>}
     </Button>
   );
