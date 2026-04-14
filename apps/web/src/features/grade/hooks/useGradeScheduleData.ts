@@ -10,6 +10,12 @@ type TimeSlotApi = {
   order_index: number;
   start_time: string;
   end_time?: string | null;
+  is_break?: boolean | null;
+};
+
+type BreakMarker = {
+  labelTime: string;
+  anchorTime: string;
 };
 
 type RelationName = {
@@ -24,15 +30,20 @@ type RelationTimeSlot = {
 type ScheduleApi = {
   id: string;
   day_of_week: number | string;
+  class_id?: string;
+  teacher_id?: string;
+  subject_id?: string;
   time_slot_id?: string;
   classes?: RelationName | RelationName[] | null;
+  teachers?: RelationName | RelationName[] | null;
   subjects?: RelationName | RelationName[] | null;
   time_slots?: RelationTimeSlot | RelationTimeSlot[] | null;
 };
 
 type ClassApi = {
   id: string;
-  name: string;
+  name?: string | null;
+  code?: string | null;
 };
 
 type SubjectApi = {
@@ -44,7 +55,7 @@ const classesCatalogBySchoolCache = new Map<string, ClassApi[]>();
 let subjectsCatalogCache: SubjectApi[] | null = null;
 const timeSlotsBySchoolCache = new Map<string, TimeSlotApi[]>();
 const schedulesByTeacherAndSchoolCache = new Map<string, ScheduleApi[]>();
-const GRADE_SCHEDULE_CACHE_KEY = "grade:schedule-data:v1";
+const GRADE_SCHEDULE_CACHE_KEY = "grade:schedule-data:v2";
 
 function readGradeScheduleCache() {
   if (typeof window === "undefined") return null;
@@ -128,8 +139,11 @@ export function invalidateGradeClassesCache(schoolId?: string): void {
 type UseGradeScheduleDataResult = {
   events: ShiftEvent[];
   timesByShift: Record<ShiftKey, readonly string[]>;
+  breakMarkersByShift: Record<ShiftKey, readonly BreakMarker[]>;
   hasConfiguredTimeSlots: boolean;
   turmaOptions: readonly string[];
+  classOptions: Array<{ id: string; name: string }>;
+  topEditorOptions: readonly string[];
   subjectOptions: readonly string[];
   teacherStats: {
     lessonsCount: number;
@@ -152,6 +166,9 @@ type UseGradeScheduleDataResult = {
     shift: ShiftKey;
     turma: string;
     subject: string;
+    classId?: string;
+    teacherId?: string;
+    subjectId?: string;
   }) => Promise<boolean>;
   deleteScheduleById: (scheduleId: string) => Promise<boolean>;
   checkClassConflictAtSelection: (input: {
@@ -237,6 +254,14 @@ function normalizeLabel(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function getClassDisplayName(item: ClassApi): string {
+  const code = item.code?.trim();
+  if (code) return code;
+  const name = item.name?.trim();
+  if (name) return name;
+  return "";
+}
+
 function toWeekDay(value: number | string): WeekDay | null {
   if (typeof value === "string") {
     const normalized = value.trim().toLowerCase();
@@ -257,7 +282,10 @@ function toWeekDay(value: number | string): WeekDay | null {
 
 export function useGradeScheduleData(
   selectedSchoolId: string | null,
-  selectedTeacherId: string | null
+  selectedTeacherId: string | null,
+  viewMode: "professor" | "turma" = "professor",
+  selectedClassId: string | null = null,
+  teacherDirectory: Array<{ id: string; name: string }> = []
 ): UseGradeScheduleDataResult {
   const [timeSlots, setTimeSlots] = useState<TimeSlotApi[]>([]);
   const [schedules, setSchedules] = useState<ScheduleApi[]>([]);
@@ -384,12 +412,13 @@ export function useGradeScheduleData(
   }, [selectedSchoolId]);
 
   useEffect(() => {
-    if (!selectedTeacherId || !selectedSchoolId) {
+    const activeId = viewMode === "turma" ? selectedClassId : selectedTeacherId;
+    if (!activeId || !selectedSchoolId) {
       setSchedules([]);
       return;
     }
 
-    const schedulesCacheKey = `${selectedTeacherId}:${selectedSchoolId}`;
+    const schedulesCacheKey = `${viewMode}:${activeId}:${selectedSchoolId}`;
     if (!schedulesByTeacherAndSchoolCache.has(schedulesCacheKey)) {
       hydrateGradeScheduleCacheInMemory();
     }
@@ -401,9 +430,13 @@ export function useGradeScheduleData(
       setIsLoadingSchedules(true);
       try {
         const params = new URLSearchParams({
-          teacher_id: selectedTeacherId,
           school_id: selectedSchoolId,
         });
+        if (viewMode === "turma" && selectedClassId) {
+          params.set("class_id", selectedClassId);
+        } else if (selectedTeacherId) {
+          params.set("teacher_id", selectedTeacherId);
+        }
         const data = await api.get<ScheduleApi[]>(`/schedules?${params.toString()}`);
         if (!isCancelled) {
           const next = data ?? [];
@@ -422,7 +455,7 @@ export function useGradeScheduleData(
     return () => {
       isCancelled = true;
     };
-  }, [selectedSchoolId, selectedTeacherId]);
+  }, [selectedSchoolId, selectedTeacherId, selectedClassId, viewMode]);
 
   const timesByShift = useMemo(() => {
     if (timeSlots.length === 0) return DEFAULT_TIMES_BY_SHIFT;
@@ -430,6 +463,7 @@ export function useGradeScheduleData(
     const byShift: Record<ShiftKey, string[]> = { M: [], V: [] };
 
     for (const slot of timeSlots) {
+      if (slot.is_break) continue;
       const shiftKey = toShiftKey(slot.shift);
       if (!shiftKey) continue;
       byShift[shiftKey].push(normalizeTime(slot.start_time));
@@ -439,6 +473,44 @@ export function useGradeScheduleData(
       M: byShift.M.length > 0 ? uniqueSorted(byShift.M) : DEFAULT_TIMES_BY_SHIFT.M,
       V: byShift.V.length > 0 ? uniqueSorted(byShift.V) : DEFAULT_TIMES_BY_SHIFT.V,
     };
+  }, [timeSlots]);
+
+  const breakMarkersByShift = useMemo(() => {
+    if (timeSlots.length === 0) {
+      return { M: [], V: [] } satisfies Record<ShiftKey, readonly BreakMarker[]>;
+    }
+
+    const byShift: Record<ShiftKey, BreakMarker[]> = { M: [], V: [] };
+
+    for (const shiftKey of ["M", "V"] as const) {
+      const ordered = timeSlots
+        .filter((slot) => toShiftKey(slot.shift) === shiftKey)
+        .sort((left, right) => left.order_index - right.order_index);
+
+      let previousLessonStart = "";
+
+      for (const slot of ordered) {
+        const startTime = normalizeTime(slot.start_time);
+        if (!startTime) continue;
+
+        if (!slot.is_break) {
+          previousLessonStart = startTime;
+          continue;
+        }
+
+        if (!previousLessonStart) continue;
+
+        byShift[shiftKey].push({
+          labelTime: startTime,
+          anchorTime: previousLessonStart,
+        });
+      }
+    }
+
+    return {
+      M: byShift.M,
+      V: byShift.V,
+    } satisfies Record<ShiftKey, readonly BreakMarker[]>;
   }, [timeSlots]);
 
   const hasConfiguredTimeSlots = timeSlots.length > 0;
@@ -461,16 +533,37 @@ export function useGradeScheduleData(
           shift,
           day,
           time,
-          className: pickFirstName(schedule.classes) || "Turma",
+          classId: schedule.class_id,
+          teacherId: schedule.teacher_id,
+          subjectId: schedule.subject_id,
+          className:
+            viewMode === "turma"
+              ? pickFirstName(schedule.teachers) || "Professor"
+              : pickFirstName(schedule.classes) || "Turma",
           subject: pickFirstName(schedule.subjects) || "Matéria",
         } satisfies ShiftEvent;
       })
       .filter((event): event is ShiftEvent => Boolean(event));
-  }, [schedules]);
+  }, [schedules, viewMode]);
 
   const turmaOptions = useMemo(() => {
-    return uniqueSorted(classes.map((item) => item.name.trim()));
+    return uniqueSorted(classes.map((item) => getClassDisplayName(item)));
   }, [classes]);
+
+  const classOptions = useMemo(
+    () =>
+      classes
+        .map((item) => ({ id: item.id, name: getClassDisplayName(item) }))
+        .filter((item) => item.name.length > 0),
+    [classes]
+  );
+
+  const topEditorOptions = useMemo(() => {
+    if (viewMode === "turma") {
+      return uniqueSorted(teacherDirectory.map((item) => item.name.trim()));
+    }
+    return turmaOptions;
+  }, [teacherDirectory, turmaOptions, viewMode]);
 
   const subjectOptions = useMemo(() => {
     const fromSubjects = uniqueSorted(subjects.map((item) => item.name.trim()));
@@ -531,8 +624,9 @@ export function useGradeScheduleData(
             : schedule
         )
       );
-      if (selectedTeacherId && selectedSchoolId) {
-        const schedulesCacheKey = `${selectedTeacherId}:${selectedSchoolId}`;
+      const cacheKeyOwnerForMove = viewMode === "turma" ? selectedClassId : selectedTeacherId;
+      if (cacheKeyOwnerForMove && selectedSchoolId) {
+        const schedulesCacheKey = `${viewMode}:${cacheKeyOwnerForMove}:${selectedSchoolId}`;
         const current = schedulesByTeacherAndSchoolCache.get(schedulesCacheKey) ?? [];
         const updated = current.map((schedule) =>
           schedule.id === scheduleId
@@ -554,7 +648,10 @@ export function useGradeScheduleData(
 
       return true;
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Nao foi possivel mover a aula para esse horario.";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Não foi possível mover a aula para esse horário.";
       toast.error(message);
       return false;
     }
@@ -566,20 +663,38 @@ export function useGradeScheduleData(
     shift,
     turma,
     subject,
+    classId,
+    teacherId,
+    subjectId,
   }: {
     dayIndex: number;
     startSlot: number;
     shift: ShiftKey;
     turma: string;
     subject: string;
+    classId?: string;
+    teacherId?: string;
+    subjectId?: string;
   }): Promise<boolean> => {
-    if (!selectedSchoolId || !selectedTeacherId) return false;
+    const activeTeacherId =
+      teacherId ??
+      (viewMode === "turma"
+        ? teacherDirectory.find((item) => normalizeLabel(item.name) === normalizeLabel(turma))?.id ?? null
+        : selectedTeacherId);
+    const activeClassId =
+      classId ??
+      (viewMode === "turma"
+        ? selectedClassId
+        : classes.find((item) => normalizeLabel(getClassDisplayName(item)) === normalizeLabel(turma))?.id ?? null);
 
-    const turmaEntity = classes.find((item) => normalizeLabel(item.name) === normalizeLabel(turma));
-    const subjectEntity = subjects.find((item) => normalizeLabel(item.name) === normalizeLabel(subject));
+    if (!selectedSchoolId || !activeTeacherId || !activeClassId) return false;
+
+    const subjectEntity =
+      subjects.find((item) => item.id === subjectId) ??
+      subjects.find((item) => normalizeLabel(item.name) === normalizeLabel(subject));
     const timeAtSlot = timesByShift[shift]?.[startSlot];
 
-    if (!turmaEntity || !subjectEntity || !timeAtSlot) {
+    if (!subjectEntity || !timeAtSlot) {
       toast.error("Não foi possível salvar a aula com os dados selecionados.");
       return false;
     }
@@ -600,13 +715,17 @@ export function useGradeScheduleData(
         "/schedules",
         {
           school_id: selectedSchoolId,
-          class_id: turmaEntity.id,
-          teacher_id: selectedTeacherId,
+          class_id: activeClassId,
+          teacher_id: activeTeacherId,
           subject_id: subjectEntity.id,
           time_slot_id: targetTimeSlot.id,
           day_of_week: dayIndex + 1,
         }
       );
+
+      const activeClassEntity = classes.find((item) => item.id === activeClassId);
+      const activeClassName = activeClassEntity ? getClassDisplayName(activeClassEntity) || "Turma" : "Turma";
+      const activeTeacherName = teacherDirectory.find((item) => item.id === activeTeacherId)?.name ?? "Professor";
 
       setSchedules((previous) => [
         ...previous,
@@ -614,7 +733,8 @@ export function useGradeScheduleData(
           id: created?.id ?? `tmp-${Date.now()}`,
           day_of_week: dayIndex + 1,
           time_slot_id: targetTimeSlot.id,
-          classes: { name: turmaEntity.name },
+          classes: { name: activeClassName },
+          teachers: { name: activeTeacherName },
           subjects: { name: subjectEntity.name },
           time_slots: {
             start_time: targetTimeSlot.start_time,
@@ -622,8 +742,10 @@ export function useGradeScheduleData(
           },
         },
       ]);
-      if (selectedTeacherId && selectedSchoolId) {
-        const schedulesCacheKey = `${selectedTeacherId}:${selectedSchoolId}`;
+
+      const cacheKeyOwnerForCreate = viewMode === "turma" ? selectedClassId : selectedTeacherId;
+      if (cacheKeyOwnerForCreate && selectedSchoolId) {
+        const schedulesCacheKey = `${viewMode}:${cacheKeyOwnerForCreate}:${selectedSchoolId}`;
         const current = schedulesByTeacherAndSchoolCache.get(schedulesCacheKey) ?? [];
         schedulesByTeacherAndSchoolCache.set(schedulesCacheKey, [
           ...current,
@@ -631,7 +753,8 @@ export function useGradeScheduleData(
             id: created?.id ?? `tmp-${Date.now()}`,
             day_of_week: dayIndex + 1,
             time_slot_id: targetTimeSlot.id,
-            classes: { name: turmaEntity.name },
+            classes: { name: activeClassName },
+            teachers: { name: activeTeacherName },
             subjects: { name: subjectEntity.name },
             time_slots: {
               start_time: targetTimeSlot.start_time,
@@ -642,7 +765,11 @@ export function useGradeScheduleData(
         writeGradeScheduleCache();
       }
 
-      toast.success(`Aula na turma ${turmaEntity.name} foi salva`);
+      if (viewMode === "turma") {
+        toast.success(`Aula com ${activeTeacherName} foi salva`);
+      } else {
+        toast.success(`Aula na turma ${activeClassName} foi salva`);
+      }
       return true;
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : "Não foi possível salvar a aula.";
@@ -657,8 +784,9 @@ export function useGradeScheduleData(
 
       setSchedules((previous) => previous.filter((schedule) => schedule.id !== scheduleId));
 
-      if (selectedTeacherId && selectedSchoolId) {
-        const schedulesCacheKey = `${selectedTeacherId}:${selectedSchoolId}`;
+      const cacheKeyOwnerForDelete = viewMode === "turma" ? selectedClassId : selectedTeacherId;
+      if (cacheKeyOwnerForDelete && selectedSchoolId) {
+        const schedulesCacheKey = `${viewMode}:${cacheKeyOwnerForDelete}:${selectedSchoolId}`;
         const current = schedulesByTeacherAndSchoolCache.get(schedulesCacheKey) ?? [];
         schedulesByTeacherAndSchoolCache.set(
           schedulesCacheKey,
@@ -687,9 +815,11 @@ export function useGradeScheduleData(
     shift: ShiftKey;
     turma: string;
   }): Promise<{ hasConflict: boolean; teacherName?: string }> => {
-    if (!selectedSchoolId) return { hasConflict: false };
+    if (!selectedSchoolId || viewMode !== "professor") return { hasConflict: false };
 
-    const turmaEntity = classes.find((item) => normalizeLabel(item.name) === normalizeLabel(turma));
+    const turmaEntity = classes.find(
+      (item) => normalizeLabel(getClassDisplayName(item)) === normalizeLabel(turma)
+    );
     const timeAtSlot = timesByShift[shift]?.[startSlot];
     if (!turmaEntity || !timeAtSlot) {
       return { hasConflict: false };
@@ -729,8 +859,11 @@ export function useGradeScheduleData(
   return {
     events,
     timesByShift,
+    breakMarkersByShift,
     hasConfiguredTimeSlots,
     turmaOptions,
+    classOptions,
+    topEditorOptions,
     subjectOptions,
     teacherStats,
     isLoadingTimeSlots,
@@ -742,3 +875,5 @@ export function useGradeScheduleData(
     checkClassConflictAtSelection,
   };
 }
+
+

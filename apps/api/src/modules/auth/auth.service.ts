@@ -16,6 +16,10 @@ export class AuthService {
     private fastify: FastifyInstance
     // Cache em memória para códigos 2FA (em produção, use Redis)
     private twoFactorCodes = new Map<string, { code: string, expiresAt: Date }>()
+
+    private normalizeEmail(email: string): string {
+        return email.trim().toLowerCase()
+    }
     /**
  * Extrai nome da role do objeto retornado pelo Supabase
  */
@@ -47,7 +51,8 @@ export class AuthService {
      */
     async register(registerData: RegisterRequest): Promise<UserPublic> {
         // Validar se email já existe
-        const existingUser = await this.repository.findByEmail(registerData.email)
+        const normalizedEmail = this.normalizeEmail(registerData.email)
+        const existingUser = await this.repository.findByEmail(normalizedEmail)
         if (existingUser) {
             throw new ValidationError('Email já cadastrado no sistema')
         }
@@ -69,7 +74,7 @@ export class AuthService {
         const user = await this.repository.createUser({
             name: registerData.name,
             last_name: registerData.last_name,
-            email: registerData.email,
+            email: normalizedEmail,
             password_hash: passwordHash,
             tenant_id: registerData.tenant_id ?? entityId,
             entity_id: entityId,
@@ -89,7 +94,8 @@ export class AuthService {
      */
     async login(loginData: LoginRequest): Promise<{ user?: UserPublic, token?: string, supabase_token?: string, requires_2fa?: boolean }> {
         // Buscar usuário por email
-        const user = await this.repository.findByEmail(loginData.email)
+        const normalizedEmail = this.normalizeEmail(loginData.email)
+        const user = await this.repository.findByEmail(normalizedEmail)
 
         if (!user || !user.password_hash) {
             throw new UnauthorizedError('Email ou senha incorretos')
@@ -142,7 +148,7 @@ export class AuthService {
      * Login - Etapa 2: Verificar código 2FA
      */
     async verify2FACode(email: string, code: string): Promise<{ user: UserPublic, token: string, supabase_token: string }> {
-        const user = await this.repository.findByEmail(email)
+        const user = await this.repository.findByEmail(this.normalizeEmail(email))
 
         if (!user) {
             throw new UnauthorizedError('Usuário não encontrado')
@@ -200,7 +206,7 @@ export class AuthService {
      * Solicitar recuperação de senha
      */
     async forgotPassword(email: string): Promise<void> {
-        const user = await this.repository.findByEmail(email)
+        const user = await this.repository.findByEmail(this.normalizeEmail(email))
 
         if (!user) {
             // Não revelar se email existe (segurança)
@@ -253,7 +259,7 @@ export class AuthService {
     }): Promise<{ user: UserPublic, token: string, supabase_token: string }> {
         // Buscar ou criar usuário baseado no email do Microsoft
         const user = await this.repository.findOrCreateMicrosoftUser({
-            email: microsoftProfile.email,
+            email: this.normalizeEmail(microsoftProfile.email),
             name: microsoftProfile.name,
             avatar_url: microsoftProfile.avatar
         })

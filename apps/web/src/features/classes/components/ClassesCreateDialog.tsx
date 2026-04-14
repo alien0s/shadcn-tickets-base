@@ -36,12 +36,21 @@ type CreateClassPayload = {
   year: number;
 };
 
+type ExistingClassKey = {
+  schoolId: string;
+  seriesId: string;
+  suffix: string;
+  shift: number;
+  year: number;
+};
+
 type ClassesCreateDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   schoolOptions: SchoolOption[];
   educationLevelOptions: EducationLevelOption[];
   seriesOptions: SeriesOption[];
+  existingClassKeys: ExistingClassKey[];
   defaultSchoolId?: string;
   onSubmit: (payload: CreateClassPayload) => Promise<void>;
 };
@@ -101,7 +110,7 @@ function buildClassCode(seriesName: string | undefined, suffix: string, shift?: 
     .replace(/\s+/g, " ")
     .trim();
   const normalizedSuffix = String(suffix ?? "").trim().toUpperCase();
-  const shiftLetter = shift === 1 ? "M" : shift === 2 ? "V" : "";
+  const shiftLetter = shift === 1 ? "M" : shift === 2 ? "T" : "";
 
   if (!cleanedSeries || !normalizedSuffix || !shiftLetter) return "";
   return `${cleanedSeries} ${normalizedSuffix}${shiftLetter}`.trim();
@@ -113,6 +122,7 @@ export function ClassesCreateDialog({
   schoolOptions,
   educationLevelOptions,
   seriesOptions,
+  existingClassKeys,
   defaultSchoolId,
   onSubmit,
 }: ClassesCreateDialogProps) {
@@ -162,6 +172,55 @@ export function ClassesCreateDialog({
     [filteredSeriesOptions, seriesId]
   );
 
+  const parsedYear = useMemo(() => Number(year), [year]);
+
+  const occupiedSuffixes = useMemo(() => {
+    if (!schoolId || !seriesId || typeof shift !== "number" || !Number.isInteger(parsedYear)) {
+      return new Set<string>();
+    }
+
+    return new Set(
+      existingClassKeys
+        .filter(
+          (item) =>
+            item.schoolId === schoolId &&
+            item.seriesId === seriesId &&
+            item.shift === shift &&
+            item.year === parsedYear
+        )
+        .map((item) => item.suffix.trim().toUpperCase())
+    );
+  }, [existingClassKeys, parsedYear, schoolId, seriesId, shift]);
+
+  const firstAvailableSuffix = useMemo(
+    () => SUFFIX_OPTIONS.find((option) => !occupiedSuffixes.has(option)) ?? "",
+    [occupiedSuffixes]
+  );
+
+  const shouldEnforceOccupiedSuffixes = useMemo(
+    () =>
+      Boolean(seriesId) &&
+      typeof shift === "number" &&
+      Number.isInteger(parsedYear) &&
+      occupiedSuffixes.size < SUFFIX_OPTIONS.length,
+    [occupiedSuffixes.size, parsedYear, seriesId, shift]
+  );
+
+  useEffect(() => {
+    if (!seriesId || typeof shift !== "number" || !Number.isInteger(parsedYear)) {
+      if (suffix) setSuffix("");
+      return;
+    }
+
+    const normalizedCurrent = suffix.trim().toUpperCase();
+    if (
+      shouldEnforceOccupiedSuffixes &&
+      (!normalizedCurrent || occupiedSuffixes.has(normalizedCurrent))
+    ) {
+      setSuffix(firstAvailableSuffix);
+    }
+  }, [firstAvailableSuffix, occupiedSuffixes, parsedYear, seriesId, shift, shouldEnforceOccupiedSuffixes, suffix]);
+
   const generatedCode = useMemo(
     () => buildClassCode(selectedSeries?.name, suffix, shift ?? undefined),
     [selectedSeries?.name, shift, suffix]
@@ -174,12 +233,13 @@ export function ClassesCreateDialog({
       educationLevelId.length > 0 &&
       seriesId.length > 0 &&
       suffix.length > 0 &&
+      (!shouldEnforceOccupiedSuffixes || !occupiedSuffixes.has(suffix.trim().toUpperCase())) &&
       typeof shift === "number" &&
       Number.isInteger(parsedYear) &&
       parsedYear >= 2000 &&
       parsedYear <= 2100
     );
-  }, [schoolId, educationLevelId, seriesId, suffix, shift, year]);
+  }, [educationLevelId, occupiedSuffixes, schoolId, seriesId, shift, shouldEnforceOccupiedSuffixes, suffix, year]);
 
   const handleSelectEducationLevel = useCallback((levelId: string) => {
     setEducationLevelId(levelId);
@@ -324,25 +384,6 @@ export function ClassesCreateDialog({
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium">Turma</label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button type="button" variant="outline" className="h-10 w-full justify-between text-left" disabled={isSubmitting}>
-                    <span className="truncate">{suffix || "Selecione"}</span>
-                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
-                  {SUFFIX_OPTIONS.map((option) => (
-                    <DropdownMenuItem key={option} onSelect={() => setSuffix(option)}>
-                      {option}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            <div className="space-y-1">
               <label className="text-sm font-medium">Turno</label>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -357,6 +398,47 @@ export function ClassesCreateDialog({
                       {option.label}
                     </DropdownMenuItem>
                   ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Turma</label>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 w-full justify-between text-left"
+                    disabled={typeof shift !== "number" || isSubmitting}
+                  >
+                    <span className="truncate">{suffix || "Selecione"}</span>
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
+                  {typeof shift !== "number" ? (
+                    <DropdownMenuItem disabled>Selecione o turno primeiro</DropdownMenuItem>
+                  ) : (
+                    SUFFIX_OPTIONS.map((option) => {
+                      const isOccupied = shouldEnforceOccupiedSuffixes && occupiedSuffixes.has(option);
+                      return (
+                        <DropdownMenuItem
+                          key={option}
+                          onSelect={(event) => {
+                            if (isOccupied) {
+                              event.preventDefault();
+                              return;
+                            }
+                            setSuffix(option);
+                          }}
+                          className={cn(isOccupied && "opacity-40")}
+                        >
+                          {option}
+                        </DropdownMenuItem>
+                      );
+                    })
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

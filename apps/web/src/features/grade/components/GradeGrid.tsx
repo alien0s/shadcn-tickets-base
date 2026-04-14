@@ -1,81 +1,20 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  DndContext,
-  DragOverlay,
-  closestCenter,
-  useDraggable,
-  type DragEndEvent,
-  type DragMoveEvent,
-  type DragStartEvent,
-} from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
-import { ChevronDown, Pencil, Trash2 } from "lucide-react";
+import { DndContext, DragOverlay, closestCenter } from "@dnd-kit/core";
+import { ClipboardPaste } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getSubjectColorClasses } from "@/lib/subject-colors";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { WEEK_DAYS, type ShiftEvent, type ShiftKey, type WeekDay } from "../types";
-import {
-  CELL_GAP,
-  HEADER_HEIGHT,
-  SLOT_HEIGHT,
-  TIME_COL_WIDTH,
-  useGradeGrid,
-  type EventBlockItem,
-} from "../hooks/useGradeGrid";
-
-type GradeGridProps = {
-  shift: ShiftKey;
-  events: ShiftEvent[];
-  isSchoolScheduleConfigured?: boolean;
-  turmaOptions: readonly string[];
-  subjectOptions: readonly string[];
-  selectedTeacherSubjectOptions?: readonly string[];
-  timesByShift?: Record<ShiftKey, readonly string[]>;
-  onPersistMove?: (input: {
-    scheduleId: string;
-    dayIndex: number;
-    startSlot: number;
-    shift: ShiftKey;
-  }) => Promise<boolean>;
-  onCreateSchedule?: (input: {
-    dayIndex: number;
-    startSlot: number;
-    shift: ShiftKey;
-    turma: string;
-    subject: string;
-  }) => Promise<boolean>;
-  onDeleteSchedule?: (scheduleId: string) => Promise<boolean>;
-  onValidateTurmaSelection?: (input: {
-    dayIndex: number;
-    startSlot: number;
-    shift: ShiftKey;
-    turma: string;
-  }) => Promise<{ hasConflict: boolean; teacherName?: string }>;
-};
+import { Skeleton } from "@/components/ui/skeleton";
+import { WEEK_DAYS, type GradeGridProps, type WeekDay } from "../types";
+import { CELL_GAP, HEADER_HEIGHT, SLOT_HEIGHT, TIME_COL_WIDTH } from "../hooks/useGradeGrid";
+import { useGradeGridController } from "../hooks/useGradeGridController";
+import { EventBlock, PendingEditorBlock } from "./GradeGridBlocks";
+import { GradeGridDeleteDialog } from "./GradeGridDeleteDialog";
 
 const DAY_LABELS: Record<WeekDay, string> = {
   seg: "Seg",
@@ -85,527 +24,33 @@ const DAY_LABELS: Record<WeekDay, string> = {
   sex: "Sex",
 };
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
-
-type CardSelectProps = {
-  value: string;
-  onChange: (value: string) => void;
-  options: readonly string[];
-  ariaLabel: string;
-  placeholder: string;
-};
-
-function CardSelect({ value, onChange, options, ariaLabel, placeholder }: CardSelectProps) {
-  return (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-8 w-full justify-between rounded-md px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
-          aria-label={ariaLabel}
-          onClick={(event) => event.stopPropagation()}
-          onMouseDown={(event) => event.stopPropagation()}
-        >
-          <span className={cn("truncate", !value && "text-muted-foreground")}>{value || placeholder}</span>
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="grade-card-menu w-[220px]">
-        <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-          {options.map((option) => (
-            <DropdownMenuRadioItem key={option} value={option}>
-              {option}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-type EventBlockProps = {
-  item: EventBlockItem;
-  dayWidth: number;
-  isDimmed: boolean;
-  isEditing: boolean;
-  turmaOptions: readonly string[];
-  subjectOptions: readonly string[];
-  autoAssignedSubject: string | null;
-  onOpenEditor: (eventId: string) => void;
-  onCloseEditor: () => void;
-  onDeleteItem?: (eventId: string) => void;
-  onUpdateFields: (eventId: string, fields: Partial<Pick<EventBlockItem, "turma" | "subject">>) => void;
-};
-
-const EventBlock = memo(function EventBlock({
-  item,
-  dayWidth,
-  isDimmed,
-  isEditing,
-  turmaOptions,
-  subjectOptions,
-  autoAssignedSubject,
-  onOpenEditor,
-  onCloseEditor,
-  onDeleteItem,
-  onUpdateFields,
-}: EventBlockProps) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: item.id,
-    disabled: item.draggable === false,
-  });
-
-  const tone = useMemo(() => getSubjectColorClasses(item.subject), [item.subject]);
-
-  const positionedStyle = useMemo(
-    () => ({
-      top: HEADER_HEIGHT + item.startSlot * SLOT_HEIGHT + CELL_GAP,
-      left: TIME_COL_WIDTH + item.dayIndex * dayWidth + CELL_GAP,
-      width: dayWidth - CELL_GAP * 2,
-      height: SLOT_HEIGHT - CELL_GAP * 2,
-    }),
-    [dayWidth, item.dayIndex, item.startSlot]
-  );
-
-  const dndStyle = useMemo(
-    () => ({
-      transform: CSS.Transform.toString(transform),
-    }),
-    [transform]
-  );
-
-  const handleOpenEditor = useCallback(
-    () => {
-      onOpenEditor(item.id);
-    },
-    [item.id, onOpenEditor]
-  );
-
-  const handleFieldTurma = useCallback(
-    (value: string) => {
-      if (autoAssignedSubject) {
-        onUpdateFields(item.id, { turma: value, subject: autoAssignedSubject });
-        if (value) onCloseEditor();
-        return;
-      }
-
-      onUpdateFields(item.id, { turma: value });
-      if (value && item.subject) onCloseEditor();
-    },
-    [autoAssignedSubject, item.id, item.subject, onCloseEditor, onUpdateFields]
-  );
-
-  const handleFieldSubject = useCallback(
-    (value: string) => {
-      onUpdateFields(item.id, { subject: value });
-      if (value && item.turma) onCloseEditor();
-    },
-    [item.id, item.turma, onCloseEditor, onUpdateFields]
-  );
-
-  const handleCardClick = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      event.stopPropagation();
-      handleOpenEditor();
-    },
-    [handleOpenEditor]
-  );
+export function GradeGrid(props: GradeGridProps) {
+  const controller = useGradeGridController(props);
 
   return (
     <div
-      ref={setNodeRef}
-      style={{ ...positionedStyle, ...dndStyle }}
-      className={cn("absolute z-10 touch-none", isDragging && "opacity-55", isDimmed && "opacity-60")}
-      onClick={handleCardClick}
-      {...attributes}
-      {...listeners}
+      ref={controller.containerRef}
+      className={cn(
+        "relative overflow-auto rounded-lg border border-border",
+        controller.pendingPasteSlot && "cursor-not-allowed"
+      )}
+      onClick={() => {
+        controller.setOpenEventContextMenuId(null);
+        controller.setOpenSlotContextMenuKey(null);
+        controller.closeEditor();
+      }}
     >
-      <ContextMenu>
-        <ContextMenuTrigger asChild>
-          <div
-        className={cn(
-          "relative h-full w-full rounded-md border py-2",
-          isEditing
-            ? "border-primary/30 bg-background text-foreground"
-            : cn(tone.text, tone.border, tone.background, "px-3")
-        )}
-          >
-        {isEditing ? (
-          <div className="flex h-full flex-col justify-center gap-2" onClick={(event) => event.stopPropagation()}>
-            <CardSelect
-              value={item.turma}
-              onChange={handleFieldTurma}
-              options={turmaOptions}
-              ariaLabel="Selecionar turma do horario"
-              placeholder="Turma"
-            />
-            <CardSelect
-              value={item.subject}
-              onChange={handleFieldSubject}
-              options={subjectOptions}
-              ariaLabel="Selecionar materia do horario"
-              placeholder="Matéria"
-            />
-          </div>
-        ) : (
-          <div className="space-y-1">
-            <p className="truncate text-base font-semibold">{item.turma}</p>
-            <p className="truncate text-sm font-medium opacity-90">{item.subject}</p>
-          </div>
-        )}
-          </div>
-        </ContextMenuTrigger>
-        {!isEditing ? (
-          <ContextMenuContent className="w-44">
-            <ContextMenuItem
-              onSelect={() => {
-                onOpenEditor(item.id);
-              }}
-            >
-              <Pencil className="h-4 w-4" />
-              Editar
-            </ContextMenuItem>
-            <ContextMenuItem
-              className="text-destructive focus:bg-destructive/10 focus:text-destructive"
-              onSelect={() => {
-                onDeleteItem?.(item.id);
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-              Delete
-            </ContextMenuItem>
-          </ContextMenuContent>
-        ) : null}
-      </ContextMenu>
-    </div>
-  );
-});
-
-type PendingEditorProps = {
-  dayWidth: number;
-  dayIndex: number;
-  startSlot: number;
-  turma: string;
-  subject: string;
-  turmaOptions: readonly string[];
-  subjectOptions: readonly string[];
-  onTurmaChange: (value: string) => void;
-  onSubjectChange: (value: string) => void;
-};
-
-const PendingEditorBlock = memo(function PendingEditorBlock({
-  dayWidth,
-  dayIndex,
-  startSlot,
-  turma,
-  subject,
-  turmaOptions,
-  subjectOptions,
-  onTurmaChange,
-  onSubjectChange,
-}: PendingEditorProps) {
-  const positionedStyle = useMemo(
-    () => ({
-      top: HEADER_HEIGHT + startSlot * SLOT_HEIGHT + CELL_GAP,
-      left: TIME_COL_WIDTH + dayIndex * dayWidth + CELL_GAP,
-      width: dayWidth - CELL_GAP * 2,
-      height: SLOT_HEIGHT - CELL_GAP * 2,
-    }),
-    [dayIndex, dayWidth, startSlot]
-  );
-
-  return (
-    <div style={positionedStyle} className="absolute z-10">
-      <div
-        className="relative flex h-full w-full flex-col justify-center gap-2 rounded-md py-2"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <CardSelect
-          value={turma}
-          onChange={onTurmaChange}
-          options={turmaOptions}
-          ariaLabel="Selecionar turma"
-          placeholder="Turma"
-        />
-        <CardSelect
-          value={subject}
-          onChange={onSubjectChange}
-          options={subjectOptions}
-          ariaLabel="Selecionar matéria"
-          placeholder="Matéria"
-        />
-      </div>
-    </div>
-  );
-});
-
-export function GradeGrid({
-  shift,
-  events = [],
-  isSchoolScheduleConfigured = true,
-  turmaOptions = [],
-  subjectOptions = [],
-  selectedTeacherSubjectOptions = [],
-  timesByShift,
-  onPersistMove,
-  onCreateSchedule,
-  onDeleteSchedule,
-  onValidateTurmaSelection,
-}: GradeGridProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [containerWidth, setContainerWidth] = useState<number>(0);
-  const [dragPreview, setDragPreview] = useState<{ dayIndex: number; startSlot: number } | null>(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [pendingDeleteScheduleId, setPendingDeleteScheduleId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const element = containerRef.current;
-    if (!element) return;
-    const observer = new ResizeObserver(() => {
-      setContainerWidth(element.clientWidth);
-    });
-    observer.observe(element);
-    setContainerWidth(element.clientWidth);
-    return () => observer.disconnect();
-  }, []);
-
-  const dayWidth = useMemo(
-    () => {
-      const minDayWidth = 136;
-      const fitDayWidth = (containerWidth - TIME_COL_WIDTH) / WEEK_DAYS.length;
-      return Math.max(minDayWidth, fitDayWidth);
-    },
-    [containerWidth]
-  );
-  const gridWidth = useMemo(
-    () => TIME_COL_WIDTH + dayWidth * WEEK_DAYS.length,
-    [dayWidth]
-  );
-
-  const autoAssignedSubject = useMemo(
-    () => (selectedTeacherSubjectOptions.length === 1 ? selectedTeacherSubjectOptions[0] : null),
-    [selectedTeacherSubjectOptions]
-  );
-
-  const resolvedSubjectOptions = useMemo(
-    () => (autoAssignedSubject ? selectedTeacherSubjectOptions : subjectOptions),
-    [autoAssignedSubject, selectedTeacherSubjectOptions, subjectOptions]
-  );
-
-  const {
-    times,
-    items,
-    activeDragItem,
-    sensors,
-    editingEventId,
-    pendingEditor,
-    turmaSelectOptions,
-    subjectSelectOptions,
-    openEditor,
-    openEmptyEditor,
-    closeEditor,
-    updateEventFields,
-    updatePendingFields,
-    handleDragStart,
-    handleDragCancel,
-    handleDragEnd,
-  } = useGradeGrid({
-    shift,
-    events,
-    turmaOptions,
-    subjectOptions: resolvedSubjectOptions,
-    timesByShift,
-    onPersistMove,
-    onCreateSchedule,
-  });
-
-  useEffect(() => {
-    const handlePointerDownOutside = (event: PointerEvent) => {
-      const container = containerRef.current;
-      if (!container) return;
-      const target = event.target as Node | null;
-      if (!target) return;
-      const targetElement = target as Element;
-      const clickedInsideRadixMenu =
-        targetElement.closest(".grade-card-menu") ||
-        targetElement.closest("[data-radix-popper-content-wrapper]") ||
-        targetElement.closest("[role='menu']");
-
-      if (clickedInsideRadixMenu) {
-        return;
-      }
-
-      if (!container.contains(target)) {
-        closeEditor();
-      }
-    };
-
-    window.addEventListener("pointerdown", handlePointerDownOutside);
-    return () => {
-      window.removeEventListener("pointerdown", handlePointerDownOutside);
-    };
-  }, [closeEditor]);
-
-  const handleDragEndWithMetrics = useCallback(
-    (event: DragEndEvent) => {
-      void handleDragEnd(event, dayWidth);
-      setDragPreview(null);
-    },
-    [dayWidth, handleDragEnd]
-  );
-
-  const handleDragStartWithPreview = useCallback(
-    (event: DragStartEvent) => {
-      handleDragStart(event);
-      const sourceId = String(event.active.id);
-      const sourceItem = items.find((item) => item.id === sourceId);
-      if (!sourceItem) return;
-      setDragPreview({
-        dayIndex: sourceItem.dayIndex,
-        startSlot: sourceItem.startSlot,
-      });
-    },
-    [handleDragStart, items]
-  );
-
-  const handleDragMoveWithPreview = useCallback(
-    (event: DragMoveEvent) => {
-      const sourceId = String(event.active.id);
-      const sourceItem = items.find((item) => item.id === sourceId);
-      if (!sourceItem) return;
-
-      const deltaSlots = Math.round(event.delta.y / SLOT_HEIGHT);
-      const deltaDays = Math.round(event.delta.x / dayWidth);
-
-      const nextSlot = clamp(sourceItem.startSlot + deltaSlots, 0, Math.max(0, times.length - 1));
-      const nextDay = clamp(sourceItem.dayIndex + deltaDays, 0, WEEK_DAYS.length - 1);
-
-      setDragPreview((previous) => {
-        if (previous && previous.dayIndex === nextDay && previous.startSlot === nextSlot) {
-          return previous;
-        }
-        return { dayIndex: nextDay, startSlot: nextSlot };
-      });
-    },
-    [dayWidth, items, times.length]
-  );
-
-  const handleDragCancelWithPreview = useCallback(() => {
-    handleDragCancel();
-    setDragPreview(null);
-  }, [handleDragCancel]);
-
-  const occupiedCells = useMemo(() => {
-    const map = new Map<string, string[]>();
-    items.forEach((item) => {
-      const key = `${item.dayIndex}-${item.startSlot}`;
-      const current = map.get(key) ?? [];
-      current.push(item.id);
-      map.set(key, current);
-    });
-    return map;
-  }, [items]);
-
-  const isDropBlocked = useMemo(() => {
-    if (!dragPreview || !activeDragItem) return false;
-    const key = `${dragPreview.dayIndex}-${dragPreview.startSlot}`;
-    const idsAtTarget = occupiedCells.get(key) ?? [];
-    return idsAtTarget.some((id) => id !== activeDragItem.id);
-  }, [activeDragItem, dragPreview, occupiedCells]);
-
-  useEffect(() => {
-    if (!activeDragItem) return;
-
-    const previousCursor = document.body.style.cursor;
-    document.body.style.cursor = isDropBlocked ? "not-allowed" : "grabbing";
-
-    return () => {
-      document.body.style.cursor = previousCursor;
-    };
-  }, [activeDragItem, isDropBlocked]);
-
-  const handlePendingTurma = useCallback(
-    (value: string) => {
-      const run = async () => {
-        if (pendingEditor && onValidateTurmaSelection) {
-          const result = await onValidateTurmaSelection({
-            dayIndex: pendingEditor.dayIndex,
-            startSlot: pendingEditor.startSlot,
-            shift,
-            turma: value,
-          });
-
-          if (result.hasConflict) {
-            if (result.teacherName) {
-              toast.warning(`Turma já tem aula nesse horário com ${result.teacherName}.`);
-            } else {
-              toast.warning("Turma já tem aula nesse horário.");
-            }
-            return;
-          }
-        }
-
-        if (autoAssignedSubject) {
-          updatePendingFields({ turma: value, subject: autoAssignedSubject });
-          return;
-        }
-        updatePendingFields({ turma: value });
-      };
-
-      void run();
-    },
-    [autoAssignedSubject, onValidateTurmaSelection, pendingEditor, shift, updatePendingFields]
-  );
-
-  const handlePendingSubject = useCallback(
-    (value: string) => {
-      updatePendingFields({ subject: value });
-    },
-    [updatePendingFields]
-  );
-  const isGridDimmed = !isSchoolScheduleConfigured;
-
-  const handleDeleteEvent = useCallback(
-    async (eventId: string): Promise<boolean> => {
-      if (!onDeleteSchedule) return false;
-      const deleted = await onDeleteSchedule(eventId);
-      if (deleted) {
-        closeEditor();
-      }
-      return deleted;
-    },
-    [closeEditor, onDeleteSchedule]
-  );
-
-  const openDeleteDialog = useCallback((scheduleId: string) => {
-    setPendingDeleteScheduleId(scheduleId);
-    setIsDeleteDialogOpen(true);
-  }, []);
-
-  const handleConfirmDelete = useCallback(async () => {
-    if (!pendingDeleteScheduleId) return;
-    const deleted = await handleDeleteEvent(pendingDeleteScheduleId);
-    if (deleted) {
-      setIsDeleteDialogOpen(false);
-      setPendingDeleteScheduleId(null);
-    }
-  }, [handleDeleteEvent, pendingDeleteScheduleId]);
-
-  return (
-    <div ref={containerRef} className="relative overflow-auto rounded-lg border border-border" onClick={closeEditor}>
       <DndContext
-        sensors={sensors}
+        sensors={controller.sensors}
         collisionDetection={closestCenter}
-        onDragStart={handleDragStartWithPreview}
-        onDragMove={handleDragMoveWithPreview}
-        onDragCancel={handleDragCancelWithPreview}
-        onDragEnd={handleDragEndWithMetrics}
+        onDragStart={controller.handleDragStartWithPreview}
+        onDragMove={controller.handleDragMoveWithPreview}
+        onDragCancel={controller.handleDragCancelWithPreview}
+        onDragEnd={controller.handleDragEndWithMetrics}
       >
-          <div className="relative" style={{ width: gridWidth }}>
-            <table className="w-full table-fixed border-collapse">
+        <div className="relative" style={{ width: controller.gridWidth }}>
+          {/* A tabela desenha a malha base; os blocos de aula ficam posicionados por cima. */}
+          <table className="w-full table-fixed border-collapse">
             <thead className="sticky top-0 z-20 bg-background">
               <tr>
                 <th
@@ -613,153 +58,224 @@ export function GradeGrid({
                   style={{ width: TIME_COL_WIDTH }}
                 />
                 {WEEK_DAYS.map((day) => (
-                  <th key={day} className="h-10 border-b border-r border-border px-3 text-center text-base font-semibold last:border-r-0">
+                  <th
+                    key={day}
+                    className="h-10 border-b border-r border-border px-3 text-center text-base font-semibold last:border-r-0"
+                  >
                     {DAY_LABELS[day]}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {times.map((time, slotIndex) => (
+              {controller.times.map((time, slotIndex) => (
                 <tr key={time}>
-                  <th className="h-24 border-b border-r border-border px-2 text-left text-base font-semibold text-foreground/80">
+                  <th
+                    className={cn(
+                      "h-24 border-b border-r border-border px-2 text-left text-base font-semibold text-foreground/80",
+                      controller.breakLabelByAnchorTime.has(time) && "relative"
+                    )}
+                  >
                     {time}
+                    {controller.breakLabelByAnchorTime.has(time) ? (
+                      <>
+                        <div
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] translate-y-1/2 bg-slate-300/80 dark:bg-slate-600/70"
+                        />
+                        <span className="absolute left-1/2 bottom-0 inline-flex -translate-x-1/2 translate-y-1/2 rounded-full bg-muted px-3 text-[12px] font-semibold text-muted-foreground">
+                          {controller.breakLabelByAnchorTime.get(time)}
+                        </span>
+                      </>
+                    ) : null}
                   </th>
+
                   {WEEK_DAYS.map((day, dayIndex) => {
                     const key = `${day}-${time}`;
-                    const isOccupied = (occupiedCells.get(`${dayIndex}-${slotIndex}`) ?? []).length > 0;
+                    const breakLabel = controller.breakLabelByAnchorTime.get(time);
+                    const isOccupied =
+                      (controller.occupiedCells.get(`${dayIndex}-${slotIndex}`) ?? []).length > 0;
+
                     return (
-                      <td
+                      <ContextMenu
                         key={key}
-                        className={cn(
-                          "h-24 border-b border-r border-border p-0 align-top last:border-r-0",
-                          isGridDimmed && "bg-muted/20"
-                        )}
-                        onClick={(event) => {
-                          if (!isSchoolScheduleConfigured) return;
-                          if (isOccupied) {
-                            toast.warning("Esse horário já tem uma aula.");
-                            return;
-                          }
-                          event.stopPropagation();
-                          openEmptyEditor(dayIndex, slotIndex);
-                        }}
-                      />
+                        onOpenChange={(open) => controller.handleSlotContextMenuOpenChange(key, open)}
+                      >
+                        <ContextMenuTrigger asChild>
+                          <td
+                            className={cn(
+                              "h-24 border-b border-r border-border p-0 align-top last:border-r-0",
+                              breakLabel && "relative",
+                              controller.isGridDimmed && "bg-muted/20"
+                            )}
+                            onContextMenuCapture={(event) => {
+                              if (!controller.shouldSuppressSlotInteraction()) return;
+                              event.preventDefault();
+                              event.stopPropagation();
+                            }}
+                            onClick={(event) => {
+                              if (controller.shouldSuppressSlotInteraction()) {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                return;
+                              }
+
+                              if (!props.isSchoolScheduleConfigured) return;
+
+                              // Slot vazio abre o editor pendente apenas quando não há
+                              // aula ocupando a célula e não existe clique residual do menu.
+                              if (isOccupied) {
+                                toast.warning("Esse horário já tem uma aula.");
+                                return;
+                              }
+
+                              event.stopPropagation();
+                              controller.setOpenEventContextMenuId(null);
+                              controller.setOpenSlotContextMenuKey(null);
+                              controller.openEmptyEditor(dayIndex, slotIndex);
+                            }}
+                          >
+                            {breakLabel ? (
+                              <div
+                                aria-hidden="true"
+                                className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] translate-y-1/2 bg-slate-300/80 dark:bg-slate-600/70"
+                              />
+                            ) : null}
+                            {controller.pendingPasteSlot?.dayIndex === dayIndex &&
+                            controller.pendingPasteSlot?.startSlot === slotIndex ? (
+                              <div className="flex h-full w-full items-center p-2">
+                                <Skeleton className="h-full w-full rounded-md border border-primary/20 bg-primary/10" />
+                              </div>
+                            ) : null}
+                          </td>
+                        </ContextMenuTrigger>
+                        {!isOccupied && controller.copiedLesson && controller.openSlotContextMenuKey === key ? (
+                          <ContextMenuContent className="w-44">
+                            <ContextMenuItem
+                              onSelect={() => {
+                                void controller.handlePasteToSlot(dayIndex, slotIndex);
+                              }}
+                            >
+                              <ClipboardPaste className="h-4 w-4" />
+                              Colar
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        ) : null}
+                      </ContextMenu>
                     );
                   })}
                 </tr>
               ))}
             </tbody>
-            </table>
+          </table>
 
-            {items.map((item) => (
-              <EventBlock
-                key={item.id}
-                item={item}
-                dayWidth={dayWidth}
-                isDimmed={isGridDimmed}
-                isEditing={editingEventId === item.id}
-                turmaOptions={turmaSelectOptions}
-                subjectOptions={subjectSelectOptions}
-                autoAssignedSubject={autoAssignedSubject}
-                onOpenEditor={openEditor}
-                onCloseEditor={closeEditor}
-                onDeleteItem={(eventId) => {
-                  openDeleteDialog(eventId);
-                }}
-                onUpdateFields={updateEventFields}
-              />
-            ))}
+          {controller.items.map((item) => (
+            <EventBlock
+              key={item.id}
+              item={item}
+              dayWidth={controller.dayWidth}
+              isDimmed={controller.isGridDimmed}
+              isEditing={controller.editingEventId === item.id}
+              isContextMenuOpen={controller.openEventContextMenuId === item.id}
+              turmaOptions={controller.turmaSelectOptions}
+              subjectOptions={controller.subjectSelectOptions}
+              autoAssignedSubject={controller.autoAssignedSubject}
+              onOpenEditor={controller.openEditor}
+              onCloseEditor={controller.closeEditor}
+              onContextMenuOpenChange={controller.handleEventContextMenuOpenChange}
+              shouldSuppressEditorOpen={controller.shouldSuppressSlotInteraction}
+              onCopyItem={controller.handleCopyItem}
+              onDeleteItem={controller.handleRequestDelete}
+              onUpdateFields={controller.updateEventFields}
+            />
+          ))}
 
-            {dragPreview ? (
+          {controller.dragPreview ? (
+            // O preview mostra exatamente onde a aula vai cair antes do drop final.
+            <div
+              className="pointer-events-none absolute z-[9]"
+              style={{
+                top: HEADER_HEIGHT + controller.dragPreview.startSlot * SLOT_HEIGHT + CELL_GAP,
+                left: TIME_COL_WIDTH + controller.dragPreview.dayIndex * controller.dayWidth + CELL_GAP,
+                width: controller.dayWidth - CELL_GAP * 2,
+                height: SLOT_HEIGHT - CELL_GAP * 2,
+              }}
+            >
               <div
-                className="pointer-events-none absolute z-[9]"
-                style={{
-                  top: HEADER_HEIGHT + dragPreview.startSlot * SLOT_HEIGHT + CELL_GAP,
-                  left: TIME_COL_WIDTH + dragPreview.dayIndex * dayWidth + CELL_GAP,
-                  width: dayWidth - CELL_GAP * 2,
-                  height: SLOT_HEIGHT - CELL_GAP * 2,
-                }}
-              >
-                <div
-                  className={cn(
-                    "h-full w-full rounded-md border-2 border-dashed",
-                    isDropBlocked
-                      ? "border-destructive/80 bg-destructive/10"
-                      : "border-primary/70 bg-primary/5"
-                  )}
-                />
-              </div>
-            ) : null}
-
-            {pendingEditor ? (
-              <PendingEditorBlock
-                dayWidth={dayWidth}
-                dayIndex={pendingEditor.dayIndex}
-                startSlot={pendingEditor.startSlot}
-                turma={pendingEditor.turma}
-                subject={pendingEditor.subject}
-                turmaOptions={turmaSelectOptions}
-                subjectOptions={subjectSelectOptions}
-                onTurmaChange={handlePendingTurma}
-                onSubjectChange={handlePendingSubject}
+                className={cn(
+                  "h-full w-full rounded-md border-2 border-dashed",
+                  controller.isDropBlocked
+                    ? "border-destructive/80 bg-destructive/10"
+                    : "border-primary/70 bg-primary/5"
+                )}
               />
-            ) : null}
-          </div>
+            </div>
+          ) : null}
+
+          {controller.activePendingBlock ? (
+            // O bloco pendente cobre o fluxo de criação rápida e também o preview
+            // temporário enquanto a nova aula ainda está sendo persistida.
+            <PendingEditorBlock
+              dayWidth={controller.dayWidth}
+              dayIndex={controller.activePendingBlock.dayIndex}
+              startSlot={controller.activePendingBlock.startSlot}
+              turma={controller.activePendingBlock.turma}
+              subject={controller.activePendingBlock.subject}
+              isSaving={controller.isActivePendingBlockSaving}
+              isTurmaLoading={controller.isPendingTurmaValidation}
+              turmaOptions={controller.turmaSelectOptions}
+              subjectOptions={controller.subjectSelectOptions}
+              onTurmaChange={controller.handlePendingTurma}
+              onSubjectChange={controller.handlePendingSubject}
+            />
+          ) : null}
+        </div>
+
+        {controller.pendingPasteSlot ? (
+          // Durante o colar, a grade fica bloqueada para evitar cliques concorrentes
+          // enquanto a validação e a criação da aula ainda estão em andamento.
+          <div className="absolute inset-0 z-[25] cursor-not-allowed bg-background/5" aria-hidden="true" />
+        ) : null}
 
         <DragOverlay>
-          {activeDragItem ? (
+          {controller.activeDragItem ? (
             <div
               className={cn(
                 "rounded-md border px-3 py-2",
-                getSubjectColorClasses(activeDragItem.subject).text,
-                getSubjectColorClasses(activeDragItem.subject).border,
-                getSubjectColorClasses(activeDragItem.subject).background
+                getSubjectColorClasses(controller.activeDragItem.subject).text,
+                getSubjectColorClasses(controller.activeDragItem.subject).border,
+                getSubjectColorClasses(controller.activeDragItem.subject).background
               )}
               style={{
-                width: dayWidth - CELL_GAP * 2,
+                width: controller.dayWidth - CELL_GAP * 2,
                 height: SLOT_HEIGHT - CELL_GAP * 2,
               }}
             >
               <div className="space-y-1">
-                <p className="truncate text-base font-semibold">{activeDragItem.turma}</p>
-                <p className="truncate text-sm font-medium opacity-90">{activeDragItem.subject}</p>
+                <p className="truncate text-base font-semibold">{controller.activeDragItem.turma}</p>
+                <p className="truncate text-sm font-medium opacity-90">
+                  {controller.activeDragItem.subject}
+                </p>
               </div>
             </div>
           ) : null}
         </DragOverlay>
       </DndContext>
 
-      <AlertDialog
-        open={isDeleteDialogOpen}
+      <GradeGridDeleteDialog
+        open={controller.isDeleteDialogOpen}
+        isDeletingSchedule={controller.isDeletingSchedule}
         onOpenChange={(open) => {
-          setIsDeleteDialogOpen(open);
+          if (controller.isDeletingSchedule) return;
+          controller.setIsDeleteDialogOpen(open);
           if (!open) {
-            setPendingDeleteScheduleId(null);
+            controller.setPendingDeleteScheduleId(null);
           }
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Essa ação vai excluir a aula da grade e não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={(event) => {
-                event.preventDefault();
-                void handleConfirmDelete();
-              }}
-            >
-              Excluir aula
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onConfirm={() => {
+          void controller.handleConfirmDelete();
+        }}
+      />
     </div>
   );
 }

@@ -55,6 +55,36 @@ export class TimeSlotsRepository {
     return data as TimeSlot
   }
 
+  async createMany(payloads: CreateTimeSlotRequest[]) {
+    const { data, error } = await supabase
+      .from('time_slots')
+      .insert(payloads)
+      .select()
+
+    if (error) throw error
+
+    return ((data ?? []) as TimeSlot[]).sort((left, right) => {
+      if (left.shift !== right.shift) {
+        return left.shift - right.shift
+      }
+
+      return left.order_index - right.order_index
+    })
+  }
+
+  async deleteBySchool(tenantId: string, schoolId: string): Promise<number> {
+    const { data, error } = await supabase
+      .from('time_slots')
+      .delete()
+      .eq('tenant_id', tenantId)
+      .eq('school_id', schoolId)
+      .select('id')
+
+    if (error) throw error
+
+    return data?.length ?? 0
+  }
+
   async findRoleNameById(roleId: string): Promise<string | null> {
     const { data, error } = await supabase
       .from('roles')
@@ -76,5 +106,16 @@ export class TimeSlotsRepository {
 
     if (error) throw error
     return Boolean(data)
+  }
+
+  async findSchoolTenantId(schoolId: string): Promise<string | null> {
+    const { data, error } = await supabase
+      .from('schools')
+      .select('tenant_id')
+      .eq('id', schoolId)
+      .maybeSingle()
+
+    if (error) throw error
+    return data?.tenant_id ? String(data.tenant_id) : null
   }
 }

@@ -142,7 +142,7 @@ export function useClasses() {
         return next;
       });
 
-      invalidateGradeClassesCache(created.school_id);
+      invalidateGradeClassesCache(created.school_id ?? payload.school_id);
     },
     [educationLevels, series]
   );
@@ -337,6 +337,27 @@ export function useClasses() {
     return filteredClasses.slice(start, start + pageSize);
   }, [filteredClasses, page]);
 
+  const existingClassKeys = useMemo(
+    () =>
+      classes
+        .map((item) => ({
+          schoolId: item.school_id,
+          seriesId: item.series_id ?? "",
+          suffix: (item.suffix ?? "").trim().toUpperCase(),
+          shift: typeof item.shift === "number" ? item.shift : 0,
+          year: item.year,
+        }))
+        .filter(
+          (item) =>
+            item.schoolId.length > 0 &&
+            item.seriesId.length > 0 &&
+            item.suffix.length > 0 &&
+            (item.shift === 1 || item.shift === 2) &&
+            Number.isInteger(item.year)
+        ),
+    [classes]
+  );
+
   return {
     search,
     setSearch,
@@ -347,6 +368,7 @@ export function useClasses() {
     schoolOptions,
     educationLevelOptions,
     seriesOptions,
+    existingClassKeys,
     page,
     pageSize,
     setPage,

@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useAuth } from "@/features/auth";
 import { getStoredToken } from "@/features/auth/utils/auth-storage";
+import { expireAuthSession, isUnauthorizedApiResponse } from "@/features/auth/utils/auth-session";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { useTicketTyping } from "@/hooks/useTicketTyping";
 import { useChatMessages } from "./useChatMessages";
@@ -483,6 +484,10 @@ export function useTicketMessages(ticketId: string) {
 
             const result = await response.json();
             if (!response.ok || !result?.success) {
+              if (isUnauthorizedApiResponse(response.status, result)) {
+                expireAuthSession();
+              }
+
               throw new Error(
                 result?.error?.message || result?.message || "Erro ao enviar mensagens"
               );

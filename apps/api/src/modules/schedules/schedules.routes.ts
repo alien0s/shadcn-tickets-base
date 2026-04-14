@@ -19,7 +19,8 @@ export const schedulesRoutes: FastifyPluginAsync = async (fastify) => {
     preHandler: [authMiddleware]
   }, async (request) => {
     const query = request.query as {
-      teacher_id: string
+      teacher_id?: string
+      class_id?: string
       school_id?: string
     }
 
@@ -30,6 +31,7 @@ export const schedulesRoutes: FastifyPluginAsync = async (fastify) => {
       },
       {
         teacherId: query.teacher_id,
+        classId: query.class_id,
         schoolId: query.school_id
       }
     )

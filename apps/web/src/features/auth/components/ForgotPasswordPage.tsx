@@ -38,7 +38,7 @@ export function ForgotPasswordPage() {
 
   // Guard: se já logado, não mostra a página
   if (isAuthenticated) {
-    return <Navigate to="/dashboardtickets" replace />; // replace evita voltar pra página via "back"
+    return <Navigate to="/grade" replace />; // replace evita voltar pra página via "back"
   }
 
   return (

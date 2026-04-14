@@ -1,27 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import type { SchoolCardRow } from "../components/SchoolsGrid";
+import type {
+  CreateSchoolInput,
+  SchoolCardRow,
+  SchoolClassListItem,
+  SchoolListItem,
+  SchoolTeacherListItem,
+  UpdateSchoolInput,
+} from "../types";
 
-type SchoolApi = {
-  id: string;
-  name: string;
-  abbreviation?: string | null;
-  active?: boolean;
-};
-
-type ClassApi = {
-  id: string;
-  school_id: string;
-};
-
-type TeacherApi = {
-  id: string;
-  school_id: string;
-};
-
-let schoolsCache: SchoolApi[] | null = null;
-let classesCache: ClassApi[] | null = null;
-let teachersCache: TeacherApi[] | null = null;
+let schoolsCache: SchoolListItem[] | null = null;
+let classesCache: SchoolClassListItem[] | null = null;
+let teachersCache: SchoolTeacherListItem[] | null = null;
 
 function normalizeSearchText(value: string): string {
   return value
@@ -48,9 +38,9 @@ function buildAbbreviation(name: string): string {
 
 export function useSchools() {
   const [search, setSearch] = useState("");
-  const [schools, setSchools] = useState<SchoolApi[]>([]);
-  const [classes, setClasses] = useState<ClassApi[]>([]);
-  const [teachers, setTeachers] = useState<TeacherApi[]>([]);
+  const [schools, setSchools] = useState<SchoolListItem[]>([]);
+  const [classes, setClasses] = useState<SchoolClassListItem[]>([]);
+  const [teachers, setTeachers] = useState<SchoolTeacherListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,9 +61,9 @@ export function useSchools() {
       setError(null);
       try {
         const [schoolsData, classesData, teachersData] = await Promise.all([
-          api.get<SchoolApi[]>("/schools"),
-          api.get<ClassApi[]>("/classes"),
-          api.get<TeacherApi[]>("/teachers"),
+          api.get<SchoolListItem[]>("/schools"),
+          api.get<SchoolClassListItem[]>("/classes"),
+          api.get<SchoolTeacherListItem[]>("/teachers"),
         ]);
 
         if (!isActive) return;
@@ -104,6 +94,48 @@ export function useSchools() {
     };
   }, []);
 
+  const createSchool = useCallback(
+    async (input: CreateSchoolInput) => {
+      const { data: createdSchool } = await api.postWithMeta<SchoolListItem>("/schools", input);
+
+      schoolsCache = [...(schoolsCache ?? schools), createdSchool]
+        .filter((school, index, array) => array.findIndex((item) => item.id === school.id) === index)
+        .sort((a, b) => a.name.localeCompare(b.name));
+
+      setSchools(schoolsCache);
+      setError(null);
+
+      return createdSchool;
+    },
+    [schools]
+  );
+
+  const deleteSchool = useCallback(async (schoolId: string) => {
+    await api.delete<void>(`/schools/${schoolId}`);
+
+    schoolsCache = (schoolsCache ?? schools).filter((school) => school.id !== schoolId);
+    classesCache = (classesCache ?? classes).filter((item) => item.school_id !== schoolId);
+    teachersCache = (teachersCache ?? teachers).filter((item) => item.school_id !== schoolId);
+
+    setSchools(schoolsCache);
+    setClasses(classesCache);
+    setTeachers(teachersCache);
+    setError(null);
+  }, [classes, schools, teachers]);
+
+  const updateSchool = useCallback(async (schoolId: string, input: UpdateSchoolInput) => {
+    const { data: updatedSchool } = await api.patchWithMeta<SchoolListItem>(`/schools/${schoolId}`, input);
+
+    schoolsCache = (schoolsCache ?? schools)
+      .map((school) => (school.id === schoolId ? updatedSchool : school))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    setSchools(schoolsCache);
+    setError(null);
+
+    return updatedSchool;
+  }, [schools]);
+
   const classCountBySchool = useMemo(() => {
     const map = new Map<string, number>();
     for (const item of classes) {
@@ -132,6 +164,7 @@ export function useSchools() {
         name: school.name,
         classCount: classCountBySchool.get(school.id) ?? 0,
         teacherCount: teacherCountBySchool.get(school.id) ?? 0,
+        active: school.active !== false,
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [classCountBySchool, schools, teacherCountBySchool]);
@@ -161,6 +194,9 @@ export function useSchools() {
     search,
     setSearch,
     schools: filteredSchools,
+    createSchool,
+    deleteSchool,
+    updateSchool,
     total,
     isLoading,
     error,

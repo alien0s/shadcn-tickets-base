@@ -149,7 +149,7 @@ export function SignupCard() {
 
       if (isFormInvalid) return;
 
-      const normalizedEmail = email.trim();
+      const normalizedEmail = email.trim().toLowerCase();
       const normalizedFirstName = firstName.trim();
       const normalizedLastName = lastName.trim();
 

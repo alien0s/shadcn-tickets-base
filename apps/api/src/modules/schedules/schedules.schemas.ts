@@ -4,9 +4,13 @@ export const schedulesSchemas = {
   list: {
     querystring: {
       type: 'object',
-      required: ['teacher_id'],
+      anyOf: [
+        { required: ['teacher_id'] },
+        { required: ['class_id'] }
+      ],
       properties: {
         teacher_id: { type: 'string', format: 'uuid' },
+        class_id: { type: 'string', format: 'uuid' },
         school_id: { type: 'string', format: 'uuid' }
       }
     },
@@ -31,6 +35,12 @@ export const schedulesSchemas = {
                 day_of_week: { type: 'integer' },
                 created_at: { type: 'string', format: 'date-time' },
                 classes: {
+                  type: ['object', 'null'],
+                  properties: {
+                    name: { type: 'string' }
+                  }
+                },
+                teachers: {
                   type: ['object', 'null'],
                   properties: {
                     name: { type: 'string' }

@@ -9,6 +9,7 @@ import { UsersPage } from "@/pages/users/UsersPage"
 import { ClassesPage } from "@/pages/classes/ClassesPage"
 import { TeachersPage } from "@/pages/teachers/TeachersPage"
 import { SchoolsPage } from "@/pages/schools/SchoolsPage"
+import { SchoolProfilePage } from "@/pages/schools/SchoolProfilePage"
 import { LoginPage } from "@/pages/LoginPage"
 import { SignupPage } from "@/pages/SignupPage"
 import { ForgotPasswordPage } from "@/features/auth"
@@ -161,10 +162,19 @@ export default function App() {
         />
 
         <Route
-          path="/escola"
+          path="/escolas"
           element={
             <ProtectedRoute>
               <SchoolsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/escolas/:schoolId"
+          element={
+            <ProtectedRoute>
+              <SchoolProfilePage />
             </ProtectedRoute>
           }
         />

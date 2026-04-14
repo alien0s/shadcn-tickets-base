@@ -7,6 +7,10 @@ const ADMIN_DEPARTMENT_ID = '7240712b-96de-418a-b6b3-344d12d64237'
 export class UsersService {
   private repository: UsersRepository
 
+  private normalizeEmail(email: string) {
+    return email.trim().toLowerCase()
+  }
+
   constructor() {
     this.repository = new UsersRepository()
   }
@@ -45,12 +49,16 @@ export class UsersService {
   }
 
   async createUser(userData: Omit<User, 'id' | 'created_at'>) {
-    const existingUser = await this.repository.findByEmail(userData.email)
+    const normalizedEmail = this.normalizeEmail(userData.email)
+    const existingUser = await this.repository.findByEmail(normalizedEmail)
     if (existingUser) {
       throw new ValidationError('Email ja cadastrado')
     }
 
-    return this.repository.create(userData)
+    return this.repository.create({
+      ...userData,
+      email: normalizedEmail
+    })
   }
 
   async updateUser(
@@ -67,7 +75,7 @@ export class UsersService {
     const allowedFields = {
       name: userData.name,
       last_name: userData.last_name,
-      email: userData.email,
+      email: typeof userData.email === 'string' ? this.normalizeEmail(userData.email) : userData.email,
       phone: userData.phone,
       entity_id: userData.entity_id,
       department_id: userData.department_id,

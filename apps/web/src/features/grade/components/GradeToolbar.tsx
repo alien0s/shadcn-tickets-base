@@ -10,28 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import type { ShiftKey } from "../types";
-
-export type ToolbarOption = {
-  value: string;
-  label: string;
-  avatarUrl?: string;
-};
-
-type GradeToolbarProps = {
-  shift: ShiftKey;
-  escola: string;
-  professor: string;
-  onShiftChange: (value: ShiftKey) => void;
-  onEscolaChange: (value: string) => void;
-  onProfessorChange: (value: string) => void;
-  escolaOptions: readonly ToolbarOption[];
-  professorOptions: readonly ToolbarOption[];
-  isLoadingSchools: boolean;
-  isLoadingTeachers: boolean;
-  isProfessorPanelOpen: boolean;
-  onToggleProfessorPanel: () => void;
-};
+import type { GradeToolbarProps, ShiftKey, ToolbarOption } from "../types";
 
 type ShiftOption = {
   value: ShiftKey;
@@ -68,6 +47,9 @@ function ToolbarSelect({
   ariaLabel: string;
   isLoading: boolean;
 }) {
+  // Select visual da escola.
+  // Regra prática: cada escola recebe uma cor fixa baseada no índice para o usuário
+  // bater o olho e reconhecer mais rápido, mesmo sem ler toda a sigla.
   const selectedOption = options.find((option) => option.value === value);
   const selectedLabel = selectedOption?.label ?? "Sem escolas";
   const selectedIndex = options.findIndex((option) => option.value === value);
@@ -136,6 +118,8 @@ function getInitials(name: string): string {
 }
 
 function stopDropdownTypeahead(event: KeyboardEvent<HTMLInputElement>) {
+  // O Radix tenta navegar pelos itens digitados.
+  // Como aqui existe um input real de busca, a tecla precisa ficar só no campo.
   event.stopPropagation();
 }
 
@@ -150,6 +134,8 @@ function ToolbarProfessorSelect({
   onChange: (value: string) => void;
   isLoading: boolean;
 }) {
+  // O dropdown de professor é o único com busca porque a lista tende a crescer.
+  // Mantemos o filtro local e simples para evitar complexidade desnecessária.
   const selectedOption = options.find((option) => option.value === value);
   const selectedLabel = selectedOption?.label ?? "Sem professores";
   const [open, setOpen] = useState(false);
@@ -162,6 +148,9 @@ function ToolbarProfessorSelect({
 
   useEffect(() => {
     if (!open) return;
+
+    // Espera um frame para o input existir no DOM antes de focar.
+    // Sem isso, o foco pode falhar em algumas aberturas do menu.
     const frame = requestAnimationFrame(() => {
       searchInputRef.current?.focus();
     });
@@ -243,6 +232,68 @@ function ToolbarProfessorSelect({
   );
 }
 
+function ToolbarSimpleSelect({
+  value,
+  options,
+  onChange,
+  placeholder,
+  ariaLabel,
+  isLoading,
+}: {
+  value: string;
+  options: readonly ToolbarOption[];
+  onChange: (value: string) => void;
+  placeholder: string;
+  ariaLabel: string;
+  isLoading: boolean;
+}) {
+  // Select genérico para listas pequenas, como turma.
+  // Aqui não vale a pena manter busca nem estado extra.
+  const selectedOption = options.find((option) => option.value === value);
+  const selectedLabel = selectedOption?.label ?? placeholder;
+  const [open, setOpen] = useState(false);
+
+  if (isLoading) {
+    return <Skeleton className="h-11 w-[210px] rounded-md" />;
+  }
+
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          disabled={options.length === 0}
+          className="h-11 w-[210px] justify-between gap-2 bg-background px-2 font-medium text-foreground hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          aria-label={ariaLabel}
+        >
+          <span className="min-w-0 flex-1 truncate text-left text-sm">{selectedLabel}</span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-[210px]">
+        {options.length === 0 ? (
+          <DropdownMenuItem disabled>Nenhuma turma disponível</DropdownMenuItem>
+        ) : options.map((option) => {
+          const isActive = option.value === value;
+          return (
+            <DropdownMenuItem
+              key={option.value}
+              onSelect={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+              className={cn(isActive && "bg-accent/40 text-primary font-medium")}
+            >
+              <span className="truncate">{option.label}</span>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function ProfessorAvatar({
   src,
   label,
@@ -254,6 +305,8 @@ function ProfessorAvatar({
   sizeClassName: string;
   fallbackClassName?: string;
 }) {
+  // O avatar mostra skeleton enquanto a imagem carrega.
+  // Isso evita "piscada" do fallback com iniciais antes da foto real aparecer.
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -279,19 +332,26 @@ function ProfessorAvatar({
 }
 
 export function GradeToolbar({
+  viewMode,
   shift,
   escola,
   professor,
+  turmaId,
   onShiftChange,
   onEscolaChange,
   onProfessorChange,
+  onTurmaChange,
   escolaOptions,
   professorOptions,
+  turmaOptions,
   isLoadingSchools,
   isLoadingTeachers,
+  isLoadingTurmas,
   isProfessorPanelOpen,
   onToggleProfessorPanel,
 }: GradeToolbarProps) {
+  // A toolbar é só composição de filtros e ações rápidas.
+  // Toda regra de negócio, carregamento e sincronização dos valores fica fora daqui.
   return (
     <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end sm:gap-3">
       <ToolbarSelect
@@ -301,12 +361,23 @@ export function GradeToolbar({
         ariaLabel="Selecionar escola"
         isLoading={isLoadingSchools}
       />
-      <ToolbarProfessorSelect
-        value={professor}
-        options={professorOptions}
-        onChange={onProfessorChange}
-        isLoading={isLoadingTeachers}
-      />
+      {viewMode === "professor" ? (
+        <ToolbarProfessorSelect
+          value={professor}
+          options={professorOptions}
+          onChange={onProfessorChange}
+          isLoading={isLoadingTeachers}
+        />
+      ) : (
+        <ToolbarSimpleSelect
+          value={turmaId}
+          options={turmaOptions}
+          onChange={onTurmaChange}
+          placeholder="Sem turmas"
+          ariaLabel="Selecionar turma"
+          isLoading={isLoadingTurmas}
+        />
+      )}
 
       <div className="flex h-11 items-center rounded-md border border-border bg-muted/30 p-1">
         {SHIFT_OPTIONS.map((option) => (

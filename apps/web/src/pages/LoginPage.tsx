@@ -30,7 +30,7 @@ export function LoginPage() {
   // Redireciona para dashboard se já estiver logado
   // replace: não adiciona na pilha de histórico (impede voltar)
   if (isAuthenticated) {
-    return <Navigate to="/dashboardtickets" replace />;
+    return <Navigate to="/grade" replace />;
   }
 
   // Renderiza página de login

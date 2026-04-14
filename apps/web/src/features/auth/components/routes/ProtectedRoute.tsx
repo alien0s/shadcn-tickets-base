@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/features/auth'
+import { AuthRouteLoader } from './AuthRouteLoader'
 
 type ProtectedRouteProps = {
   children: React.ReactNode
@@ -10,16 +11,12 @@ type ProtectedRouteProps = {
  * Redireciona para /login se não estiver autenticado
  */
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isHydratingSession } = useAuth()
   const location = useLocation()
 
   // Aguarda validação do token
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-muted-foreground">Carregando...</div>
-      </div>
-    )
+  if (isHydratingSession) {
+    return <AuthRouteLoader />
   }
 
   // Redireciona para login se não estiver autenticado

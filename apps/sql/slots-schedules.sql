@@ -26,12 +26,12 @@ CREATE TABLE time_slots (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   tenant_id   UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, -- RLS
   school_id   UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE, -- filtro
-  shift       SMALLINT NOT NULL CHECK (shift IN (1, 2, 3)),
+  shift       SMALLINT NOT NULL CHECK (shift IN (1, 2, 3)),--turno 1=manhã, 2=tarde, 3=noite
   order_index SMALLINT NOT NULL,
   start_time  TIME NOT NULL,
   end_time    TIME NOT NULL,
-  is_break    BOOLEAN DEFAULT false,
-  break_label VARCHAR(50),
+  is_break    BOOLEAN DEFAULT false,--indica se é um intervalo
+  break_label VARCHAR(50),--ex: "Recreio", "Almoço"
   created_at  TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE (school_id, shift, order_index)
 );

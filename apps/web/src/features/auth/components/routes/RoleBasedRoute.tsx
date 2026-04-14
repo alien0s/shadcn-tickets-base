@@ -1,6 +1,7 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth'
 import type { UserRole } from '@/features/auth/types'
+import { AuthRouteLoader } from './AuthRouteLoader'
 
 type RoleBasedRouteProps = {
   children: React.ReactNode
@@ -17,15 +18,10 @@ export function RoleBasedRoute({
   allowedRoles,
   redirectTo = '/tickets'
 }: RoleBasedRouteProps) {
-  const { user, isLoading } = useAuth()  // ← ADICIONAR isLoading
+  const { user, isHydratingSession } = useAuth()
 
-  // ✅ AGUARDAR CARREGAMENTO
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-muted-foreground">Carregando...</div>
-      </div>
-    )
+  if (isHydratingSession) {
+    return <AuthRouteLoader />
   }
 
   // Se não tiver role ou role não permitida, redireciona

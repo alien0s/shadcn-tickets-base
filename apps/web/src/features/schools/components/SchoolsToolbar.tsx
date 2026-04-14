@@ -30,9 +30,14 @@ function SchoolsToolbarComponent({ search, onSearchChange, onCreateSchool }: Sch
           onChange={handleSearchChange}
         />
       </div>
-      <Button size="sm" className="gap-2" onClick={onCreateSchool}>
+      <Button
+        size="sm"
+        className="gap-2 sm:px-3"
+        onClick={onCreateSchool}
+        aria-label="Criar escola"
+      >
         <Plus className="h-4 w-4" />
-        Criar escola
+        <span className="hidden sm:inline">Criar escola</span>
       </Button>
     </div>
   );

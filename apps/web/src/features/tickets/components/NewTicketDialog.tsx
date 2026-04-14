@@ -23,6 +23,7 @@ import { useAuth } from "@/features/auth";
 import { api } from "@/lib";
 import { useFileAttachments } from "@/features/UploadFileMessage/hooks/useFileAttachments";
 import { getStoredToken } from "@/features/auth/utils/auth-storage";
+import { expireAuthSession, isUnauthorizedApiResponse } from "@/features/auth/utils/auth-session";
 import { LoaderCircleIcon } from "lucide-react";
 
 type Props = {
@@ -196,6 +197,10 @@ export function NewTicketDialog({ open, onOpenChange, onCreated }: Props) {
       const result = await response.json();
 
       if (!response.ok || !result?.success) {
+        if (isUnauthorizedApiResponse(response.status, result)) {
+          expireAuthSession();
+        }
+
         throw new Error(
           result?.error?.message ||
             result?.message ||

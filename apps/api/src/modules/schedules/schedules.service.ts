@@ -7,7 +7,8 @@ type ListSchedulesContext = {
 }
 
 type ListSchedulesFilters = {
-  teacherId: string
+  teacherId?: string
+  classId?: string
   schoolId?: string
 }
 
@@ -61,6 +62,10 @@ export class SchedulesService {
   }
 
   async listSchedules(context: ListSchedulesContext, filters: ListSchedulesFilters) {
+    if (!filters.teacherId && !filters.classId) {
+      throw new ValidationError('teacher_id ou class_id deve ser informado')
+    }
+
     const roleName = await this.repository.findRoleNameById(context.roleId)
     const isRoot = roleName?.toLowerCase() === 'root'
 

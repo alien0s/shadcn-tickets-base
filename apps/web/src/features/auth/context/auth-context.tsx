@@ -1,6 +1,7 @@
 import { createContext, useCallback, useMemo, useRef, useState, useEffect } from "react"
 import type { UserRole, AuthUser, LoginPayload, LoginResponse, RegisterPayload } from "../types"
 import { clearAuth, getStoredUser, setStoredUser, setStoredToken, getStoredToken, setStoredSupabaseToken, getStoredSupabaseToken } from "../utils/auth-storage"
+import { AUTH_SESSION_EXPIRED_EVENT, isJwtExpired } from "../utils/auth-session"
 import { consumeAuthHandoff } from "../utils/auth-handoff"
 import { getClientDeviceInfo } from "../utils/device-info"
 import { api } from '@/lib'
@@ -13,6 +14,7 @@ type AuthContextValue = {
   user: AuthUser | null
   isAuthenticated: boolean
   isLoading: boolean
+  isHydratingSession: boolean
   requires2FA: boolean
   pendingEmail: string | null
   login: (payload: LoginPayload) => Promise<void>
@@ -47,6 +49,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const isLoggingInRef = useRef(false)
 
+  const resetSessionState = useCallback((options?: { showExpiredToast?: boolean }) => {
+    setUser(null)
+    clearAuth()
+    setIsLoading(false)
+    setRequires2FA(false)
+    setPendingEmail(null)
+    isLoggingInRef.current = false
+
+    if (options?.showExpiredToast) {
+      toast.error("Sua sessão expirou. Faça login novamente.")
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      resetSessionState({ showExpiredToast: true })
+    }
+
+    window.addEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired)
+
+    return () => {
+      window.removeEventListener(AUTH_SESSION_EXPIRED_EVENT, handleSessionExpired)
+    }
+  }, [resetSessionState])
+
   /**
    * ✅ MODIFICAÇÃO 1: Setar token ao carregar
    */
@@ -54,9 +81,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const validateToken = async () => {
       const handoff = consumeAuthHandoff()
       if (handoff?.user && handoff.token) {
+        if (isJwtExpired(handoff.token)) {
+          resetSessionState({ showExpiredToast: true })
+          setIsHydratingSession(false)
+          return
+        }
+
         setStoredUser(handoff.user)
         setStoredToken(handoff.token)
-        if (handoff.supabaseToken) {
+        if (handoff.supabaseToken && !isJwtExpired(handoff.supabaseToken)) {
           setStoredSupabaseToken(handoff.supabaseToken)
           setSupabaseAuth(handoff.supabaseToken)
         }
@@ -70,34 +103,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const storedUser = getStoredUser()
 
       if (token && storedUser) {
+        if (isJwtExpired(token)) {
+          resetSessionState({ showExpiredToast: true })
+          setIsHydratingSession(false)
+          return
+        }
+
         try {
           // ✅ NOVO: Setar token no Supabase Realtime
-          if (supabaseToken) {
+          if (supabaseToken && !isJwtExpired(supabaseToken)) {
             setSupabaseAuth(supabaseToken)
           }
           
           setUser(storedUser)
         } catch {
-          clearAuth()
-          setUser(null)
+          resetSessionState()
         }
       } else {
-        clearAuth()
-        setUser(null)
+        resetSessionState()
       }
 
       setIsHydratingSession(false)
     }
 
     validateToken()
-  }, [])
+  }, [resetSessionState])
 
   /**
    * ✅ MODIFICAÇÃO 2: Setar token após login
    */
   const login = useCallback(
     async ({ email, password }: LoginPayload) => {
-      const normalizedEmail = email.trim()
+      const normalizedEmail = email.trim().toLowerCase()
 
       if (!normalizedEmail || !password) return
       if (isLoggingInRef.current || isLoading) return
@@ -247,13 +284,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
    * Logout (sem modificação)
    */
   const logout = useCallback(() => {
-    setUser(null)
-    clearAuth()
-    setIsLoading(false)
-    setRequires2FA(false)
-    setPendingEmail(null)
-    isLoggingInRef.current = false
-  }, [])
+    resetSessionState()
+  }, [resetSessionState])
 
   /**
    * Habilitar 2FA (sem modificação)
@@ -294,7 +326,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     () => ({
       user,
       isAuthenticated: Boolean(user),
-      isLoading: isLoading || isHydratingSession,
+      isLoading,
+      isHydratingSession,
       requires2FA,
       pendingEmail,
       login,

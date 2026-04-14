@@ -26,7 +26,7 @@ export function LoginCard() {
 
   const handleForgotPassword = useCallback(() => {
     // Mantém UX: se o usuário já digitou email, preenche na tela de recuperação
-    const normalizedEmail = email.trim(); // evita mandar " " na querystring
+    const normalizedEmail = email.trim().toLowerCase(); // evita mandar " " na querystring
     const search = normalizedEmail
       ? `?email=${encodeURIComponent(normalizedEmail)}`
       : "";
@@ -42,7 +42,7 @@ export function LoginCard() {
       event.preventDefault();
 
       // Normaliza entrada (muito comum usuário colar com espaços)
-      const normalizedEmail = email.trim();
+      const normalizedEmail = email.trim().toLowerCase();
       const normalizedPassword = password; // se quiser, pode .trim(), mas senha geralmente não deve
 
       // Evita submit duplicado se o usuário apertar Enter rápido

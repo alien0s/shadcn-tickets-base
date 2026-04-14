@@ -5,7 +5,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
-  CalendarClock,
+  ContactRound,
   Grid2x2Check,
   ExternalLink,
   FileText,
@@ -15,6 +15,7 @@ import {
   School,
   Headset,
   Users,
+  Building
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -46,7 +47,6 @@ export function Sidebar() {
   const canSeeAdminGroup =
     user?.role === "root" || user?.department_id === ADMIN_DEPARTMENT_ID;
 
-  // ✅ evita duplicação e mantém render previsível (sem mudar UI)
   const mainItems = useMemo<readonly NavItem[]>(
     () => [
       ...(isClient
@@ -55,7 +55,8 @@ export function Sidebar() {
       { to: "/grade", label: "Grade", icon: Grid2x2Check },
       { to: "/matriz", label: "Matriz", icon: FolderClock },
       { to: "/turmas", label: "Turmas", icon: GraduationCap },
-      { to: "/professores", label: "Professores", icon: Users },
+      { to: "/professores", label: "Professores", icon: ContactRound },
+      { to: "/escolas", label: "Escolas", icon: School },
     ],
     [isClient]
   );
@@ -65,8 +66,8 @@ export function Sidebar() {
       !canSeeAdminGroup
         ? []
         : [
-            { to: "/users", label: "Usuário", icon: Users },
-            { to: "/escola", label: "Organização", icon: School },
+            { to: "/users", label: "Usuários", icon: Users },
+            { to: "/organizacao", label: "Organização", icon: Building },
           ],
     [canSeeAdminGroup]
   );
@@ -83,7 +84,6 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Backdrop - apenas mobile quando sidebar estiver aberto */}
       {!isCollapsed && (
         <button
           type="button"
@@ -98,10 +98,8 @@ export function Sidebar() {
         className={cn(
           "flex flex-col border-r border-border bg-card backdrop-blur overflow-hidden",
           "transition-all duration-300 ease-out",
-          // Mobile: fixed overlay
           "md:relative fixed top-0 left-0 h-[var(--app-height)] max-h-[var(--app-height)] md:h-[var(--app-height)] md:max-h-[var(--app-height)] z-50",
           isCollapsed ? "w-[60px]" : "w-[240px]",
-          // Mobile: esconde completamente quando collapsed
           isCollapsed && "-translate-x-full md:translate-x-0"
         )}
       >
@@ -117,7 +115,6 @@ export function Sidebar() {
             )}
           </div>
 
-          {/* Botao de colapsar sidebar */}
           <div
             className={cn(
               "flex items-center",
@@ -150,10 +147,9 @@ export function Sidebar() {
 
         <TenantsDropdown collapsed={isCollapsed} />
 
-        {/* Navegacao principal */}
         <nav
           className="flex-1 min-h-0 grid grid-rows-[1fr_auto] py-3 px-2"
-          aria-label="Navegação principal"
+          aria-label="Navega��o principal"
         >
           <div className="min-h-0 flex flex-col gap-1 overflow-y-auto">
             {mainItems.map((item) => (
@@ -191,7 +187,6 @@ export function Sidebar() {
             ))}
           </div>
 
-          {/* Itens inferiores: Suporte, Documentacao e perfil */}
           <div className="pt-3 flex flex-col gap-1">
             {bottomItems.map((item, idx) => (
               item.openInNewTab ? (
@@ -254,4 +249,3 @@ export function Sidebar() {
     </>
   );
 }
-

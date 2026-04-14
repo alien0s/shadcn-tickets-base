@@ -2,7 +2,8 @@ import { Schedule } from '@ticket-system/types'
 import { supabase } from '../../config/supabase.js'
 
 type ScheduleFilters = {
-  teacherId: string
+  teacherId?: string
+  classId?: string
   schoolId?: string
 }
 
@@ -19,21 +20,40 @@ export type ScheduleWithRelations = Schedule & {
         series?: { name?: string } | Array<{ name?: string }> | null
       }>
     | null
+  teachers?: { name?: string } | Array<{ name?: string }> | null
   subjects?: { name?: string } | Array<{ name?: string }> | null
-  time_slots?: { start_time?: string; end_time?: string | null; shift?: number } | Array<{ start_time?: string; end_time?: string | null; shift?: number }> | null
+  time_slots?:
+    | { start_time?: string; end_time?: string | null; shift?: number }
+    | Array<{ start_time?: string; end_time?: string | null; shift?: number }>
+    | null
+}
+
+function applyScheduleFilters<T extends Record<string, any>>(query: T, filters: ScheduleFilters): T {
+  let next = query
+
+  if (filters.teacherId) {
+    next = next.eq('teacher_id', filters.teacherId)
+  }
+
+  if (filters.classId) {
+    next = next.eq('class_id', filters.classId)
+  }
+
+  if (filters.schoolId) {
+    next = next.eq('school_id', filters.schoolId)
+  }
+
+  return next
 }
 
 export class SchedulesRepository {
   async findByTeacher(filters: ScheduleFilters) {
     let query = supabase
       .from('schedules')
-      .select('id, tenant_id, school_id, class_id, teacher_id, subject_id, time_slot_id, day_of_week, created_at, classes(suffix, series(name)), subjects(name), time_slots(start_time, end_time, shift)')
-      .eq('teacher_id', filters.teacherId)
+      .select('id, tenant_id, school_id, class_id, teacher_id, subject_id, time_slot_id, day_of_week, created_at, classes(suffix, series(name)), teachers(name), subjects(name), time_slots(start_time, end_time, shift)')
       .order('day_of_week', { ascending: true })
 
-    if (filters.schoolId) {
-      query = query.eq('school_id', filters.schoolId)
-    }
+    query = applyScheduleFilters(query, filters)
 
     const { data, error } = await query
     if (!error) {
@@ -42,13 +62,10 @@ export class SchedulesRepository {
 
     let legacyQuery = supabase
       .from('schedules')
-      .select('id, tenant_id, school_id, class_id, teacher_id, subject_id, time_slot_id, day_of_week, created_at, classes(name), subjects(name), time_slots(start_time, end_time, shift)')
-      .eq('teacher_id', filters.teacherId)
+      .select('id, tenant_id, school_id, class_id, teacher_id, subject_id, time_slot_id, day_of_week, created_at, classes(name), teachers(name), subjects(name), time_slots(start_time, end_time, shift)')
       .order('day_of_week', { ascending: true })
 
-    if (filters.schoolId) {
-      legacyQuery = legacyQuery.eq('school_id', filters.schoolId)
-    }
+    legacyQuery = applyScheduleFilters(legacyQuery, filters)
 
     const { data: legacyData, error: legacyError } = await legacyQuery
     if (legacyError) throw error
@@ -59,14 +76,11 @@ export class SchedulesRepository {
   async findByTeacherAndTenant(tenantId: string, filters: ScheduleFilters) {
     let query = supabase
       .from('schedules')
-      .select('id, tenant_id, school_id, class_id, teacher_id, subject_id, time_slot_id, day_of_week, created_at, classes(suffix, series(name)), subjects(name), time_slots(start_time, end_time, shift)')
+      .select('id, tenant_id, school_id, class_id, teacher_id, subject_id, time_slot_id, day_of_week, created_at, classes(suffix, series(name)), teachers(name), subjects(name), time_slots(start_time, end_time, shift)')
       .eq('tenant_id', tenantId)
-      .eq('teacher_id', filters.teacherId)
       .order('day_of_week', { ascending: true })
 
-    if (filters.schoolId) {
-      query = query.eq('school_id', filters.schoolId)
-    }
+    query = applyScheduleFilters(query, filters)
 
     const { data, error } = await query
     if (!error) {
@@ -75,14 +89,11 @@ export class SchedulesRepository {
 
     let legacyQuery = supabase
       .from('schedules')
-      .select('id, tenant_id, school_id, class_id, teacher_id, subject_id, time_slot_id, day_of_week, created_at, classes(name), subjects(name), time_slots(start_time, end_time, shift)')
+      .select('id, tenant_id, school_id, class_id, teacher_id, subject_id, time_slot_id, day_of_week, created_at, classes(name), teachers(name), subjects(name), time_slots(start_time, end_time, shift)')
       .eq('tenant_id', tenantId)
-      .eq('teacher_id', filters.teacherId)
       .order('day_of_week', { ascending: true })
 
-    if (filters.schoolId) {
-      legacyQuery = legacyQuery.eq('school_id', filters.schoolId)
-    }
+    legacyQuery = applyScheduleFilters(legacyQuery, filters)
 
     const { data: legacyData, error: legacyError } = await legacyQuery
     if (legacyError) throw error

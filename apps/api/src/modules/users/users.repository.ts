@@ -5,6 +5,10 @@ import { NotFoundError } from '../../shared/errors/AppError.js'
 export class UsersRepository {
   private readonly allowedSortFields = ['name', 'email', 'created_at', 'last_name']
 
+  private normalizeEmail(email: string) {
+    return email.trim().toLowerCase()
+  }
+
   private getValidSortBy(sortBy: string) {
     return this.allowedSortFields.includes(sortBy) ? sortBy : 'created_at'
   }
@@ -109,11 +113,14 @@ export class UsersRepository {
   }
 
   async findByEmail(email: string) {
+    const normalizedEmail = this.normalizeEmail(email)
+
     const { data, error } = await supabase
       .from('users')
       .select('*')
-      .eq('email', email)
-      .single()
+      .ilike('email', normalizedEmail)
+      .limit(1)
+      .maybeSingle()
 
     if (error) return null
     return data as User
@@ -122,7 +129,10 @@ export class UsersRepository {
   async create(userData: Omit<User, 'id' | 'created_at'>) {
     const { data, error } = await supabase
       .from('users')
-      .insert(userData)
+      .insert({
+        ...userData,
+        email: this.normalizeEmail(userData.email)
+      })
       .select()
       .single()
 
@@ -133,7 +143,10 @@ export class UsersRepository {
   async update(id: string, userData: Partial<User>) {
     const { data, error } = await supabase
       .from('users')
-      .update(userData)
+      .update({
+        ...userData,
+        ...(typeof userData.email === 'string' ? { email: this.normalizeEmail(userData.email) } : {})
+      })
       .eq('id', id)
       .select()
       .single()

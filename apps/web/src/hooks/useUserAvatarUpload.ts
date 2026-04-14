@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { getStoredToken } from "@/features/auth/utils/auth-storage";
+import { expireAuthSession, isUnauthorizedApiResponse } from "@/features/auth/utils/auth-session";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
@@ -41,6 +42,10 @@ export function useUserAvatarUpload() {
 
       const payload = (await response.json()) as ApiResponse<UploadedUser>;
       if (!response.ok || !payload.success || !payload.data) {
+        if (isUnauthorizedApiResponse(response.status, payload)) {
+          expireAuthSession();
+        }
+
         throw new Error(
           payload.error?.message || payload.message || "Erro ao enviar foto"
         );

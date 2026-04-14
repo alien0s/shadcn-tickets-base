@@ -5,9 +5,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "@/context/sidebar-context";
 import { TeacherProfilePanel } from "@/features/teachers";
-import { type ShiftKey } from "../types";
+import { type ShiftKey, type ToolbarOption } from "../types";
 import { GradeGrid } from "./GradeGrid";
-import { type ToolbarOption, GradeToolbar } from "./GradeToolbar";
+import { GradeToolbar } from "./GradeToolbar";
 import { useGradeWheelShift } from "../hooks/useGradeWheelShift";
 import { useGradeDirectory } from "../hooks/useGradeDirectory";
 import { useGradeScheduleData } from "../hooks/useGradeScheduleData";
@@ -18,13 +18,16 @@ export function GradeShell() {
   const [headerView, setHeaderView] = useState<"professor" | "turma">("professor");
   const [escola, setEscola] = useState<string>("");
   const [professor, setProfessor] = useState<string>("");
+  const [turmaId, setTurmaId] = useState<string>("");
   const [isProfessorPanelOpen, setIsProfessorPanelOpen] = useState(false);
   const { schools, teachers, isLoadingSchools, isLoadingTeachers } = useGradeDirectory(escola || null);
   const {
     events,
     timesByShift,
+    breakMarkersByShift,
     hasConfiguredTimeSlots,
-    turmaOptions,
+    classOptions,
+    topEditorOptions,
     subjectOptions,
     teacherStats,
     isLoadingSchedules,
@@ -34,7 +37,10 @@ export function GradeShell() {
     checkClassConflictAtSelection,
   } = useGradeScheduleData(
     escola || null,
-    professor || null
+    professor || null,
+    headerView,
+    turmaId || null,
+    teachers.map((item) => ({ id: item.id, name: item.name }))
   );
 
   const escolaOptions = useMemo<readonly ToolbarOption[]>(() => {
@@ -70,6 +76,18 @@ export function GradeShell() {
     }
   }, [professor, professorOptions]);
 
+  useEffect(() => {
+    if (classOptions.length === 0) {
+      setTurmaId("");
+      return;
+    }
+
+    const isCurrentValid = classOptions.some((option) => option.id === turmaId);
+    if (!isCurrentValid) {
+      setTurmaId(classOptions[0].id);
+    }
+  }, [classOptions, turmaId]);
+
   const { handleWheelShift } = useGradeWheelShift({
     shift,
     onShiftChange: setShift,
@@ -78,7 +96,13 @@ export function GradeShell() {
   const handleSchoolChange = useCallback((schoolId: string) => {
     setEscola(schoolId);
     setProfessor("");
+    setTurmaId("");
   }, []);
+
+  const turmaToolbarOptions = useMemo<readonly ToolbarOption[]>(
+    () => classOptions.map((item) => ({ value: item.id, label: item.name })),
+    [classOptions]
+  );
 
   const selectedSchoolName = useMemo(() => {
     const school = schools.find((item) => item.id === escola);
@@ -140,16 +164,21 @@ export function GradeShell() {
 
               <div className="w-full lg:w-auto">
                 <GradeToolbar
+                  viewMode={headerView}
                   shift={shift}
                   escola={escola}
                   professor={professor}
+                  turmaId={turmaId}
                   onShiftChange={setShift}
                   onEscolaChange={handleSchoolChange}
                   onProfessorChange={setProfessor}
+                  onTurmaChange={setTurmaId}
                   escolaOptions={escolaOptions}
                   professorOptions={professorOptions}
+                  turmaOptions={turmaToolbarOptions}
                   isLoadingSchools={isLoadingSchools}
                   isLoadingTeachers={isLoadingTeachers}
+                  isLoadingTurmas={isLoadingSchedules}
                   isProfessorPanelOpen={isProfessorPanelOpen}
                   onToggleProfessorPanel={() => setIsProfessorPanelOpen((current) => !current)}
                 />
@@ -168,10 +197,16 @@ export function GradeShell() {
                   <GradeGrid
                     shift={shift}
                     events={events.filter((event) => event.shift === shift)}
-                    turmaOptions={turmaOptions}
+                    copyScopeKey={
+                      headerView === "turma"
+                        ? `turma:${escola || "none"}:${turmaId || "none"}`
+                        : `professor:${escola || "none"}:${professor || "none"}`
+                    }
+                    turmaOptions={topEditorOptions}
                     subjectOptions={subjectOptions}
                     selectedTeacherSubjectOptions={selectedTeacherSubjectNames}
                     timesByShift={timesByShift}
+                    breakMarkersByShift={breakMarkersByShift}
                     isSchoolScheduleConfigured={hasConfiguredTimeSlots}
                     onPersistMove={persistScheduleMove}
                     onCreateSchedule={createScheduleFromSelection}

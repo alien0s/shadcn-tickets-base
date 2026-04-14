@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth'
+import { AuthRouteLoader } from './AuthRouteLoader'
 
 type PublicRouteProps = {
   children: React.ReactNode
@@ -10,10 +11,10 @@ type PublicRouteProps = {
  * Redireciona para rota inicial se já estiver logado
  */
 export function PublicRoute({ children }: PublicRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isHydratingSession } = useAuth()
 
-  if (isLoading) {
-    return null
+  if (isHydratingSession) {
+    return <AuthRouteLoader />
   }
 
   if (isAuthenticated) {

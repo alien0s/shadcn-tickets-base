@@ -14,7 +14,7 @@ export function SignupPage() {
   usePageTitle("Criar conta");
 
   if (isAuthenticated) {
-    return <Navigate to="/dashboardtickets" replace />;
+    return <Navigate to="/grade" replace />;
   }
 
   return (

@@ -15,6 +15,7 @@ export function ClassesPage() {
     schoolOptions,
     educationLevelOptions,
     seriesOptions,
+    existingClassKeys,
     page,
     pageSize,
     setPage,
@@ -81,6 +82,7 @@ export function ClassesPage() {
         schoolOptions={schoolOptions}
         educationLevelOptions={educationLevelOptions}
         seriesOptions={seriesOptions}
+        existingClassKeys={existingClassKeys}
         defaultSchoolId={selectedSchoolId !== "all" ? selectedSchoolId : undefined}
         onSubmit={createClass}
       />

@@ -1,12 +1,15 @@
 import { supabase } from '../../config/supabase.js'
 import { User } from '@ticket-system/types'
-import { NotFoundError } from '../../shared/errors/AppError.js'
+import { ServiceUnavailableError } from '../../shared/errors/AppError.js'
 
 /**
  * Repository de Autenticação
  * Responsável por todas as operações de banco relacionadas à autenticação
  */
 export class AuthRepository {
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase()
+  }
 
   /**
    * Busca usuário por email
@@ -14,14 +17,21 @@ export class AuthRepository {
    * @returns User completo com password_hash
    */
   async findByEmail(email: string): Promise<any | null> {
+    const normalizedEmail = this.normalizeEmail(email)
+
     const { data, error } = await supabase
       .from('users')
       .select('*, roles(name, scope), tenants(slug, name)')
-      .eq('email', email)
+      .ilike('email', normalizedEmail)
       .eq('is_active', true)
-      .single()
+      .limit(1)
+      .maybeSingle()
 
-    if (error || !data) return null
+    if (error) {
+      throw new ServiceUnavailableError('Não foi possível validar seu login agora. O serviço de autenticação está indisponível.')
+    }
+
+    if (!data) return null
     return data
   }
 
@@ -56,6 +66,7 @@ export class AuthRepository {
       .from('users')
       .insert({
         ...userData,
+        email: this.normalizeEmail(userData.email),
         is_active: true
       })
       .select()

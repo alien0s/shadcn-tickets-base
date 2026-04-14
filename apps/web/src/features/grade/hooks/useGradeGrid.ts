@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   PointerSensor,
   useSensor,
@@ -18,6 +18,9 @@ export type EventBlockItem = {
   id: string;
   turma: string;
   subject: string;
+  classId?: string;
+  teacherId?: string;
+  subjectId?: string;
   startSlot: number;
   endSlot: number;
   dayIndex: number;
@@ -86,6 +89,9 @@ function buildInitialEvents(
       id: event.id,
       turma: event.className,
       subject: event.subject,
+      classId: event.classId,
+      teacherId: event.teacherId,
+      subjectId: event.subjectId,
       startSlot: timeIndex.get(event.time) ?? 0,
       endSlot: (timeIndex.get(event.time) ?? 0) + 1,
       dayIndex: DAY_TO_INDEX[event.day],
@@ -116,7 +122,15 @@ export function useGradeGrid({
     turma: string;
     subject: string;
   } | null>(null);
+  const [pendingSavedPreview, setPendingSavedPreview] = useState<{
+    dayIndex: number;
+    startSlot: number;
+    turma: string;
+    subject: string;
+  } | null>(null);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [isPendingEditorSaving, setIsPendingEditorSaving] = useState(false);
+  const pendingSaveRequestKeyRef = useRef<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -139,23 +153,36 @@ export function useGradeGrid({
   );
 
   useEffect(() => {
+    // Reidrata os blocos quando turno, eventos ou grade-base mudam.
     setItems(buildInitialEvents(safeShift, events, timesByShift));
     setEditingEventId(null);
     setPendingEditor(null);
+    setPendingSavedPreview(null);
+    setIsPendingEditorSaving(false);
+    pendingSaveRequestKeyRef.current = null;
   }, [safeShift, events, timesByShift]);
 
   const openEditor = useCallback((eventId: string) => {
     setPendingEditor(null);
+    setPendingSavedPreview(null);
+    setIsPendingEditorSaving(false);
+    pendingSaveRequestKeyRef.current = null;
     setEditingEventId(eventId);
   }, []);
 
   const closeEditor = useCallback(() => {
     setEditingEventId(null);
     setPendingEditor(null);
+    setPendingSavedPreview(null);
+    setIsPendingEditorSaving(false);
+    pendingSaveRequestKeyRef.current = null;
   }, []);
 
   const openEmptyEditor = useCallback((dayIndex: number, startSlot: number) => {
     setEditingEventId(null);
+    setPendingSavedPreview(null);
+    setIsPendingEditorSaving(false);
+    pendingSaveRequestKeyRef.current = null;
     setPendingEditor({
       dayIndex,
       startSlot,
@@ -175,58 +202,116 @@ export function useGradeGrid({
 
   const updatePendingFields = useCallback(
     (fields: Partial<Pick<EventBlockItem, "turma" | "subject">>) => {
-      let nextSnapshot:
-        | {
-            dayIndex: number;
-            startSlot: number;
-            turma: string;
-            subject: string;
-          }
-        | null = null;
-
       setPendingEditor((previous) => {
         if (!previous) return previous;
-        const next = { ...previous, ...fields };
-        nextSnapshot = next;
-        return next;
+        return { ...previous, ...fields };
+      });
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!pendingEditor?.turma || !pendingEditor.subject) {
+      setIsPendingEditorSaving(false);
+      pendingSaveRequestKeyRef.current = null;
+      return;
+    }
+
+    const requestKey = [
+      safeShift,
+      pendingEditor.dayIndex,
+      pendingEditor.startSlot,
+      pendingEditor.turma,
+      pendingEditor.subject,
+    ].join(":");
+
+    if (pendingSaveRequestKeyRef.current === requestKey) {
+      return;
+    }
+
+    pendingSaveRequestKeyRef.current = requestKey;
+
+    let isCancelled = false;
+    const snapshot = pendingEditor;
+
+    const saveSchedule = async () => {
+      setIsPendingEditorSaving(true);
+
+      const alreadyOccupied = items.some(
+        (item) => item.dayIndex === snapshot.dayIndex && item.startSlot === snapshot.startSlot
+      );
+
+      if (alreadyOccupied) {
+        setIsPendingEditorSaving(false);
+        toast.warning("Esse horário já tem uma aula.");
+        pendingSaveRequestKeyRef.current = null;
+        return;
+      }
+
+      if (!onCreateSchedule) {
+        setIsPendingEditorSaving(false);
+        toast.error("Criação de aula não configurada.");
+        pendingSaveRequestKeyRef.current = null;
+        return;
+      }
+
+      const saved = await onCreateSchedule({
+        dayIndex: snapshot.dayIndex,
+        startSlot: snapshot.startSlot,
+        shift: safeShift,
+        turma: snapshot.turma,
+        subject: snapshot.subject,
       });
 
-      if (!nextSnapshot?.turma || !nextSnapshot?.subject) return;
+      if (isCancelled) {
+        return;
+      }
 
-      const saveSchedule = async () => {
-        const alreadyOccupied = items.some(
-          (item) =>
-            item.dayIndex === nextSnapshot!.dayIndex &&
-            item.startSlot === nextSnapshot!.startSlot
-        );
-
-        if (alreadyOccupied) {
-          toast.warning("Esse horário já tem uma aula.");
-          return;
-        }
-
-        if (!onCreateSchedule) {
-          toast.error("Criação de aula não configurada.");
-          return;
-        }
-
-        const saved = await onCreateSchedule({
-          dayIndex: nextSnapshot.dayIndex,
-          startSlot: nextSnapshot.startSlot,
-          shift: safeShift,
-          turma: nextSnapshot.turma,
-          subject: nextSnapshot.subject,
+      if (saved) {
+        setIsPendingEditorSaving(false);
+        setPendingSavedPreview(snapshot);
+        setPendingEditor((current) => {
+          if (
+            current &&
+            current.dayIndex === snapshot.dayIndex &&
+            current.startSlot === snapshot.startSlot &&
+            current.turma === snapshot.turma &&
+            current.subject === snapshot.subject
+          ) {
+            return null;
+          }
+          return current;
         });
+        pendingSaveRequestKeyRef.current = null;
+        return;
+      }
 
-        if (saved) {
-          setPendingEditor(null);
-        }
-      };
+      setIsPendingEditorSaving(false);
+      pendingSaveRequestKeyRef.current = null;
+    };
 
-      void saveSchedule();
-    },
-    [items, onCreateSchedule, safeShift]
-  );
+    void saveSchedule();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [items, onCreateSchedule, pendingEditor, safeShift]);
+
+  useEffect(() => {
+    if (!pendingSavedPreview) return;
+
+    const hasRenderedSavedItem = items.some(
+      (item) =>
+        item.dayIndex === pendingSavedPreview.dayIndex &&
+        item.startSlot === pendingSavedPreview.startSlot &&
+        item.turma === pendingSavedPreview.turma &&
+        item.subject === pendingSavedPreview.subject
+    );
+
+    if (hasRenderedSavedItem) {
+      setPendingSavedPreview(null);
+    }
+  }, [items, pendingSavedPreview]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveDragId(String(event.active.id));
@@ -306,6 +391,8 @@ export function useGradeGrid({
     sensors,
     editingEventId,
     pendingEditor,
+    pendingSavedPreview,
+    isPendingEditorSaving,
     turmaSelectOptions,
     subjectSelectOptions,
     openEditor,
@@ -318,4 +405,3 @@ export function useGradeGrid({
     handleDragEnd,
   };
 }
-
