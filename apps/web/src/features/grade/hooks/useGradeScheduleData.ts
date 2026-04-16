@@ -49,13 +49,14 @@ type ClassApi = {
 type SubjectApi = {
   id: string;
   name: string;
+  icon?: string | null;
 };
 
 const classesCatalogBySchoolCache = new Map<string, ClassApi[]>();
 let subjectsCatalogCache: SubjectApi[] | null = null;
 const timeSlotsBySchoolCache = new Map<string, TimeSlotApi[]>();
 const schedulesByTeacherAndSchoolCache = new Map<string, ScheduleApi[]>();
-const GRADE_SCHEDULE_CACHE_KEY = "grade:schedule-data:v2";
+const GRADE_SCHEDULE_CACHE_KEY = "grade:schedule-data:v3";
 
 function readGradeScheduleCache() {
   if (typeof window === "undefined") return null;
@@ -145,6 +146,7 @@ type UseGradeScheduleDataResult = {
   classOptions: Array<{ id: string; name: string }>;
   topEditorOptions: readonly string[];
   subjectOptions: readonly string[];
+  subjectIconsByName: Record<string, string | null | undefined>;
   teacherStats: {
     lessonsCount: number;
     totalHours: number;
@@ -164,6 +166,14 @@ type UseGradeScheduleDataResult = {
     dayIndex: number;
     startSlot: number;
     shift: ShiftKey;
+    turma: string;
+    subject: string;
+    classId?: string;
+    teacherId?: string;
+    subjectId?: string;
+  }) => Promise<boolean>;
+  updateScheduleFromSelection: (input: {
+    scheduleId: string;
     turma: string;
     subject: string;
     classId?: string;
@@ -571,6 +581,14 @@ export function useGradeScheduleData(
     return uniqueSorted(events.map((event) => event.subject));
   }, [subjects, events]);
 
+  const subjectIconsByName = useMemo(() => {
+    return Object.fromEntries(
+      subjects
+        .map((item) => [item.name.trim(), item.icon ?? null] as const)
+        .filter(([name]) => name.length > 0)
+    );
+  }, [subjects]);
+
   const teacherStats = useMemo(() => {
     const slotById = new Map(timeSlots.map((slot) => [slot.id, slot]));
     return calculateTeacherScheduleStats(schedules, {
@@ -778,6 +796,105 @@ export function useGradeScheduleData(
     }
   };
 
+  const updateScheduleFromSelection = async ({
+    scheduleId,
+    turma,
+    subject,
+    classId,
+    teacherId,
+    subjectId,
+  }: {
+    scheduleId: string;
+    turma: string;
+    subject: string;
+    classId?: string;
+    teacherId?: string;
+    subjectId?: string;
+  }): Promise<boolean> => {
+    if (!selectedSchoolId) return false;
+
+    const activeTeacherId =
+      teacherId ??
+      (viewMode === "turma"
+        ? teacherDirectory.find((item) => normalizeLabel(item.name) === normalizeLabel(turma))?.id ?? null
+        : selectedTeacherId);
+    const activeClassId =
+      classId ??
+      (viewMode === "turma"
+        ? selectedClassId
+        : classes.find((item) => normalizeLabel(getClassDisplayName(item)) === normalizeLabel(turma))?.id ?? null);
+
+    if (!activeTeacherId || !activeClassId) {
+      toast.error("Não foi possível identificar a turma e o professor da aula.");
+      return false;
+    }
+
+    const subjectEntity =
+      subjects.find((item) => item.id === subjectId) ??
+      subjects.find((item) => normalizeLabel(item.name) === normalizeLabel(subject));
+
+    if (!subjectEntity) {
+      toast.error("Não foi possível identificar a matéria selecionada.");
+      return false;
+    }
+
+    try {
+      await api.patchWithMeta(`/schedules/${encodeURIComponent(scheduleId)}`, {
+        class_id: activeClassId,
+        teacher_id: activeTeacherId,
+        subject_id: subjectEntity.id,
+      });
+
+      const activeClassEntity = classes.find((item) => item.id === activeClassId);
+      const activeClassName = activeClassEntity ? getClassDisplayName(activeClassEntity) || "Turma" : "Turma";
+      const activeTeacherName = teacherDirectory.find((item) => item.id === activeTeacherId)?.name ?? "Professor";
+
+      setSchedules((previous) =>
+        previous.map((schedule) =>
+          schedule.id === scheduleId
+            ? {
+                ...schedule,
+                class_id: activeClassId,
+                teacher_id: activeTeacherId,
+                subject_id: subjectEntity.id,
+                classes: { name: activeClassName },
+                teachers: { name: activeTeacherName },
+                subjects: { name: subjectEntity.name },
+              }
+            : schedule
+        )
+      );
+
+      const cacheKeyOwnerForUpdate = viewMode === "turma" ? selectedClassId : selectedTeacherId;
+      if (cacheKeyOwnerForUpdate && selectedSchoolId) {
+        const schedulesCacheKey = `${viewMode}:${cacheKeyOwnerForUpdate}:${selectedSchoolId}`;
+        const current = schedulesByTeacherAndSchoolCache.get(schedulesCacheKey) ?? [];
+        const updated = current.map((schedule) =>
+          schedule.id === scheduleId
+            ? {
+                ...schedule,
+                class_id: activeClassId,
+                teacher_id: activeTeacherId,
+                subject_id: subjectEntity.id,
+                classes: { name: activeClassName },
+                teachers: { name: activeTeacherName },
+                subjects: { name: subjectEntity.name },
+              }
+            : schedule
+        );
+        schedulesByTeacherAndSchoolCache.set(schedulesCacheKey, updated);
+        writeGradeScheduleCache();
+      }
+
+      toast.success("Aula atualizada com sucesso.");
+      return true;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Não foi possível atualizar a aula.";
+      toast.error(message);
+      return false;
+    }
+  };
+
   const deleteScheduleById = async (scheduleId: string): Promise<boolean> => {
     try {
       await api.delete(`/schedules/${encodeURIComponent(scheduleId)}`);
@@ -865,12 +982,14 @@ export function useGradeScheduleData(
     classOptions,
     topEditorOptions,
     subjectOptions,
+    subjectIconsByName,
     teacherStats,
     isLoadingTimeSlots,
     isLoadingSchedules,
     isLoadingCatalog,
     persistScheduleMove,
     createScheduleFromSelection,
+    updateScheduleFromSelection,
     deleteScheduleById,
     checkClassConflictAtSelection,
   };

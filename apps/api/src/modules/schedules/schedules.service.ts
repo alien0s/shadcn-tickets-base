@@ -1,4 +1,4 @@
-import { NotFoundError, UnauthorizedError, ValidationError } from '../../shared/errors/AppError.js'
+﻿import { NotFoundError, UnauthorizedError, ValidationError } from '../../shared/errors/AppError.js'
 import { SchedulesRepository } from './schedules.repository.js'
 
 type ListSchedulesContext = {
@@ -35,6 +35,18 @@ type CreateSchedulePayload = {
   subjectId: string
   timeSlotId: string
   dayOfWeek: number
+}
+
+type UpdateScheduleContext = {
+  tenantId?: string
+  roleId: string
+}
+
+type UpdateSchedulePayload = {
+  scheduleId: string
+  classId: string
+  teacherId: string
+  subjectId: string
 }
 
 type DeleteScheduleContext = {
@@ -91,6 +103,7 @@ export class SchedulesService {
     const tenantId = isRoot
       ? (context.tenantId ?? await this.repository.findTenantIdBySchoolId(payload.schoolId))
       : context.tenantId
+
     if (!tenantId) {
       throw new ValidationError('tenant_id não encontrado para criar aula')
     }
@@ -144,6 +157,59 @@ export class SchedulesService {
       }
       throw error
     }
+  }
+
+  async updateSchedule(context: UpdateScheduleContext, payload: UpdateSchedulePayload) {
+    const roleName = await this.repository.findRoleNameById(context.roleId)
+    const isRoot = roleName?.toLowerCase() === 'root'
+
+    const schedule = await this.repository.findByIdWithScope(payload.scheduleId)
+    if (!schedule) {
+      throw new NotFoundError('Aula não encontrada')
+    }
+
+    if (!isRoot) {
+      if (!context.tenantId) {
+        throw new UnauthorizedError('Tenant não encontrado no token do usuário')
+      }
+
+      if (schedule.tenant_id !== context.tenantId) {
+        throw new UnauthorizedError('Aula não pertence ao tenant do usuário')
+      }
+    }
+
+    const teacherConflict = await this.repository.findTeacherConflict({
+      schoolId: schedule.school_id,
+      teacherId: payload.teacherId,
+      timeSlotId: schedule.time_slot_id,
+      dayOfWeek: schedule.day_of_week,
+      excludeScheduleId: schedule.id
+    })
+    if (teacherConflict) {
+      const teacherName = teacherConflict.teacher_name ?? 'selecionado'
+      throw new ValidationError(`Professor ${teacherName} ja possui aula nesse horario nesta escola`)
+    }
+
+    const classConflict = await this.repository.findClassConflict({
+      schoolId: schedule.school_id,
+      classId: payload.classId,
+      timeSlotId: schedule.time_slot_id,
+      dayOfWeek: schedule.day_of_week,
+      excludeScheduleId: schedule.id
+    })
+    if (classConflict) {
+      const teacherName = classConflict.teacher_name
+      if (teacherName) {
+        throw new ValidationError(`Turma ja possui aula com o professor ${teacherName} nesse horario`)
+      }
+      throw new ValidationError('Turma ja possui aula nesse horario nesta escola')
+    }
+
+    return this.repository.updateScheduleFields(payload.scheduleId, {
+      classId: payload.classId,
+      teacherId: payload.teacherId,
+      subjectId: payload.subjectId
+    })
   }
 
   async findClassConflictAtSlot(context: FindClassConflictContext, payload: FindClassConflictPayload) {
@@ -244,16 +310,16 @@ export class SchedulesService {
 
     const schedule = await this.repository.findByIdWithScope(scheduleId)
     if (!schedule) {
-      throw new NotFoundError('Aula nÃ£o encontrada')
+      throw new NotFoundError('Aula não encontrada')
     }
 
     if (!isRoot) {
       if (!context.tenantId) {
-        throw new UnauthorizedError('Tenant nÃ£o encontrado no token do usuÃ¡rio')
+        throw new UnauthorizedError('Tenant não encontrado no token do usuário')
       }
 
       if (schedule.tenant_id !== context.tenantId) {
-        throw new UnauthorizedError('Aula nÃ£o pertence ao tenant do usuÃ¡rio')
+        throw new UnauthorizedError('Aula não pertence ao tenant do usuário')
       }
     }
 

@@ -1,4 +1,4 @@
-import { Schedule } from '@ticket-system/types'
+﻿import { Schedule } from '@ticket-system/types'
 import { supabase } from '../../config/supabase.js'
 
 type ScheduleFilters = {
@@ -145,12 +145,21 @@ export class SchedulesRepository {
   async findByIdWithScope(scheduleId: string) {
     const { data, error } = await supabase
       .from('schedules')
-      .select('id, tenant_id, school_id, teacher_id, class_id')
+      .select('id, tenant_id, school_id, teacher_id, class_id, subject_id, time_slot_id, day_of_week')
       .eq('id', scheduleId)
       .maybeSingle()
 
     if (error || !data) return null
-    return data as { id: string; tenant_id: string; school_id: string; teacher_id: string; class_id: string }
+    return data as {
+      id: string
+      tenant_id: string
+      school_id: string
+      teacher_id: string
+      class_id: string
+      subject_id: string
+      time_slot_id: string
+      day_of_week: number
+    }
   }
 
   async isSchoolInTenant(schoolId: string, tenantId: string): Promise<boolean> {
@@ -212,8 +221,8 @@ export class SchedulesRepository {
 
     const relation = (data as any).teachers
     const teacherName = Array.isArray(relation)
-      ? (relation[0]?.name ?? null)
-      : (relation?.name ?? null)
+      ? relation[0]?.name ?? null
+      : relation?.name ?? null
 
     return {
       id: String((data as any).id),
@@ -246,8 +255,8 @@ export class SchedulesRepository {
 
     const relation = (data as any).teachers
     const teacherName = Array.isArray(relation)
-      ? (relation[0]?.name ?? null)
-      : (relation?.name ?? null)
+      ? relation[0]?.name ?? null
+      : relation?.name ?? null
 
     return {
       id: String((data as any).id),
@@ -261,6 +270,26 @@ export class SchedulesRepository {
       .update({
         day_of_week: payload.dayOfWeek,
         time_slot_id: payload.timeSlotId
+      })
+      .eq('id', scheduleId)
+      .select('id, tenant_id, school_id, class_id, teacher_id, subject_id, time_slot_id, day_of_week, created_at')
+      .single()
+
+    if (error) throw error
+    return data as Schedule
+  }
+
+  async updateScheduleFields(scheduleId: string, payload: {
+    classId: string
+    teacherId: string
+    subjectId: string
+  }) {
+    const { data, error } = await supabase
+      .from('schedules')
+      .update({
+        class_id: payload.classId,
+        teacher_id: payload.teacherId,
+        subject_id: payload.subjectId
       })
       .eq('id', scheduleId)
       .select('id, tenant_id, school_id, class_id, teacher_id, subject_id, time_slot_id, day_of_week, created_at')

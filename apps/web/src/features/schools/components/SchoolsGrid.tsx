@@ -1,4 +1,4 @@
-import { memo } from "react";
+ï»¿import { memo, useState } from "react";
 import { Ellipsis, GraduationCap, Pencil, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +37,8 @@ function SchoolsGridComponent({
   onEditSchool,
   onDeleteSchool,
 }: SchoolsGridProps) {
+  const [openMenuSchoolId, setOpenMenuSchoolId] = useState<string | null>(null);
+
   if (isLoading) {
     return (
       <div className="grid min-h-0 flex-1 auto-rows-max content-start items-start grid-cols-1 gap-3 overflow-auto pb-2 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-5">
@@ -91,14 +93,19 @@ function SchoolsGridComponent({
               <div className="space-y-2 p-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <h2 className="text-xl font-bold leading-none tracking-tight">{school.abbreviation}</h2>
-                  <DropdownMenu>
+                  <DropdownMenu
+                    open={openMenuSchoolId === school.id}
+                    onOpenChange={(open) => {
+                      setOpenMenuSchoolId(open ? school.id : null);
+                    }}
+                  >
                     <DropdownMenuTrigger asChild>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         className="mt-[-4px] h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                        aria-label={`Ações da escola ${school.abbreviation}`}
+                        aria-label={`AÃ§Ãµes da escola ${school.abbreviation}`}
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
@@ -118,6 +125,7 @@ function SchoolsGridComponent({
                         className="gap-2"
                         onSelect={(event) => {
                           event.preventDefault();
+                          setOpenMenuSchoolId(null);
                           onEditSchool?.(school);
                         }}
                       >
@@ -128,6 +136,7 @@ function SchoolsGridComponent({
                         className="gap-2 text-destructive focus:bg-destructive/10 focus:text-destructive"
                         onSelect={(event) => {
                           event.preventDefault();
+                          setOpenMenuSchoolId(null);
                           onDeleteSchool?.(school);
                         }}
                       >

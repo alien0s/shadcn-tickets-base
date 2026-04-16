@@ -1,5 +1,6 @@
-import { CreateSubjectRequest, Subject } from '@ticket-system/types'
+﻿import { CreateSubjectRequest, Subject, UpdateSubjectRequest } from '@ticket-system/types'
 import { supabase } from '../../config/supabase.js'
+import { NotFoundError } from '../../shared/errors/AppError.js'
 
 export class SubjectsRepository {
   async findAll() {
@@ -23,11 +24,37 @@ export class SubjectsRepository {
     return data as Subject
   }
 
+  async update(id: string, payload: UpdateSubjectRequest) {
+    const { data, error } = await supabase
+      .from('subjects')
+      .update(payload)
+      .eq('id', id)
+      .select('*')
+      .single()
+
+    if (error || !data) {
+      throw new NotFoundError('Disciplina não encontrada')
+    }
+
+    return data as Subject
+  }
+
   async findByName(name: string): Promise<Subject | null> {
     const { data, error } = await supabase
       .from('subjects')
       .select('*')
       .eq('name', name)
+      .maybeSingle()
+
+    if (error || !data) return null
+    return data as Subject
+  }
+
+  async findById(id: string): Promise<Subject | null> {
+    const { data, error } = await supabase
+      .from('subjects')
+      .select('*')
+      .eq('id', id)
       .maybeSingle()
 
     if (error || !data) return null

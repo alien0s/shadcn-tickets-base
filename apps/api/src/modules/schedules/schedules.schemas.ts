@@ -1,4 +1,4 @@
-import { z } from 'zod'
+﻿import { z } from 'zod'
 
 export const schedulesSchemas = {
   list: {
@@ -103,6 +103,24 @@ export const schedulesSchemas = {
         id: { type: 'string', format: 'uuid' }
       }
     }
+  },
+  update: {
+    params: {
+      type: 'object',
+      required: ['id'],
+      properties: {
+        id: { type: 'string', format: 'uuid' }
+      }
+    },
+    body: {
+      type: 'object',
+      required: ['class_id', 'teacher_id', 'subject_id'],
+      properties: {
+        class_id: { type: 'string', format: 'uuid' },
+        teacher_id: { type: 'string', format: 'uuid' },
+        subject_id: { type: 'string', format: 'uuid' }
+      }
+    }
   }
 }
 
@@ -119,4 +137,10 @@ export const repositionScheduleSchema = z.object({
   schedule_id: z.string().uuid('schedule_id inválido'),
   day_of_week: z.number().int().min(1).max(5),
   time_slot_id: z.string().uuid('time_slot_id inválido')
+})
+
+export const updateScheduleSchema = z.object({
+  class_id: z.string().uuid('class_id inválido'),
+  teacher_id: z.string().uuid('teacher_id inválido'),
+  subject_id: z.string().uuid('subject_id inválido')
 })

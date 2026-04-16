@@ -1,8 +1,9 @@
-import { useEffect } from "react"
+﻿import { useEffect } from "react"
 import { Routes, Route, Navigate, useLocation } from "react-router-dom"
 import { TicketsPage } from "@/pages/TicketsPage"
 import { DashboardTicketsPage } from "@/pages/DashboardTicketsPage"
 import { GradePage } from "@/pages/GradePage"
+import { MatrizPage } from "@/pages/MatrizPage"
 import { HelpCenterPage } from "@/pages/HelpCenterPage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { UsersPage } from "@/pages/users/UsersPage"
@@ -10,6 +11,7 @@ import { ClassesPage } from "@/pages/classes/ClassesPage"
 import { TeachersPage } from "@/pages/teachers/TeachersPage"
 import { SchoolsPage } from "@/pages/schools/SchoolsPage"
 import { SchoolProfilePage } from "@/pages/schools/SchoolProfilePage"
+import { SubjectsPage } from "@/pages/SubjectsPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { SignupPage } from "@/pages/SignupPage"
 import { ForgotPasswordPage } from "@/features/auth"
@@ -25,25 +27,25 @@ import { hasPendingAuthHandoff } from "@/features/auth/utils/auth-handoff"
 import { replaceWithRedirectLock } from "@/features/tenant/utils/redirect-lock"
 
 /**
- * Componente principal da aplicação
+ * Componente principal da aplicaÃ§Ã£o
  * 
- * Sistema de proteção de rotas:
- * - Rotas públicas: apenas não autenticados (login, forgot-password)
+ * Sistema de proteÃ§Ã£o de rotas:
+ * - Rotas pÃºblicas: apenas nÃ£o autenticados (login, forgot-password)
  * - Rotas protegidas: apenas autenticados
- * - Rotas com role: apenas roles específicas (dashboard = root/admin/agent)
+ * - Rotas com role: apenas roles especÃ­ficas (dashboard = root/admin/agent)
  */
 export default function App() {
   const { user, isAuthenticated } = useAuth()
   const location = useLocation()
   useTenantSubdomainGuard(user, isAuthenticated)
 
-  // Inicializa ajuste de altura dinâmica para mobile
+  // Inicializa ajuste de altura dinÃ¢mica para mobile
   useAppViewport()
 
-  // Detecta se é dispositivo Apple
+  // Detecta se Ã© dispositivo Apple
   const isApplePlatform = useIsApplePlatform()
 
-  // Aplica fonte Inter em plataformas não-Apple
+  // Aplica fonte Inter em plataformas nÃ£o-Apple
   useEffect(() => {
     if (!isApplePlatform) {
       document.documentElement.classList.add("font-inter")
@@ -58,14 +60,14 @@ export default function App() {
     const publicPaths = new Set(['/login', '/signup', '/forgot-password'])
     const isPublicPath = publicPaths.has(location.pathname)
 
-    // Páginas públicas sempre no domínio raiz (sem subdomínio)
+    // PÃ¡ginas pÃºblicas sempre no domÃ­nio raiz (sem subdomÃ­nio)
     if (isPublicPath) {
       const targetUrl = buildRootUrlForCurrentHost(window.location, location.pathname, { preserveSearchAndHash: false })
       replaceWithRedirectLock(targetUrl)
       return
     }
 
-    // Evita corrida enquanto sessão persistida é restaurada
+    // Evita corrida enquanto sessÃ£o persistida Ã© restaurada
     const hasPersistedSession = Boolean(getStoredToken() && getStoredUser())
     if (!isAuthenticated && !hasPersistedSession) {
       const targetUrl = buildRootUrlForCurrentHost(window.location, '/login', { preserveSearchAndHash: false })
@@ -82,11 +84,11 @@ export default function App() {
   return (
     <>
       <Routes>
-        {/* Rota raiz: redireciona baseado no status de autenticação */}
+        {/* Rota raiz: redireciona baseado no status de autenticaÃ§Ã£o */}
         <Route path="/" element={<Navigate to={getInitialPath()} replace />} />
 
-        {/* ==================== ROTAS PÚBLICAS ==================== */}
-        {/* Apenas usuários NÃO autenticados podem acessar */}
+        {/* ==================== ROTAS PÃšBLICAS ==================== */}
+        {/* Apenas usuÃ¡rios NÃƒO autenticados podem acessar */}
         
         <Route 
           path="/login" 
@@ -116,7 +118,7 @@ export default function App() {
         />
 
         {/* ==================== ROTAS PROTEGIDAS ==================== */}
-        {/* Apenas usuários autenticados podem acessar */}
+        {/* Apenas usuÃ¡rios autenticados podem acessar */}
 
         {/* Dashboard - APENAS root, admin e agent */}
         <Route 
@@ -139,7 +141,14 @@ export default function App() {
           }
         />
 
-        <Route path="/matriz" element={<Navigate to="/grade" replace />} />
+        <Route
+          path="/matriz"
+          element={
+            <ProtectedRoute>
+              <MatrizPage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/turmas"
@@ -162,6 +171,15 @@ export default function App() {
         />
 
         <Route
+          path="/materias"
+          element={
+            <ProtectedRoute>
+              <SubjectsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/escolas"
           element={
             <ProtectedRoute>
@@ -179,7 +197,7 @@ export default function App() {
           }
         />
 
-        {/* Lista de tickets - todos usuários autenticados */}
+        {/* Lista de tickets - todos usuÃ¡rios autenticados */}
         <Route 
           path="/tickets" 
           element={
@@ -189,7 +207,7 @@ export default function App() {
           } 
         />
 
-        {/* Central de ajuda - todos usuários autenticados */}
+        {/* Central de ajuda - todos usuÃ¡rios autenticados */}
         <Route 
           path="/help-center" 
           element={
@@ -199,7 +217,7 @@ export default function App() {
           } 
         />
 
-        {/* Configurações - todos usuários autenticados */}
+        {/* ConfiguraÃ§Ãµes - todos usuÃ¡rios autenticados */}
         <Route 
           path="/settings" 
           element={
@@ -209,7 +227,7 @@ export default function App() {
           } 
         />
 
-        {/* Gerenciamento de usuários - root e client com tenant */}
+        {/* Gerenciamento de usuÃ¡rios - root e client com tenant */}
         <Route 
           path="/users" 
           element={
@@ -230,4 +248,5 @@ export default function App() {
     </>
   )
 }
+
 

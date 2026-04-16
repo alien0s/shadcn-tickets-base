@@ -1,13 +1,17 @@
-import { FastifyPluginAsync } from 'fastify'
+﻿import { FastifyPluginAsync } from 'fastify'
 import { authMiddleware } from '../../shared/middlewares/auth.middleware.js'
 import { successResponse } from '../../shared/utils/response.js'
-import { createScheduleSchema, repositionScheduleSchema, schedulesSchemas } from './schedules.schemas.js'
+import {
+  createScheduleSchema,
+  repositionScheduleSchema,
+  schedulesSchemas,
+  updateScheduleSchema
+} from './schedules.schemas.js'
 import { SchedulesService } from './schedules.service.js'
 
 export const schedulesRoutes: FastifyPluginAsync = async (fastify) => {
   const schedulesService = new SchedulesService()
 
-  // GET /api/schedules?teacher_id=...&school_id=...
   fastify.get('/', {
     schema: {
       ...schedulesSchemas.list,
@@ -39,13 +43,12 @@ export const schedulesRoutes: FastifyPluginAsync = async (fastify) => {
     return successResponse(schedules)
   })
 
-  // GET /api/schedules/class-conflict?school_id=...&class_id=...&time_slot_id=...&day_of_week=...
   fastify.get('/class-conflict', {
     schema: {
       ...schedulesSchemas.classConflict,
       tags: ['Schedules'],
       summary: 'Check class conflict in slot',
-      description: 'Valida se a turma ja possui aula no slot/dia informado',
+      description: 'Valida se a turma já possui aula no slot/dia informado',
       security: [{ bearerAuth: [] }]
     },
     preHandler: [authMiddleware]
@@ -76,7 +79,6 @@ export const schedulesRoutes: FastifyPluginAsync = async (fastify) => {
     })
   })
 
-  // POST /api/schedules
   fastify.post('/', {
     schema: {
       tags: ['Schedules'],
@@ -106,7 +108,6 @@ export const schedulesRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send(successResponse(createdSchedule, 'Aula criada com sucesso'))
   })
 
-  // POST /api/schedules/reposition
   fastify.post('/reposition', {
     schema: {
       tags: ['Schedules'],
@@ -133,7 +134,35 @@ export const schedulesRoutes: FastifyPluginAsync = async (fastify) => {
     return successResponse(updatedSchedule, 'Aula reposicionada com sucesso')
   })
 
-  // DELETE /api/schedules/:id
+  fastify.patch('/:id', {
+    schema: {
+      ...schedulesSchemas.update,
+      tags: ['Schedules'],
+      summary: 'Update schedule',
+      description: 'Atualiza turma, professor e matéria de uma aula',
+      security: [{ bearerAuth: [] }]
+    },
+    preHandler: [authMiddleware]
+  }, async (request) => {
+    const { id } = request.params as { id: string }
+    const payload = updateScheduleSchema.parse(request.body)
+
+    const updatedSchedule = await schedulesService.updateSchedule(
+      {
+        tenantId: request.user.tenant_id,
+        roleId: request.user.role_id
+      },
+      {
+        scheduleId: id,
+        classId: payload.class_id,
+        teacherId: payload.teacher_id,
+        subjectId: payload.subject_id
+      }
+    )
+
+    return successResponse(updatedSchedule, 'Aula atualizada com sucesso')
+  })
+
   fastify.delete('/:id', {
     schema: {
       ...schedulesSchemas.remove,

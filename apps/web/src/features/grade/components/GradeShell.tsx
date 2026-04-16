@@ -29,10 +29,12 @@ export function GradeShell() {
     classOptions,
     topEditorOptions,
     subjectOptions,
+    subjectIconsByName,
     teacherStats,
     isLoadingSchedules,
     persistScheduleMove,
     createScheduleFromSelection,
+    updateScheduleFromSelection,
     deleteScheduleById,
     checkClassConflictAtSelection,
   } = useGradeScheduleData(
@@ -204,12 +206,14 @@ export function GradeShell() {
                     }
                     turmaOptions={topEditorOptions}
                     subjectOptions={subjectOptions}
+                    subjectIconsByName={subjectIconsByName}
                     selectedTeacherSubjectOptions={selectedTeacherSubjectNames}
                     timesByShift={timesByShift}
                     breakMarkersByShift={breakMarkersByShift}
                     isSchoolScheduleConfigured={hasConfiguredTimeSlots}
                     onPersistMove={persistScheduleMove}
                     onCreateSchedule={createScheduleFromSelection}
+                    onUpdateSchedule={updateScheduleFromSelection}
                     onDeleteSchedule={deleteScheduleById}
                     onValidateTurmaSelection={checkClassConflictAtSelection}
                   />

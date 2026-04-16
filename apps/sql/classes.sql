@@ -11,7 +11,6 @@ CREATE TABLE series (
   UNIQUE (education_level_id, name)   -- Uma série por nível de ensino
 );
 
-
 -- 
 -- TURMAS/CLASSES (Criadas pela escola com base em uma série)
 -- Ex: 1º Ano A, 1º Ano B (mesma série, turmas diferentes)
@@ -29,7 +28,6 @@ CREATE TABLE classes (
   
   UNIQUE (school_id, series_id, suffix, shift, year)  -- Evita 1º A duplicado na mesma escola/ano
 );
-
 
 
 insert into series (education_level_id,name) values

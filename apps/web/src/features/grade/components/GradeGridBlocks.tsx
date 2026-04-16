@@ -1,10 +1,11 @@
-import { memo, useCallback, useMemo, type MouseEvent } from "react";
+﻿import { memo, useCallback, useMemo, type MouseEvent } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { ChevronDown, Clipboard, LoaderCircleIcon, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { getSubjectColorClasses } from "@/lib/subject-colors";
+import { getLucideIconByName } from "@/utils/subject-icons";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -27,6 +28,8 @@ import {
 } from "../hooks/useGradeGrid";
 import type { CopiedLesson } from "../types";
 
+type SubjectIconsByName = Record<string, string | null | undefined>;
+
 type CardSelectProps = {
   value: string;
   onChange: (value: string) => void;
@@ -34,6 +37,7 @@ type CardSelectProps = {
   ariaLabel: string;
   placeholder: string;
   isLoading?: boolean;
+  iconByOption?: SubjectIconsByName;
 };
 
 function CardSelect({
@@ -43,9 +47,15 @@ function CardSelect({
   ariaLabel,
   placeholder,
   isLoading = false,
+  iconByOption,
 }: CardSelectProps) {
-  // O select fica desacoplado do card para evitar propagação de clique
-  // quando o usuário abre o menu dentro do bloco da grade.
+  const SelectedIcon = useMemo(
+    () => getLucideIconByName(value ? iconByOption?.[value] : undefined),
+    [iconByOption, value]
+  );
+
+  // O select fica desacoplado do card para evitar propagacao de clique
+  // quando o usuario abre o menu dentro do bloco da grade.
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
@@ -58,8 +68,13 @@ function CardSelect({
           onClick={(event) => event.stopPropagation()}
           onMouseDown={(event) => event.stopPropagation()}
         >
-          <span className={cn("truncate", !value && "text-muted-foreground")}>
-            {value || placeholder}
+          <span className="flex min-w-0 items-center gap-2">
+            {SelectedIcon ? (
+              <SelectedIcon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            ) : null}
+            <span className={cn("truncate", !value && "text-muted-foreground")}>
+              {value || placeholder}
+            </span>
           </span>
           <span className="flex items-center gap-1.5">
             {isLoading ? (
@@ -69,13 +84,25 @@ function CardSelect({
           </span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="grade-card-menu w-[220px]">
+      <DropdownMenuContent
+        align="start"
+        className="grade-card-menu w-[var(--radix-dropdown-menu-trigger-width)] min-w-[var(--radix-dropdown-menu-trigger-width)]"
+      >
         <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-          {options.map((option) => (
-            <DropdownMenuRadioItem key={option} value={option}>
-              {option}
-            </DropdownMenuRadioItem>
-          ))}
+          {options.map((option) => {
+            const OptionIcon = getLucideIconByName(iconByOption?.[option]);
+
+            return (
+              <DropdownMenuRadioItem key={option} value={option} className="pl-2">
+                <span className="flex items-center gap-2">
+                  {OptionIcon ? (
+                    <OptionIcon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  ) : null}
+                  <span>{option}</span>
+                </span>
+              </DropdownMenuRadioItem>
+            );
+          })}
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -90,6 +117,7 @@ type EventBlockProps = {
   isContextMenuOpen: boolean;
   turmaOptions: readonly string[];
   subjectOptions: readonly string[];
+  subjectIconsByName?: SubjectIconsByName;
   autoAssignedSubject: string | null;
   onOpenEditor: (eventId: string) => void;
   onCloseEditor: () => void;
@@ -108,6 +136,7 @@ export const EventBlock = memo(function EventBlock({
   isContextMenuOpen,
   turmaOptions,
   subjectOptions,
+  subjectIconsByName,
   autoAssignedSubject,
   onOpenEditor,
   onCloseEditor,
@@ -149,22 +178,19 @@ export const EventBlock = memo(function EventBlock({
     (value: string) => {
       if (autoAssignedSubject) {
         onUpdateFields(item.id, { turma: value, subject: autoAssignedSubject });
-        if (value) onCloseEditor();
         return;
       }
 
       onUpdateFields(item.id, { turma: value });
-      if (value && item.subject) onCloseEditor();
     },
-    [autoAssignedSubject, item.id, item.subject, onCloseEditor, onUpdateFields]
+    [autoAssignedSubject, item.id, onUpdateFields]
   );
 
   const handleFieldSubject = useCallback(
     (value: string) => {
       onUpdateFields(item.id, { subject: value });
-      if (value && item.turma) onCloseEditor();
     },
-    [item.id, item.turma, onCloseEditor, onUpdateFields]
+    [item.id, onUpdateFields]
   );
 
   const handleCardClick = useCallback(
@@ -209,15 +235,16 @@ export const EventBlock = memo(function EventBlock({
                   value={item.turma}
                   onChange={handleFieldTurma}
                   options={turmaOptions}
-                  ariaLabel="Selecionar turma do horário"
+                  ariaLabel="Selecionar turma do horario"
                   placeholder="Turma"
                 />
                 <CardSelect
                   value={item.subject}
                   onChange={handleFieldSubject}
                   options={subjectOptions}
-                  ariaLabel="Selecionar matéria do horário"
-                  placeholder="Matéria"
+                  iconByOption={subjectIconsByName}
+                  ariaLabel="Selecionar materia do horario"
+                  placeholder="Materia"
                 />
               </div>
             ) : (
@@ -278,6 +305,7 @@ type PendingEditorBlockProps = {
   isTurmaLoading: boolean;
   turmaOptions: readonly string[];
   subjectOptions: readonly string[];
+  subjectIconsByName?: SubjectIconsByName;
   onTurmaChange: (value: string) => void;
   onSubjectChange: (value: string) => void;
 };
@@ -292,6 +320,7 @@ export const PendingEditorBlock = memo(function PendingEditorBlock({
   isTurmaLoading,
   turmaOptions,
   subjectOptions,
+  subjectIconsByName,
   onTurmaChange,
   onSubjectChange,
 }: PendingEditorBlockProps) {
@@ -324,8 +353,6 @@ export const PendingEditorBlock = memo(function PendingEditorBlock({
           </div>
         </div>
       ) : (
-        // Mantém o editor pendente no mesmo formato visual do bloco final,
-        // mas ainda editável enquanto a seleção não foi concluída.
         <div
           className="relative flex h-full w-full flex-col justify-center gap-2 rounded-md py-2"
           onClick={(event) => event.stopPropagation()}
@@ -342,8 +369,9 @@ export const PendingEditorBlock = memo(function PendingEditorBlock({
             value={subject}
             onChange={onSubjectChange}
             options={subjectOptions}
-            ariaLabel="Selecionar matéria"
-            placeholder="Matéria"
+            iconByOption={subjectIconsByName}
+            ariaLabel="Selecionar materia"
+            placeholder="Materia"
           />
         </div>
       )}

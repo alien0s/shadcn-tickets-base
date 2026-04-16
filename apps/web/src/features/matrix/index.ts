@@ -1,0 +1,1 @@
+﻿export { Matriz } from "./Matriz";

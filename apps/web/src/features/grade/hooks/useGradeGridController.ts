@@ -28,6 +28,7 @@ export function useGradeGridController({
   breakMarkersByShift,
   onPersistMove,
   onCreateSchedule,
+  onUpdateSchedule,
   onDeleteSchedule,
   onValidateTurmaSelection,
 }: GradeGridProps) {
@@ -122,6 +123,7 @@ export function useGradeGridController({
     timesByShift,
     onPersistMove,
     onCreateSchedule,
+    onUpdateSchedule,
   });
 
   const breakLabelByAnchorTime = useMemo(() => {

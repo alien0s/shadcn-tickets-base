@@ -47,6 +47,14 @@ type UseGradeGridParams = {
     turma: string;
     subject: string;
   }) => Promise<boolean>;
+  onUpdateSchedule?: (input: {
+    scheduleId: string;
+    turma: string;
+    subject: string;
+    classId?: string;
+    teacherId?: string;
+    subjectId?: string;
+  }) => Promise<boolean>;
 };
 
 const DEFAULT_SHIFT_TIMES: Record<ShiftKey, readonly string[]> = {
@@ -108,13 +116,16 @@ export function useGradeGrid({
   timesByShift = DEFAULT_SHIFT_TIMES,
   onPersistMove,
   onCreateSchedule,
+  onUpdateSchedule,
 }: UseGradeGridParams) {
   const safeShift: ShiftKey = shift === "V" ? "V" : "M";
   const times = safeShift === "M" ? timesByShift.M : timesByShift.V;
-
-  const [items, setItems] = useState<EventBlockItem[]>(() =>
-    buildInitialEvents(safeShift, events, timesByShift)
+  const initialItems = useMemo(
+    () => buildInitialEvents(safeShift, events, timesByShift),
+    [events, safeShift, timesByShift]
   );
+
+  const [items, setItems] = useState<EventBlockItem[]>(() => initialItems);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [pendingEditor, setPendingEditor] = useState<{
     dayIndex: number;
@@ -131,6 +142,7 @@ export function useGradeGrid({
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [isPendingEditorSaving, setIsPendingEditorSaving] = useState(false);
   const pendingSaveRequestKeyRef = useRef<string | null>(null);
+  const editingSaveRequestKeyRef = useRef<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -154,13 +166,19 @@ export function useGradeGrid({
 
   useEffect(() => {
     // Reidrata os blocos quando turno, eventos ou grade-base mudam.
-    setItems(buildInitialEvents(safeShift, events, timesByShift));
+    setItems(initialItems);
     setEditingEventId(null);
     setPendingEditor(null);
     setPendingSavedPreview(null);
     setIsPendingEditorSaving(false);
     pendingSaveRequestKeyRef.current = null;
-  }, [safeShift, events, timesByShift]);
+    editingSaveRequestKeyRef.current = null;
+  }, [initialItems]);
+
+  const originalItemsById = useMemo(
+    () => new Map(initialItems.map((item) => [item.id, item])),
+    [initialItems]
+  );
 
   const openEditor = useCallback((eventId: string) => {
     setPendingEditor(null);
@@ -296,6 +314,81 @@ export function useGradeGrid({
       isCancelled = true;
     };
   }, [items, onCreateSchedule, pendingEditor, safeShift]);
+
+  useEffect(() => {
+    if (!editingEventId) {
+      editingSaveRequestKeyRef.current = null;
+      return;
+    }
+
+    const currentItem = items.find((item) => item.id === editingEventId);
+    const originalItem = originalItemsById.get(editingEventId);
+
+    if (!currentItem || !originalItem) {
+      editingSaveRequestKeyRef.current = null;
+      return;
+    }
+
+    if (!currentItem.turma || !currentItem.subject) {
+      editingSaveRequestKeyRef.current = null;
+      return;
+    }
+
+    const didChange =
+      currentItem.turma !== originalItem.turma || currentItem.subject !== originalItem.subject;
+
+    if (!didChange) {
+      editingSaveRequestKeyRef.current = null;
+      return;
+    }
+
+    const requestKey = [currentItem.id, currentItem.turma, currentItem.subject].join(":");
+    if (editingSaveRequestKeyRef.current === requestKey) {
+      return;
+    }
+
+    editingSaveRequestKeyRef.current = requestKey;
+
+    let isCancelled = false;
+
+    const saveEditedSchedule = async () => {
+      if (!onUpdateSchedule) {
+        toast.error("Edição de aula não configurada.");
+        editingSaveRequestKeyRef.current = null;
+        return;
+      }
+
+      const saved = await onUpdateSchedule({
+        scheduleId: currentItem.id,
+        turma: currentItem.turma,
+        subject: currentItem.subject,
+        classId: currentItem.classId,
+        teacherId: currentItem.teacherId,
+        subjectId: currentItem.subjectId,
+      });
+
+      if (isCancelled) {
+        return;
+      }
+
+      if (saved) {
+        setEditingEventId(null);
+        editingSaveRequestKeyRef.current = null;
+        return;
+      }
+
+      setItems((previous) =>
+        previous.map((item) => (item.id === originalItem.id ? { ...originalItem } : item))
+      );
+      editingSaveRequestKeyRef.current = null;
+    };
+
+    void saveEditedSchedule();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [editingEventId, items, onUpdateSchedule, originalItemsById]);
 
   useEffect(() => {
     if (!pendingSavedPreview) return;

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import { useSidebar } from "@/context/sidebar-context";
 import { Button } from "@/components/ui/button";
 import { NavLink, useLocation } from "react-router-dom";
@@ -15,7 +15,8 @@ import {
   School,
   Headset,
   Users,
-  Building
+  Building,
+  BookA
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -56,6 +57,7 @@ export function Sidebar() {
       { to: "/matriz", label: "Matriz", icon: FolderClock },
       { to: "/turmas", label: "Turmas", icon: GraduationCap },
       { to: "/professores", label: "Professores", icon: ContactRound },
+      { to: "/materias", label: "Matérias", icon: BookA },
       { to: "/escolas", label: "Escolas", icon: School },
     ],
     [isClient]
@@ -149,7 +151,7 @@ export function Sidebar() {
 
         <nav
           className="flex-1 min-h-0 grid grid-rows-[1fr_auto] py-3 px-2"
-          aria-label="Navega��o principal"
+          aria-label="Navegaï¿½ï¿½o principal"
         >
           <div className="min-h-0 flex flex-col gap-1 overflow-y-auto">
             {mainItems.map((item) => (
@@ -249,3 +251,4 @@ export function Sidebar() {
     </>
   );
 }
+

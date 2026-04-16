@@ -40,6 +40,7 @@ export type GradeGridProps = {
   isSchoolScheduleConfigured?: boolean;
   turmaOptions: readonly string[];
   subjectOptions: readonly string[];
+  subjectIconsByName?: Record<string, string | null | undefined>;
   selectedTeacherSubjectOptions?: readonly string[];
   timesByShift?: Record<ShiftKey, readonly string[]>;
   breakMarkersByShift?: Record<ShiftKey, readonly BreakMarker[]>;
@@ -53,6 +54,14 @@ export type GradeGridProps = {
     dayIndex: number;
     startSlot: number;
     shift: ShiftKey;
+    turma: string;
+    subject: string;
+    classId?: string;
+    teacherId?: string;
+    subjectId?: string;
+  }) => Promise<boolean>;
+  onUpdateSchedule?: (input: {
+    scheduleId: string;
     turma: string;
     subject: string;
     classId?: string;
