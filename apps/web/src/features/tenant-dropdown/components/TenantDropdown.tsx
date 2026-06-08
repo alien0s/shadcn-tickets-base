@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { Check, ChevronDown } from "lucide-react";
+import { useAuth } from "@/features/auth";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -6,10 +8,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Check, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { useAuth } from "@/features/auth";
 import { useEntities } from "@/hooks/useEntities";
+import { cn } from "@/lib/utils";
 import { toTenantSlug } from "@/features/tenant/utils/subdomain";
 
 type Tenant = {
@@ -18,11 +18,11 @@ type Tenant = {
   colorClass: string;
 };
 
-type TenantsDropdownProps = {
+type TenantDropdownProps = {
   collapsed: boolean;
 };
 
-export function TenantsDropdown({ collapsed }: TenantsDropdownProps) {
+export function TenantDropdown({ collapsed }: TenantDropdownProps) {
   const { user, updateUser } = useAuth();
   const [open, setOpen] = useState(false);
   const [selectedTenantId, setSelectedTenantId] = useState("");
@@ -110,10 +110,7 @@ export function TenantsDropdown({ collapsed }: TenantsDropdownProps) {
             type="button"
             variant="outline"
             disabled={tenants.length <= 1}
-            className={cn(
-              "w-full h-9",
-              collapsed ? "justify-center px-2" : "justify-start px-2.5"
-            )}
+            className={cn("w-full h-9", collapsed ? "justify-center px-2" : "justify-start px-2.5")}
             aria-label="Selecionar empresa"
           >
             <span
@@ -148,14 +145,11 @@ export function TenantsDropdown({ collapsed }: TenantsDropdownProps) {
                 className="gap-2"
               >
                 <span
-                  className={cn(
-                    "h-3.5 w-3.5 shrink-0 rounded-[3px] border border-border",
-                    tenant.colorClass
-                  )}
+                  className={cn("h-3.5 w-3.5 shrink-0 rounded-[3px] border border-border", tenant.colorClass)}
                   aria-hidden="true"
                 />
                 <span className="truncate">{tenant.name}</span>
-                {isSelected && <Check className="ml-auto h-4 w-4 text-primary" aria-hidden="true" />}
+                {isSelected ? <Check className="ml-auto h-4 w-4 text-primary" aria-hidden="true" /> : null}
               </DropdownMenuItem>
             );
           })}

@@ -12,6 +12,8 @@ import { TeachersPage } from "@/pages/teachers/TeachersPage"
 import { SchoolsPage } from "@/pages/schools/SchoolsPage"
 import { SchoolProfilePage } from "@/pages/schools/SchoolProfilePage"
 import { SubjectsPage } from "@/pages/SubjectsPage"
+import { RhPage } from "@/pages/RhPage"
+import { OrganizationPage } from "@/pages/OrganizationPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { SignupPage } from "@/pages/SignupPage"
 import { ForgotPasswordPage } from "@/features/auth"
@@ -175,6 +177,24 @@ export default function App() {
           element={
             <ProtectedRoute>
               <SubjectsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/rh"
+          element={
+            <ProtectedRoute>
+              <RhPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/organizacao"
+          element={
+            <ProtectedRoute>
+              <OrganizationPage />
             </ProtectedRoute>
           }
         />

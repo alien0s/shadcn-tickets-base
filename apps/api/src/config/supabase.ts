@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import { env } from './env.js'
 
-// Cliente com service role (bypass RLS) - usar apenas no backend
+if (env.supabase.tlsInsecure) {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
+}
+
+// Cliente com service role (bypass RLS) - usar apenas no backend.
 export const supabase = createClient(
   env.supabase.url,
   env.supabase.serviceRoleKey,
@@ -13,7 +17,7 @@ export const supabase = createClient(
   }
 )
 
-// Cliente com anon key (respeita RLS) - usar quando tiver contexto de usuário
+// Cliente com anon key (respeita RLS) - usar quando tiver contexto de usuario.
 export const supabaseAnon = createClient(
   env.supabase.url,
   env.supabase.anonKey

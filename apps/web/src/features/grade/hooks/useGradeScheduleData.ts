@@ -2,6 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib";
 import { toast } from "sonner";
 import { calculateTeacherScheduleStats } from "@/features/teachers/utils/teacherScheduleStats";
+import {
+  getSubjectsCatalogVersion,
+  SUBJECTS_CATALOG_UPDATED_EVENT,
+} from "@/utils/subjects-catalog";
 import type { ShiftEvent, ShiftKey, WeekDay } from "../types";
 
 type TimeSlotApi = {
@@ -44,6 +48,8 @@ type ClassApi = {
   id: string;
   name?: string | null;
   code?: string | null;
+  series_id?: string | null;
+  series_name?: string | null;
 };
 
 type SubjectApi = {
@@ -52,11 +58,27 @@ type SubjectApi = {
   icon?: string | null;
 };
 
+type MatrixApi = {
+  id: string;
+  school_id: string;
+  series_id: string;
+  subject_id: string;
+  weekly_classes: number;
+  subjects?: {
+    id?: string;
+    name?: string | null;
+  } | null;
+};
+
 const classesCatalogBySchoolCache = new Map<string, ClassApi[]>();
 let subjectsCatalogCache: SubjectApi[] | null = null;
+let subjectsCatalogFetchedAt = 0;
+let subjectsCatalogVersion: string | null = null;
+const matrixBySchoolCache = new Map<string, MatrixApi[]>();
 const timeSlotsBySchoolCache = new Map<string, TimeSlotApi[]>();
 const schedulesByTeacherAndSchoolCache = new Map<string, ScheduleApi[]>();
-const GRADE_SCHEDULE_CACHE_KEY = "grade:schedule-data:v3";
+const GRADE_SCHEDULE_CACHE_KEY = "grade:schedule-data:v4";
+const SUBJECTS_CATALOG_STALE_MS = 2 * 60 * 1000;
 
 function readGradeScheduleCache() {
   if (typeof window === "undefined") return null;
@@ -65,7 +87,10 @@ function readGradeScheduleCache() {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as {
       subjects?: SubjectApi[] | null;
+      subjectsFetchedAt?: number;
+      subjectsVersion?: string | null;
       classesBySchool?: Array<[string, ClassApi[]]>;
+      matrixBySchool?: Array<[string, MatrixApi[]]>;
       timeSlotsBySchool?: Array<[string, TimeSlotApi[]]>;
       schedulesByTeacherAndSchool?: Array<[string, ScheduleApi[]]>;
     };
@@ -82,10 +107,21 @@ function hydrateGradeScheduleCacheInMemory() {
   if (Array.isArray(hydrated.subjects)) {
     subjectsCatalogCache = hydrated.subjects;
   }
+  subjectsCatalogFetchedAt =
+    typeof hydrated.subjectsFetchedAt === "number" ? hydrated.subjectsFetchedAt : 0;
+  subjectsCatalogVersion =
+    typeof hydrated.subjectsVersion === "string" ? hydrated.subjectsVersion : null;
   if (Array.isArray(hydrated.classesBySchool)) {
     for (const [key, value] of hydrated.classesBySchool) {
       if (typeof key === "string" && Array.isArray(value)) {
         classesCatalogBySchoolCache.set(key, value);
+      }
+    }
+  }
+  if (Array.isArray(hydrated.matrixBySchool)) {
+    for (const [key, value] of hydrated.matrixBySchool) {
+      if (typeof key === "string" && Array.isArray(value)) {
+        matrixBySchoolCache.set(key, value);
       }
     }
   }
@@ -110,7 +146,10 @@ function writeGradeScheduleCache() {
   try {
     const payload = {
       subjects: subjectsCatalogCache,
+      subjectsFetchedAt: subjectsCatalogFetchedAt,
+      subjectsVersion: subjectsCatalogVersion,
       classesBySchool: Array.from(classesCatalogBySchoolCache.entries()),
+      matrixBySchool: Array.from(matrixBySchoolCache.entries()),
       timeSlotsBySchool: Array.from(timeSlotsBySchoolCache.entries()),
       schedulesByTeacherAndSchool: Array.from(schedulesByTeacherAndSchoolCache.entries()),
     };
@@ -153,6 +192,12 @@ type UseGradeScheduleDataResult = {
     totalMinutes: number;
     classNames: string[];
   };
+  teacherSubjectProgress: Array<{
+    subjectName: string;
+    seriesName: string;
+    currentCount: number;
+    targetCount: number;
+  }>;
   isLoadingTimeSlots: boolean;
   isLoadingSchedules: boolean;
   isLoadingCatalog: boolean;
@@ -295,12 +340,14 @@ export function useGradeScheduleData(
   selectedTeacherId: string | null,
   viewMode: "professor" | "turma" = "professor",
   selectedClassId: string | null = null,
-  teacherDirectory: Array<{ id: string; name: string }> = []
+  teacherDirectory: Array<{ id: string; name: string }> = [],
+  teacherSubjectNames: string[] = []
 ): UseGradeScheduleDataResult {
   const [timeSlots, setTimeSlots] = useState<TimeSlotApi[]>([]);
   const [schedules, setSchedules] = useState<ScheduleApi[]>([]);
   const [classes, setClasses] = useState<ClassApi[]>([]);
   const [subjects, setSubjects] = useState<SubjectApi[]>([]);
+  const [matrixWorkloads, setMatrixWorkloads] = useState<MatrixApi[]>([]);
   const [isLoadingTimeSlots, setIsLoadingTimeSlots] = useState(false);
   const [isLoadingSchedules, setIsLoadingSchedules] = useState(false);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState(false);
@@ -310,34 +357,56 @@ export function useGradeScheduleData(
       hydrateGradeScheduleCacheInMemory();
     }
 
+    let isCancelled = false;
+    const currentCatalogVersion = getSubjectsCatalogVersion();
+
     if (subjectsCatalogCache) {
       setSubjects(subjectsCatalogCache);
-      return;
     }
 
-    let isCancelled = false;
+    const shouldRefreshSubjects =
+      !subjectsCatalogCache ||
+      Date.now() - subjectsCatalogFetchedAt > SUBJECTS_CATALOG_STALE_MS ||
+      subjectsCatalogVersion !== currentCatalogVersion;
 
-    const loadSubjects = async () => {
-      setIsLoadingCatalog(true);
+    const loadSubjects = async (force = false) => {
+      if (!force && !shouldRefreshSubjects) {
+        return;
+      }
+
+      if (!subjectsCatalogCache) {
+        setIsLoadingCatalog(true);
+      }
       try {
         const subjectsData = await api.get<SubjectApi[]>("/subjects");
         if (!isCancelled) {
           subjectsCatalogCache = subjectsData ?? [];
+          subjectsCatalogFetchedAt = Date.now();
+          subjectsCatalogVersion = getSubjectsCatalogVersion();
           setSubjects(subjectsCatalogCache);
           writeGradeScheduleCache();
         }
       } catch {
         if (!isCancelled) {
-          setSubjects([]);
+          if (!subjectsCatalogCache) {
+            setSubjects([]);
+          }
         }
       } finally {
         if (!isCancelled) setIsLoadingCatalog(false);
       }
     };
 
-    loadSubjects();
+    void loadSubjects();
+
+    const handleSubjectsCatalogUpdated = () => {
+      void loadSubjects(true);
+    };
+
+    window.addEventListener(SUBJECTS_CATALOG_UPDATED_EVENT, handleSubjectsCatalogUpdated);
     return () => {
       isCancelled = true;
+      window.removeEventListener(SUBJECTS_CATALOG_UPDATED_EVENT, handleSubjectsCatalogUpdated);
     };
   }, []);
 
@@ -377,6 +446,47 @@ export function useGradeScheduleData(
     };
 
     loadClasses();
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedSchoolId]);
+
+  useEffect(() => {
+    if (!selectedSchoolId) {
+      setMatrixWorkloads([]);
+      return;
+    }
+
+    if (!matrixBySchoolCache.has(selectedSchoolId)) {
+      hydrateGradeScheduleCacheInMemory();
+    }
+
+    const cached = matrixBySchoolCache.get(selectedSchoolId);
+    let isCancelled = false;
+    setMatrixWorkloads(cached ?? []);
+
+    const loadMatrix = async () => {
+      setIsLoadingCatalog(true);
+      try {
+        const matrixData = await api.get<MatrixApi[]>(
+          `/matrix?school_id=${encodeURIComponent(selectedSchoolId)}`
+        );
+        if (!isCancelled) {
+          const next = matrixData ?? [];
+          matrixBySchoolCache.set(selectedSchoolId, next);
+          setMatrixWorkloads(next);
+          writeGradeScheduleCache();
+        }
+      } catch {
+        if (!isCancelled && !cached) {
+          setMatrixWorkloads([]);
+        }
+      } finally {
+        if (!isCancelled) setIsLoadingCatalog(false);
+      }
+    };
+
+    void loadMatrix();
     return () => {
       isCancelled = true;
     };
@@ -538,20 +648,23 @@ export function useGradeScheduleData(
         const time = normalizeTime(timeSlot?.start_time);
         if (!time) return null;
 
-        return {
+        const event: ShiftEvent = {
           id: schedule.id,
           shift,
           day,
           time,
-          classId: schedule.class_id,
-          teacherId: schedule.teacher_id,
-          subjectId: schedule.subject_id,
           className:
             viewMode === "turma"
               ? pickFirstName(schedule.teachers) || "Professor"
               : pickFirstName(schedule.classes) || "Turma",
           subject: pickFirstName(schedule.subjects) || "Matéria",
-        } satisfies ShiftEvent;
+        };
+
+        if (schedule.class_id) event.classId = schedule.class_id;
+        if (schedule.teacher_id) event.teacherId = schedule.teacher_id;
+        if (schedule.subject_id) event.subjectId = schedule.subject_id;
+
+        return event;
       })
       .filter((event): event is ShiftEvent => Boolean(event));
   }, [schedules, viewMode]);
@@ -596,6 +709,107 @@ export function useGradeScheduleData(
       defaultLessonMinutes: 60,
     });
   }, [schedules, timeSlots]);
+
+  const teacherSubjectProgress = useMemo(() => {
+    if (!selectedTeacherId || viewMode !== "professor") {
+      return [];
+    }
+
+    const classById = new Map(classes.map((item) => [item.id, item]));
+    const subjectById = new Map(subjects.map((item) => [item.id, item]));
+    const assignedSubjectIds = new Set(
+      teacherSubjectNames
+        .map((name) =>
+          subjects.find((item) => normalizeLabel(item.name) === normalizeLabel(name))?.id ?? ""
+        )
+        .filter(Boolean)
+    );
+    const actualCountBySeriesAndSubject = new Map<string, number>();
+    const relevantSeriesIds = new Set<string>();
+
+    for (const schedule of schedules) {
+      const classId = schedule.class_id ?? "";
+      const subjectId = schedule.subject_id ?? "";
+      const classEntity = classById.get(classId);
+      const seriesId = classEntity?.series_id?.trim() ?? "";
+      if (!seriesId || !subjectId) continue;
+
+      relevantSeriesIds.add(seriesId);
+      const key = `${seriesId}:${subjectId}`;
+      actualCountBySeriesAndSubject.set(key, (actualCountBySeriesAndSubject.get(key) ?? 0) + 1);
+    }
+
+    if (relevantSeriesIds.size === 0) {
+      return [];
+    }
+
+    const progressBySeriesAndSubject = new Map<
+      string,
+      {
+        subjectName: string;
+        seriesName: string;
+        currentCount: number;
+        targetCount: number;
+      }
+    >();
+
+    for (const [key, currentCount] of actualCountBySeriesAndSubject.entries()) {
+      const [seriesId, subjectId] = key.split(":");
+      if (!seriesId || !subjectId) continue;
+      if (assignedSubjectIds.size > 0 && !assignedSubjectIds.has(subjectId)) continue;
+
+      const seriesName =
+        classes.find((item) => item.series_id?.trim() === seriesId)?.series_name?.trim() ?? "S?rie";
+      const subjectName =
+        subjectById.get(subjectId)?.name?.trim() ??
+        pickFirstName(schedules.find((item) => item.subject_id === subjectId)?.subjects) ??
+        "Mat?ria";
+
+      progressBySeriesAndSubject.set(key, {
+        subjectName,
+        seriesName,
+        currentCount,
+        targetCount: 0,
+      });
+    }
+
+    for (const workload of matrixWorkloads) {
+      const seriesId = workload.series_id?.trim();
+      const subjectId = workload.subject_id?.trim();
+      if (!seriesId || !subjectId) continue;
+      if (!relevantSeriesIds.has(seriesId)) continue;
+      if (assignedSubjectIds.size > 0 && !assignedSubjectIds.has(subjectId)) continue;
+
+      const key = `${seriesId}:${subjectId}`;
+      if (!actualCountBySeriesAndSubject.has(key)) continue;
+
+      const seriesName =
+        classes.find((item) => item.series_id?.trim() === seriesId)?.series_name?.trim() ?? "S?rie";
+      const subjectName =
+        workload.subjects?.name?.trim() ??
+        subjectById.get(subjectId)?.name?.trim() ??
+        "Mat?ria";
+      const currentCount = actualCountBySeriesAndSubject.get(key) ?? 0;
+      const targetCount = Math.max(0, Number(workload.weekly_classes) || 0);
+
+      progressBySeriesAndSubject.set(key, {
+        subjectName,
+        seriesName,
+        currentCount,
+        targetCount,
+      });
+    }
+
+    return Array.from(progressBySeriesAndSubject.values()).sort((left, right) => {
+      const bySubject = left.subjectName.localeCompare(right.subjectName, "pt-BR", {
+        sensitivity: "base",
+      });
+      if (bySubject !== 0) return bySubject;
+      return left.seriesName.localeCompare(right.seriesName, "pt-BR", {
+        sensitivity: "base",
+      });
+    });
+  }, [classes, matrixWorkloads, schedules, selectedTeacherId, subjects, teacherSubjectNames, viewMode]);
 
   const persistScheduleMove = async ({
     scheduleId,
@@ -745,41 +959,29 @@ export function useGradeScheduleData(
       const activeClassName = activeClassEntity ? getClassDisplayName(activeClassEntity) || "Turma" : "Turma";
       const activeTeacherName = teacherDirectory.find((item) => item.id === activeTeacherId)?.name ?? "Professor";
 
-      setSchedules((previous) => [
-        ...previous,
-        {
-          id: created?.id ?? `tmp-${Date.now()}`,
-          day_of_week: dayIndex + 1,
-          time_slot_id: targetTimeSlot.id,
-          classes: { name: activeClassName },
-          teachers: { name: activeTeacherName },
-          subjects: { name: subjectEntity.name },
-          time_slots: {
-            start_time: targetTimeSlot.start_time,
-            shift: targetTimeSlot.shift,
-          },
+      const createdSchedule: ScheduleApi = {
+        id: created?.id ?? `tmp-${Date.now()}`,
+        day_of_week: dayIndex + 1,
+        class_id: activeClassId,
+        teacher_id: activeTeacherId,
+        subject_id: subjectEntity.id,
+        time_slot_id: targetTimeSlot.id,
+        classes: { name: activeClassName },
+        teachers: { name: activeTeacherName },
+        subjects: { name: subjectEntity.name },
+        time_slots: {
+          start_time: targetTimeSlot.start_time,
+          shift: targetTimeSlot.shift,
         },
-      ]);
+      };
+
+      setSchedules((previous) => [...previous, createdSchedule]);
 
       const cacheKeyOwnerForCreate = viewMode === "turma" ? selectedClassId : selectedTeacherId;
       if (cacheKeyOwnerForCreate && selectedSchoolId) {
         const schedulesCacheKey = `${viewMode}:${cacheKeyOwnerForCreate}:${selectedSchoolId}`;
         const current = schedulesByTeacherAndSchoolCache.get(schedulesCacheKey) ?? [];
-        schedulesByTeacherAndSchoolCache.set(schedulesCacheKey, [
-          ...current,
-          {
-            id: created?.id ?? `tmp-${Date.now()}`,
-            day_of_week: dayIndex + 1,
-            time_slot_id: targetTimeSlot.id,
-            classes: { name: activeClassName },
-            teachers: { name: activeTeacherName },
-            subjects: { name: subjectEntity.name },
-            time_slots: {
-              start_time: targetTimeSlot.start_time,
-              shift: targetTimeSlot.shift,
-            },
-          },
-        ]);
+        schedulesByTeacherAndSchoolCache.set(schedulesCacheKey, [...current, createdSchedule]);
         writeGradeScheduleCache();
       }
 
@@ -984,6 +1186,7 @@ export function useGradeScheduleData(
     subjectOptions,
     subjectIconsByName,
     teacherStats,
+    teacherSubjectProgress,
     isLoadingTimeSlots,
     isLoadingSchedules,
     isLoadingCatalog,

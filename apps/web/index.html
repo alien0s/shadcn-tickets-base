@@ -5,6 +5,61 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <style>
+    html,
+    body {
+      background: #ffffff;
+    }
+
+    html.dark,
+    html.dark body {
+      background: hsl(222.2 84% 4.9%);
+    }
+  </style>
+  <script>
+    (function () {
+      var STORAGE_KEY = "theme";
+      var COOKIE_KEY = "supportdesk-theme";
+      var root = document.documentElement;
+
+      function getCookieValue(name) {
+        var encodedName = encodeURIComponent(name) + "=";
+        var parts = document.cookie.split(";");
+
+        for (var index = 0; index < parts.length; index += 1) {
+          var part = parts[index].trim();
+          if (part.indexOf(encodedName) !== 0) continue;
+          return decodeURIComponent(part.slice(encodedName.length));
+        }
+
+        return null;
+      }
+
+      function normalizeTheme(value) {
+        return value === "light" || value === "dark" || value === "system" ? value : "system";
+      }
+
+      function resolveTheme() {
+        var storedTheme = null;
+
+        try {
+          storedTheme = window.localStorage.getItem(STORAGE_KEY);
+        } catch (_) {}
+
+        var theme = normalizeTheme(storedTheme !== null ? storedTheme : getCookieValue(COOKIE_KEY));
+
+        if (theme === "dark") return "dark";
+        if (theme === "light") return "light";
+
+        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+
+      var resolvedTheme = resolveTheme();
+      root.classList.toggle("dark", resolvedTheme === "dark");
+      root.style.backgroundColor = resolvedTheme === "dark" ? "hsl(222.2 84% 4.9%)" : "#ffffff";
+    })();
+  </script>
   <title>thurnos</title>
 </head>
 

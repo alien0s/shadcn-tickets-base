@@ -11,6 +11,7 @@ import {
   FileText,
   FolderClock,
   GraduationCap,
+  HandCoins,
   PanelLeft,
   School,
   Headset,
@@ -19,10 +20,10 @@ import {
   BookA
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { TenantDropdown } from "@/features/tenant-dropdown/components/TenantDropdown";
 import { cn } from "@/lib/utils";
 import { SidebarItem } from "./SidebarItem";
 import { UserNav } from "./UserNav";
-import { TenantsDropdown } from "./tenants";
 import { useSidebarOutsideClose } from "../hooks/useSidebarOutsideClose";
 import { useUserNav } from "../hooks/useUserNav";
 import { useAuth } from "@/features/auth";
@@ -70,6 +71,7 @@ export function Sidebar() {
         : [
             { to: "/users", label: "Usuários", icon: Users },
             { to: "/organizacao", label: "Organização", icon: Building },
+            { to: "/rh", label: "RH", icon: HandCoins },
           ],
     [canSeeAdminGroup]
   );
@@ -89,6 +91,7 @@ export function Sidebar() {
       {!isCollapsed && (
         <button
           type="button"
+          data-app-sidebar
           className="fixed inset-0 bg-black/50 z-40 md:hidden"
           onClick={closeSidebar}
           aria-label="Fechar menu lateral"
@@ -97,6 +100,7 @@ export function Sidebar() {
 
       <aside
         ref={sidebarRef}
+        data-app-sidebar
         className={cn(
           "flex flex-col border-r border-border bg-card backdrop-blur overflow-hidden",
           "transition-all duration-300 ease-out",
@@ -147,7 +151,7 @@ export function Sidebar() {
           </div>
         </div>
 
-        <TenantsDropdown collapsed={isCollapsed} />
+        {user?.role === "root" ? <TenantDropdown collapsed={isCollapsed} /> : null}
 
         <nav
           className="flex-1 min-h-0 grid grid-rows-[1fr_auto] py-3 px-2"
@@ -251,4 +255,3 @@ export function Sidebar() {
     </>
   );
 }
-

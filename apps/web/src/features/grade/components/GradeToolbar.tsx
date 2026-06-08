@@ -1,4 +1,4 @@
-﻿import { type KeyboardEvent, useEffect, useRef, useState } from "react";
+﻿import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, Search, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,14 @@ function ToolbarSelect({
   const selectedLabel = selectedOption?.label ?? "Sem escolas";
   const selectedIndex = options.findIndex((option) => option.value === value);
   const selectedColorClass = getSchoolColorClass(selectedIndex >= 0 ? selectedIndex : 0);
+  const coloredOptions = useMemo(
+    () =>
+      options.map((option, index) => ({
+        ...option,
+        colorClass: getSchoolColorClass(index),
+      })),
+    [options]
+  );
   const [open, setOpen] = useState(false);
 
   if (isLoading) {
@@ -79,10 +87,9 @@ function ToolbarSelect({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-[210px]">
-        {options.length === 0 ? (
+        {coloredOptions.length === 0 ? (
           <DropdownMenuItem disabled>Nenhuma escola disponível</DropdownMenuItem>
-        ) : options.map((option) => {
-          const index = options.findIndex((item) => item.value === option.value);
+        ) : coloredOptions.map((option) => {
           const isActive = option.value === value;
           return (
             <DropdownMenuItem
@@ -95,7 +102,7 @@ function ToolbarSelect({
             >
               <div className="flex items-center gap-2">
                 <span
-                  className={cn("h-8 w-8 shrink-0 rounded-md border", getSchoolColorClass(index))}
+                  className={cn("h-8 w-8 shrink-0 rounded-md border", option.colorClass)}
                   aria-hidden="true"
                 />
                 <span className="truncate">{option.label}</span>

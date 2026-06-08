@@ -1,10 +1,10 @@
-import { supabase } from '../../config/supabase.js'
 import { User } from '@ticket-system/types'
+import { supabase } from '../../config/supabase.js'
 import { ServiceUnavailableError } from '../../shared/errors/AppError.js'
 
 /**
- * Repository de Autenticação
- * Responsável por todas as operações de banco relacionadas à autenticação
+ * Repository de autenticacao.
+ * Centraliza as consultas de usuarios usadas no fluxo de login.
  */
 export class AuthRepository {
   private normalizeEmail(email: string): string {
@@ -12,23 +12,31 @@ export class AuthRepository {
   }
 
   /**
-   * Busca usuário por email
-   * @param email - Email do usuário
-   * @returns User completo com password_hash
+   * Busca usuario por email.
+   * Retorna o registro completo com password_hash para o login.
    */
   async findByEmail(email: string): Promise<any | null> {
     const normalizedEmail = this.normalizeEmail(email)
 
     const { data, error } = await supabase
       .from('users')
-      .select('*, roles(name, scope), tenants(slug, name)')
+      .select('*, roles(name, scope), tenants!users_tenant_id_fkey(slug, name)')
       .ilike('email', normalizedEmail)
       .eq('is_active', true)
       .limit(1)
       .maybeSingle()
 
     if (error) {
-      throw new ServiceUnavailableError('Não foi possível validar seu login agora. O serviço de autenticação está indisponível.')
+      console.error('[AuthRepository.findByEmail] Supabase error', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      })
+
+      throw new ServiceUnavailableError(
+        'Nao foi possivel validar seu login agora. O servico de autenticacao esta indisponivel.'
+      )
     }
 
     if (!data) return null
@@ -36,12 +44,12 @@ export class AuthRepository {
   }
 
   /**
-   * Busca usuário por ID
+   * Busca usuario por ID.
    */
   async findById(id: string): Promise<any | null> {
     const { data, error } = await supabase
       .from('users')
-      .select('*, roles(name, scope), tenants(slug, name)')
+      .select('*, roles(name, scope), tenants!users_tenant_id_fkey(slug, name)')
       .eq('id', id)
       .single()
 
@@ -50,7 +58,7 @@ export class AuthRepository {
   }
 
   /**
-   * Cria novo usuário com senha
+   * Cria novo usuario com senha.
    */
   async createUser(userData: {
     name: string
@@ -77,7 +85,7 @@ export class AuthRepository {
   }
 
   /**
-   * Atualiza último login do usuário
+   * Atualiza ultimo login do usuario.
    */
   async updateLastLogin(userId: string): Promise<void> {
     const { error } = await supabase
@@ -89,7 +97,7 @@ export class AuthRepository {
   }
 
   /**
-   * Atualiza configuração de 2FA
+   * Atualiza configuracao de 2FA.
    */
   async update2FASettings(userId: string, enabled: boolean, secret?: string): Promise<void> {
     const { error } = await supabase
@@ -104,7 +112,7 @@ export class AuthRepository {
   }
 
   /**
-   * Salva token de reset de senha
+   * Salva token de reset de senha.
    */
   async savePasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
     const { error } = await supabase
@@ -119,14 +127,14 @@ export class AuthRepository {
   }
 
   /**
-   * Busca usuário por token de reset
+   * Busca usuario por token de reset.
    */
   async findByResetToken(token: string): Promise<User | null> {
     const { data, error } = await supabase
       .from('users')
       .select('*')
       .eq('password_reset_token', token)
-      .gt('password_reset_expires_at', new Date().toISOString()) // Token não expirado
+      .gt('password_reset_expires_at', new Date().toISOString())
       .single()
 
     if (error || !data) return null
@@ -134,7 +142,7 @@ export class AuthRepository {
   }
 
   /**
-   * Atualiza senha do usuário e limpa token de reset
+   * Atualiza senha do usuario e limpa token de reset.
    */
   async updatePassword(userId: string, passwordHash: string): Promise<void> {
     const { error } = await supabase
@@ -150,29 +158,25 @@ export class AuthRepository {
   }
 
   /**
-   * Busca ou cria usuário via Microsoft AD
-   * Usado no OAuth callback
+   * Busca ou cria usuario via Microsoft AD.
    */
   async findOrCreateMicrosoftUser(profile: {
     email: string
     name: string
     avatar_url?: string
   }): Promise<User> {
-    // Tenta buscar usuário existente
-    let user = await this.findByEmail(profile.email)
+    const user = await this.findByEmail(profile.email)
 
     if (user) return user
 
-    // Se não existe, cria novo usuário
-    // NOTA: Em produção, definir entity_id e role_id padrão ou solicitar na primeira vez
     const { data, error } = await supabase
       .from('users')
       .insert({
         email: profile.email,
         name: profile.name,
         avatar_url: profile.avatar_url,
-        entity_id: '550e8400-e29b-41d4-a716-446655440001', // TODO: Definir entidade padrão
-        role_id: '650e8400-e29b-41d4-a716-446655440001', // TODO: Definir role padrão
+        entity_id: '550e8400-e29b-41d4-a716-446655440001',
+        role_id: '650e8400-e29b-41d4-a716-446655440001',
         is_active: true
       })
       .select()
@@ -182,4 +186,3 @@ export class AuthRepository {
     return data as User
   }
 }
-

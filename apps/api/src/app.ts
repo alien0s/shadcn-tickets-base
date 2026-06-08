@@ -24,6 +24,8 @@ import { subjectsRoutes } from './modules/subjects/subjects.routes.js'
 import { educationLevelsRoutes } from './modules/education-levels/education-levels.routes.js'
 import { seriesRoutes } from './modules/series/series.routes.js'
 import { matrixRoutes } from './modules/matrix/matrix.routes.js'
+import { ticketPricesRoutes } from './modules/ticket-prices/ticket-prices.routes.js'
+import { tenantRoutes } from './modules/tenant/tenant.routes.js'
 
 export async function buildApp() {
   const fastify = Fastify({
@@ -137,6 +139,8 @@ export async function buildApp() {
   await fastify.register(educationLevelsRoutes, { prefix: '/api/education-levels' })
   await fastify.register(seriesRoutes, { prefix: '/api/series' })
   await fastify.register(matrixRoutes, { prefix: '/api/matrix' })
+  await fastify.register(ticketPricesRoutes, { prefix: '/api/ticket-prices' })
+  await fastify.register(tenantRoutes, { prefix: '/api/tenant' })
 
   return fastify
 }

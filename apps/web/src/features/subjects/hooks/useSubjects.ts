@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useState } from "react";
 import type { CreateSubjectRequest } from "@ticket-system/types";
 import { api } from "@/lib/api";
+import { markSubjectsCatalogUpdated } from "@/utils/subjects-catalog";
 
 type SubjectApi = {
   id: string;
@@ -71,6 +72,7 @@ export function useSubjects() {
       subjectsCache = nextSubjects;
       return nextSubjects;
     });
+    markSubjectsCatalogUpdated();
 
     return created;
   }, []);
@@ -88,6 +90,7 @@ export function useSubjects() {
       subjectsCache = nextSubjects;
       return nextSubjects;
     });
+    markSubjectsCatalogUpdated();
 
     return updated;
   }, []);

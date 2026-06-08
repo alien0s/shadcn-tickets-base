@@ -1,4 +1,5 @@
-﻿import { ClipboardPaste } from "lucide-react";
+﻿import { memo } from "react";
+import { ClipboardPaste } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -36,7 +37,7 @@ type GradeGridTableProps = {
   handlePasteToSlot: (dayIndex: number, startSlot: number) => Promise<void>;
 };
 
-export function GradeGridTable({
+export const GradeGridTable = memo(function GradeGridTable({
   times,
   isGridDimmed,
   copiedLesson,
@@ -176,4 +177,4 @@ export function GradeGridTable({
       </tbody>
     </table>
   );
-}
+});

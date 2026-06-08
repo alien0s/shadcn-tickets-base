@@ -13,6 +13,7 @@ export function GradeGrid(props: GradeGridProps) {
 
   return (
     <div
+      data-grade-screen-grid
       ref={controller.containerRef}
       className={cn(
         "relative overflow-auto rounded-lg border border-border",

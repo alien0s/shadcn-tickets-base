@@ -1,0 +1,95 @@
+[data-grade-print-static-grid] {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  body.grade-snapshot-printing {
+    background: #ffffff !important;
+    color: #000000 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  body.grade-snapshot-printing [data-app-sidebar],
+  body.grade-snapshot-printing [data-grade-print-hidden],
+  body.grade-snapshot-printing [data-radix-popper-content-wrapper] {
+    display: none !important;
+  }
+
+  body.grade-snapshot-printing [data-grade-screen-grid] {
+    display: none !important;
+  }
+
+  body.grade-snapshot-printing [data-grade-print-static-grid] {
+    display: block !important;
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  body.grade-snapshot-printing,
+  body.grade-snapshot-printing #root,
+  body.grade-snapshot-printing #root > div,
+  body.grade-snapshot-printing main,
+  body.grade-snapshot-printing [data-grade-print-root],
+  body.grade-snapshot-printing [data-grade-print-root] > div,
+  body.grade-snapshot-printing [data-grade-print-shell],
+  body.grade-snapshot-printing [data-grade-print-shell] > div,
+  body.grade-snapshot-printing [data-grade-print-content],
+  body.grade-snapshot-printing [data-grade-print-grid],
+  body.grade-snapshot-printing [data-grade-print-grid] > div {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  body.grade-snapshot-printing #root > div,
+  body.grade-snapshot-printing main,
+  body.grade-snapshot-printing [data-grade-print-root] {
+    display: block !important;
+    width: 100% !important;
+  }
+
+  body.grade-snapshot-printing [data-grade-print-shell] {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.grade-snapshot-printing [data-grade-print-content] {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+
+  body.grade-snapshot-printing [data-grade-print-grid] {
+    display: block !important;
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+  }
+
+  body.grade-snapshot-printing [data-grade-print-static-grid] table {
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  body.grade-snapshot-printing [data-grade-print-panel] {
+    display: block !important;
+    flex: 0 0 320px !important;
+    width: 320px !important;
+    max-width: 320px !important;
+  }
+
+  body.grade-snapshot-printing table,
+  body.grade-snapshot-printing [data-grade-print-panel] aside {
+    break-inside: avoid;
+  }
+}

@@ -53,6 +53,15 @@ function CardSelect({
     () => getLucideIconByName(value ? iconByOption?.[value] : undefined),
     [iconByOption, value]
   );
+  const optionEntries = useMemo(
+    () =>
+      options.map((option) => ({
+        option,
+        Icon: getLucideIconByName(iconByOption?.[option]),
+      })),
+    [iconByOption, options]
+  );
+  const isSubjectSelect = Boolean(iconByOption);
 
   // O select fica desacoplado do card para evitar propagacao de clique
   // quando o usuario abre o menu dentro do bloco da grade.
@@ -62,7 +71,10 @@ function CardSelect({
         <Button
           type="button"
           variant="outline"
-          className="h-8 w-full justify-between rounded-md px-3 text-sm font-medium focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
+          className={cn(
+            "w-full justify-between text-sm font-medium focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
+            isSubjectSelect ? "h-9 rounded-lg px-3" : "h-8 rounded-md px-3"
+          )}
           aria-label={ariaLabel}
           disabled={isLoading}
           onClick={(event) => event.stopPropagation()}
@@ -89,14 +101,26 @@ function CardSelect({
         className="grade-card-menu w-[var(--radix-dropdown-menu-trigger-width)] min-w-[var(--radix-dropdown-menu-trigger-width)]"
       >
         <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
-          {options.map((option) => {
-            const OptionIcon = getLucideIconByName(iconByOption?.[option]);
-
+          {optionEntries.map(({ option, Icon: OptionIcon }) => {
             return (
-              <DropdownMenuRadioItem key={option} value={option} className="pl-2">
+              <DropdownMenuRadioItem
+                key={option}
+                value={option}
+                className={cn(
+                  "pl-2",
+                  isSubjectSelect &&
+                    "group data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground [&>span:first-child]:hidden"
+                )}
+              >
                 <span className="flex items-center gap-2">
                   {OptionIcon ? (
-                    <OptionIcon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <OptionIcon
+                      className={cn(
+                        "h-4 w-4 shrink-0 text-muted-foreground",
+                        isSubjectSelect && "group-data-[state=checked]:text-primary-foreground"
+                      )}
+                      aria-hidden="true"
+                    />
                   ) : null}
                   <span>{option}</span>
                 </span>
@@ -139,7 +163,6 @@ export const EventBlock = memo(function EventBlock({
   subjectIconsByName,
   autoAssignedSubject,
   onOpenEditor,
-  onCloseEditor,
   onContextMenuOpenChange,
   shouldSuppressEditorOpen,
   onCopyItem,

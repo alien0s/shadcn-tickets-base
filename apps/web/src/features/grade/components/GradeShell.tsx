@@ -7,13 +7,18 @@ import { useSidebar } from "@/context/sidebar-context";
 import { TeacherProfilePanel } from "@/features/teachers";
 import { type ShiftKey, type ToolbarOption } from "../types";
 import { GradeGrid } from "./GradeGrid";
+import { GradePrintGrid } from "./GradePrintGrid";
+import { GradePrintActions } from "./GradePrintActions";
 import { GradeToolbar } from "./GradeToolbar";
 import { useGradeWheelShift } from "../hooks/useGradeWheelShift";
 import { useGradeDirectory } from "../hooks/useGradeDirectory";
 import { useGradeScheduleData } from "../hooks/useGradeScheduleData";
+import { useGradeSnapshotPrint } from "../hooks/useGradeSnapshotPrint";
+import "./grade-print.css";
 
 export function GradeShell() {
   const { toggleSidebar } = useSidebar();
+  const { printCurrentGradeSnapshot } = useGradeSnapshotPrint();
   const [shift, setShift] = useState<ShiftKey>("M");
   const [headerView, setHeaderView] = useState<"professor" | "turma">("professor");
   const [escola, setEscola] = useState<string>("");
@@ -21,6 +26,14 @@ export function GradeShell() {
   const [turmaId, setTurmaId] = useState<string>("");
   const [isProfessorPanelOpen, setIsProfessorPanelOpen] = useState(false);
   const { schools, teachers, isLoadingSchools, isLoadingTeachers } = useGradeDirectory(escola || null);
+  const teacherDirectoryInput = useMemo(
+    () => teachers.map((item) => ({ id: item.id, name: item.name })),
+    [teachers]
+  );
+  const selectedTeacherSubjectNames = useMemo(() => {
+    const teacher = teachers.find((item) => item.id === professor);
+    return (teacher?.subjects ?? []).map((subject) => subject.name);
+  }, [professor, teachers]);
   const {
     events,
     timesByShift,
@@ -31,6 +44,7 @@ export function GradeShell() {
     subjectOptions,
     subjectIconsByName,
     teacherStats,
+    teacherSubjectProgress,
     isLoadingSchedules,
     persistScheduleMove,
     createScheduleFromSelection,
@@ -42,7 +56,8 @@ export function GradeShell() {
     professor || null,
     headerView,
     turmaId || null,
-    teachers.map((item) => ({ id: item.id, name: item.name }))
+    teacherDirectoryInput,
+    selectedTeacherSubjectNames
   );
 
   const escolaOptions = useMemo<readonly ToolbarOption[]>(() => {
@@ -123,20 +138,24 @@ export function GradeShell() {
     };
   }, [professor, selectedSchoolName, teachers]);
 
-  const selectedTeacherSubjectNames = useMemo(() => {
-    const teacher = teachers.find((item) => item.id === professor);
-    return (teacher?.subjects ?? []).map((subject) => subject.name);
-  }, [professor, teachers]);
+  const shiftEvents = useMemo(
+    () => events.filter((event) => event.shift === shift),
+    [events, shift]
+  );
 
   return (
-    <div className="h-full flex flex-col min-h-0 overflow-hidden">
+    <div data-grade-print-root className="h-full flex flex-col min-h-0 overflow-hidden">
       <div className="flex-1 min-h-0 overflow-hidden">
-        <div className="mx-auto max-w-7xl px-3 sm:px-4 pt-3 pb-5 sm:px-5 lg:px-8 h-full flex flex-col">
+        <div
+          data-grade-print-shell
+          className="mx-auto max-w-7xl px-3 sm:px-4 pt-3 pb-5 sm:px-5 lg:px-8 h-full flex flex-col"
+        >
           <div className="space-y-4 flex flex-col h-full">
             <header className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-3">
                 <Button
                   type="button"
+                  data-grade-print-hidden
                   variant="outline"
                   size="icon"
                   className="md:hidden"
@@ -164,32 +183,39 @@ export function GradeShell() {
                 </Tabs>
               </div>
 
-              <div className="w-full lg:w-auto">
-                <GradeToolbar
-                  viewMode={headerView}
-                  shift={shift}
-                  escola={escola}
-                  professor={professor}
-                  turmaId={turmaId}
-                  onShiftChange={setShift}
-                  onEscolaChange={handleSchoolChange}
-                  onProfessorChange={setProfessor}
-                  onTurmaChange={setTurmaId}
-                  escolaOptions={escolaOptions}
-                  professorOptions={professorOptions}
-                  turmaOptions={turmaToolbarOptions}
-                  isLoadingSchools={isLoadingSchools}
-                  isLoadingTeachers={isLoadingTeachers}
-                  isLoadingTurmas={isLoadingSchedules}
-                  isProfessorPanelOpen={isProfessorPanelOpen}
-                  onToggleProfessorPanel={() => setIsProfessorPanelOpen((current) => !current)}
-                />
+              <div className="flex w-full items-center gap-2 lg:w-auto">
+                <GradePrintActions onCapture={printCurrentGradeSnapshot} />
+                <div className="min-w-0 flex-1 lg:flex-none">
+                  <GradeToolbar
+                    viewMode={headerView}
+                    shift={shift}
+                    escola={escola}
+                    professor={professor}
+                    turmaId={turmaId}
+                    onShiftChange={setShift}
+                    onEscolaChange={handleSchoolChange}
+                    onProfessorChange={setProfessor}
+                    onTurmaChange={setTurmaId}
+                    escolaOptions={escolaOptions}
+                    professorOptions={professorOptions}
+                    turmaOptions={turmaToolbarOptions}
+                    isLoadingSchools={isLoadingSchools}
+                    isLoadingTeachers={isLoadingTeachers}
+                    isLoadingTurmas={isLoadingSchedules}
+                    isProfessorPanelOpen={isProfessorPanelOpen}
+                    onToggleProfessorPanel={() => setIsProfessorPanelOpen((current) => !current)}
+                  />
+                </div>
               </div>
             </header>
 
             <section className="flex-1 min-h-0">
-              <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 lg:flex-row lg:flex-nowrap">
+              <div
+                data-grade-print-content
+                className="flex h-full min-h-0 min-w-0 flex-col gap-4 lg:flex-row lg:flex-nowrap"
+              >
                 <div
+                  data-grade-print-grid
                   className={cn(
                     "min-h-0 min-w-0 flex-1",
                     isProfessorPanelOpen && "hidden lg:block"
@@ -198,7 +224,7 @@ export function GradeShell() {
                 >
                   <GradeGrid
                     shift={shift}
-                    events={events.filter((event) => event.shift === shift)}
+                    events={shiftEvents}
                     copyScopeKey={
                       headerView === "turma"
                         ? `turma:${escola || "none"}:${turmaId || "none"}`
@@ -217,10 +243,15 @@ export function GradeShell() {
                     onDeleteSchedule={deleteScheduleById}
                     onValidateTurmaSelection={checkClassConflictAtSelection}
                   />
+                  <GradePrintGrid
+                    times={shift === "M" ? timesByShift.M : timesByShift.V}
+                    events={shiftEvents}
+                    breakMarkers={breakMarkersByShift[shift] ?? []}
+                  />
                 </div>
 
                 {isProfessorPanelOpen ? (
-                  <div className="w-full min-h-0 shrink-0 lg:w-[320px]">
+                  <div data-grade-print-panel className="w-full min-h-0 shrink-0 lg:w-[320px]">
                     <TeacherProfilePanel
                       teacher={selectedTeacher}
                       lessonsCount={teacherStats.lessonsCount}
@@ -228,6 +259,8 @@ export function GradeShell() {
                       totalMinutes={teacherStats.totalMinutes}
                       classNames={teacherStats.classNames}
                       subjectNames={selectedTeacherSubjectNames}
+                      subjectProgress={teacherSubjectProgress}
+                      subjectIconsByName={subjectIconsByName}
                       isLoadingProfile={isLoadingTeachers}
                       isLoadingStats={isLoadingSchedules}
                       hideEmail
